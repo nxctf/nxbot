@@ -16,17 +16,20 @@ export default function LoginPage() {
   useEffect(() => {
     async function checkState() {
       try {
+        // 1. Check if setup is complete
+        const setupRes = await fetch('/api/setup-status');
+        const setupData = await setupRes.json();
+        if (!setupData.is_setup) {
+          router.push('/setup');
+          return;
+        }
+
+        // 2. Check if already logged in
         const res = await fetch('/api/settings');
         if (res.status === 200) {
           router.push('/dashboard');
         } else {
-          // If setup is not complete, redirect to setup
-          const data = await res.json();
-          if (data.error && data.error.includes('setup')) {
-            router.push('/setup');
-          } else {
-            setChecking(false);
-          }
+          setChecking(false);
         }
       } catch (err) {
         setChecking(false);
@@ -34,6 +37,7 @@ export default function LoginPage() {
     }
     checkState();
   }, [router]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,13 +76,13 @@ export default function LoginPage() {
     <div className="auth-wrapper">
       <div className="glass-panel auth-card animate-fade-in">
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ 
-            display: 'inline-flex', 
-            padding: '12px', 
-            borderRadius: '12px', 
-            background: 'rgba(168, 85, 247, 0.1)', 
+          <div style={{
+            display: 'inline-flex',
+            padding: '12px',
+            borderRadius: '12px',
+            background: 'rgba(168, 85, 247, 0.1)',
             color: '#a855f7',
-            marginBottom: '16px' 
+            marginBottom: '16px'
           }}>
             <Terminal size={32} />
           </div>
@@ -89,14 +93,14 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div style={{ 
-            background: 'rgba(244, 63, 94, 0.1)', 
-            border: '1px solid rgba(244, 63, 94, 0.2)', 
-            color: '#f43f5e', 
-            padding: '12px 16px', 
-            borderRadius: '8px', 
+          <div style={{
+            background: 'rgba(244, 63, 94, 0.1)',
+            border: '1px solid rgba(244, 63, 94, 0.2)',
+            color: '#f43f5e',
+            padding: '12px 16px',
+            borderRadius: '8px',
             marginBottom: '20px',
-            fontSize: '14px' 
+            fontSize: '14px'
           }}>
             {error}
           </div>
