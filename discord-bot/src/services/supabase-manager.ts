@@ -1,0 +1,175 @@
+import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { getActiveGuilds, GuildConfig } from '../db/local';
+
+/**
+ * Manages multiple Supabase client connections — one per guild.
+ * Each guild has its own Supabase URL and anon key (read-only).
+ */
+
+interface GuildSupabaseConnection {
+  client: SupabaseClient;
+  channels: RealtimeChannel[];
+  config: GuildConfig;
+}
+
+class SupabaseManager {
+  private connections: Map<string, GuildSupabaseConnection> = new Map();
+
+  /**
+   * Initialize connections for all active guilds from the database.
+   */
+  async initAll(): Promise<void> {
+    const guilds = getActiveGuilds();
+    console.log(`[Supabase] Initializing ${guilds.length} guild connection(s)...`);
+
+    for (const guild of guilds) {
+      try {
+        await this.connect(guild);
+      } catch (err) {
+        console.error(`[Supabase] Failed to connect guild ${guild.id} (${guild.guild_name}):`, err);
+      }
+    }
+  }
+
+  /**
+   * Create a Supabase client for a specific guild.
+   */
+  async connect(guild: GuildConfig): Promise<SupabaseClient> {
+    // Disconnect existing connection if any
+    if (this.connections.has(guild.id)) {
+      await this.disconnect(guild.id);
+    }
+
+    const client = createClient(guild.supabase_url, guild.supabase_anon_key, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: false,
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    });
+
+    // If login credentials are provided, authenticate for elevated access
+    if (guild.supabase_login_email && guild.supabase_login_password) {
+      try {
+        const { error } = await client.auth.signInWithPassword({
+          email: guild.supabase_login_email,
+          password: guild.supabase_login_password,
+        });
+        if (error) {
+          console.warn(`[Supabase] Auth failed for guild ${guild.guild_name}: ${error.message} (falling back to anon)`);
+        } else {
+          console.log(`[Supabase] Authenticated for guild ${guild.guild_name}`);
+        }
+      } catch (err) {
+        console.warn(`[Supabase] Auth error for guild ${guild.guild_name}:`, err);
+      }
+    }
+
+    this.connections.set(guild.id, {
+      client,
+      channels: [],
+      config: guild,
+    });
+
+    console.log(`[Supabase] Connected: ${guild.guild_name} (${guild.id})`);
+    return client;
+  }
+
+  /**
+   * Get the Supabase client for a specific guild.
+   */
+  getClient(guildId: string): SupabaseClient | null {
+    return this.connections.get(guildId)?.client ?? null;
+  }
+
+  /**
+   * Get the config for a specific guild connection.
+   */
+  getConfig(guildId: string): GuildConfig | null {
+    return this.connections.get(guildId)?.config ?? null;
+  }
+
+  /**
+   * Check if a guild has an active connection.
+   */
+  isConnected(guildId: string): boolean {
+    return this.connections.has(guildId);
+  }
+
+  /**
+   * Subscribe to a realtime channel for a guild.
+   * The caller provides the channel setup callback.
+   */
+  subscribeChannel(guildId: string, channelName: string, setup: (channel: RealtimeChannel) => RealtimeChannel): RealtimeChannel | null {
+    const conn = this.connections.get(guildId);
+    if (!conn) return null;
+
+    const channel = conn.client.channel(channelName);
+    const configuredChannel = setup(channel);
+    configuredChannel.subscribe((status) => {
+      console.log(`[Supabase] Realtime ${channelName} for ${conn.config.guild_name}: ${status}`);
+    });
+
+    conn.channels.push(configuredChannel);
+    return configuredChannel;
+  }
+
+  /**
+   * Disconnect a specific guild.
+   */
+  async disconnect(guildId: string): Promise<void> {
+    const conn = this.connections.get(guildId);
+    if (!conn) return;
+
+    // Unsubscribe all channels
+    for (const channel of conn.channels) {
+      try {
+        await conn.client.removeChannel(channel);
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+
+    this.connections.delete(guildId);
+    console.log(`[Supabase] Disconnected: ${guildId}`);
+  }
+
+  /**
+   * Disconnect all guilds.
+   */
+  async disconnectAll(): Promise<void> {
+    for (const guildId of this.connections.keys()) {
+      await this.disconnect(guildId);
+    }
+  }
+
+  /**
+   * Reload connection for a guild (e.g., after config change).
+   */
+  async reload(guild: GuildConfig): Promise<void> {
+    await this.disconnect(guild.id);
+    await this.connect(guild);
+  }
+
+  /**
+   * Get all connected guild IDs.
+   */
+  getConnectedGuilds(): string[] {
+    return [...this.connections.keys()];
+  }
+
+  /**
+   * Get connection count.
+   */
+  get connectionCount(): number {
+    return this.connections.size;
+  }
+}
+
+// Singleton instance
+export const supabaseManager = new SupabaseManager();
+export default supabaseManager;

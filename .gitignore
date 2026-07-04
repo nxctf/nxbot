@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Database
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Build outputs
+.next/
+dist/
+build/
+out/
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Reference repos (don't track nested git repos)
+__ref/nxctf/
+__ref/nxctl/
+
+# Test
+coverage/
+.nyc_output/

@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+# ============================================================
+# nxbot — CLI Wrapper for NXBot Docker Services
+# Inspired by nxctl CLI architecture
+# ============================================================
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
+PROJECT_NAME="nxbot"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+PREFIX_INFO="${GREEN}[INFO]${NC}"
+PREFIX_WARN="${YELLOW}[WARN]${NC}"
+PREFIX_ERROR="${RED}[ERROR]${NC}"
+
+# ---- Helpers ----
+
+compose() {
+    docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" "$@"
+}
+
+print_banner() {
+    echo -e "${CYAN}${BOLD}"
+    echo "  _   ___  ______       _   "
+    echo " | \\ | \\ \\/ / __ ) ___ | |_ "
+    echo " |  \\| |\\  /|  _ \\/ _ \\| __|"
+    echo " | |\\  |/  \\| |_) | (_) | |_ "
+    echo " |_| \\_/_/\\_\\____/ \\___/ \\__|"
+    echo ""
+    echo -e "${NC} Multi-Server Discord CTF Bot Platform"
+    echo ""
+}
+
+usage() {
+    print_banner
+    echo -e "${BOLD}Usage:${NC} ./nxbot <command>"
+    echo ""
+    echo -e "${BOLD}Commands:${NC}"
+    echo -e "  ${CYAN}start${NC}           Start all services (web + bot)"
+    echo -e "  ${CYAN}stop${NC}            Stop all services"
+    echo -e "  ${CYAN}restart${NC}         Restart all services"
+    echo -e "  ${CYAN}web${NC}             Start web dashboard only (bot off)"
+    echo -e "  ${CYAN}bot${NC}             Start bot only (web off)"
+    echo -e "  ${CYAN}status${NC}          Show service status"
+    echo -e "  ${CYAN}logs${NC} [service]  Tail logs (web-dashboard | discord-bot)"
+    echo -e "  ${CYAN}build${NC}           Build/rebuild containers"
+    echo -e "  ${CYAN}setup${NC}           Initialize database and first-time setup"
+    echo ""
+    echo -e "${BOLD}Examples:${NC}"
+    echo "  ./nxbot start          # Start everything"
+    echo "  ./nxbot web            # Dashboard only (maintenance mode)"
+    echo "  ./nxbot logs bot       # Tail bot logs"
+    echo "  ./nxbot status         # Check container health"
+    echo ""
+}
+
+# ---- Commands ----
+
+cmd_start() {
+    echo -e "$PREFIX_INFO Starting all NXBot services..."
+    compose up -d
+    echo -e "$PREFIX_INFO All services started."
+    echo -e "$PREFIX_INFO Web Dashboard: ${CYAN}http://localhost:3000${NC}"
+    cmd_status
+}
+
+cmd_stop() {
+    echo -e "$PREFIX_INFO Stopping all NXBot services..."
+    compose down
+    echo -e "$PREFIX_INFO All services stopped."
+}
+
+cmd_restart() {
+    echo -e "$PREFIX_INFO Restarting all NXBot services..."
+    compose restart
+    echo -e "$PREFIX_INFO All services restarted."
+    cmd_status
+}
+
+cmd_web() {
+    echo -e "$PREFIX_INFO Starting web dashboard only (bot disabled)..."
+    compose stop discord-bot 2>/dev/null || true
+    compose up -d web-dashboard
+    echo -e "$PREFIX_INFO Web Dashboard: ${CYAN}http://localhost:3000${NC}"
+    echo -e "$PREFIX_WARN Discord bot is stopped (maintenance mode)."
+}
+
+cmd_bot() {
+    echo -e "$PREFIX_INFO Starting discord bot only (web off)..."
+    compose stop web-dashboard 2>/dev/null || true
+    compose up -d discord-bot
+    echo -e "$PREFIX_INFO Discord bot started."
+    echo -e "$PREFIX_WARN Web dashboard is stopped."
+}
+
+cmd_status() {
+    echo -e "${BOLD}NXBot Service Status${NC}"
+    echo "─────────────────────────────────────"
+    compose ps -a
+}
+
+cmd_logs() {
+    local service="${1:-}"
+    case "$service" in
+        web|web-dashboard|dashboard)
+            compose logs -f web-dashboard
+            ;;
+        bot|discord-bot)
+            compose logs -f discord-bot
+            ;;
+        "")
+            compose logs -f
+            ;;
+        *)
+            echo -e "$PREFIX_ERROR Unknown service: $service"
+            echo "Available: web-dashboard, discord-bot"
+            exit 1
+            ;;
+    esac
+}
+
+cmd_build() {
+    echo -e "$PREFIX_INFO Building NXBot containers..."
+    compose build
+    echo -e "$PREFIX_INFO Build complete."
+}
+
+cmd_setup() {
+    echo -e "$PREFIX_INFO Running first-time setup..."
+
+    # Ensure data directory exists
+    mkdir -p "$SCRIPT_DIR/data"
+
+    # Check if sqlite3 is available
+    if ! command -v sqlite3 &>/dev/null; then
+        echo -e "$PREFIX_ERROR sqlite3 is required for setup. Install it first."
+        exit 1
+    fi
+
+    local DB_PATH="$SCRIPT_DIR/data/nxbot.db"
+
+    if [ -f "$DB_PATH" ]; then
+        echo -e "$PREFIX_WARN Database already exists at $DB_PATH"
+        read -p "Reset and recreate? (y/N): " -r confirm
+        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+            echo -e "$PREFIX_INFO Setup cancelled."
+            return
+        fi
+        rm -f "$DB_PATH"
+    fi
+
+    # Initialize database from schema
+    sqlite3 "$DB_PATH" < "$SCRIPT_DIR/db/schema.sql"
+    echo -e "$PREFIX_INFO Database initialized at $DB_PATH"
+
+    # Check .env
+    if [ ! -f "$SCRIPT_DIR/.env" ]; then
+        if [ -f "$SCRIPT_DIR/.env.example" ]; then
+            cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
+            echo -e "$PREFIX_WARN Created .env from .env.example — please edit it with your tokens."
+        else
+            echo -e "$PREFIX_ERROR No .env or .env.example found."
+        fi
+    else
+        echo -e "$PREFIX_INFO .env file already exists."
+    fi
+
+    echo ""
+    echo -e "$PREFIX_INFO Setup complete! Next steps:"
+    echo -e "  1. Edit ${CYAN}.env${NC} with your DISCORD_BOT_TOKEN and JWT_SECRET"
+    echo -e "  2. Run ${CYAN}./nxbot start${NC}"
+    echo -e "  3. Open ${CYAN}http://localhost:3000${NC} to complete web setup"
+    echo ""
+}
+
+# ---- Main ----
+
+main() {
+    local cmd="${1:-}"
+
+    case "$cmd" in
+        start)    cmd_start ;;
+        stop)     cmd_stop ;;
+        restart)  cmd_restart ;;
+        web)      cmd_web ;;
+        bot)      cmd_bot ;;
+        status)   cmd_status ;;
+        logs)     shift; cmd_logs "$@" ;;
+        build)    cmd_build ;;
+        setup)    cmd_setup ;;
+        help|--help|-h|"")
+            usage
+            ;;
+        *)
+            echo -e "$PREFIX_ERROR Unknown command: $cmd"
+            echo ""
+            usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

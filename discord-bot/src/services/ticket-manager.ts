@@ -1,0 +1,268 @@
+import { Client, EmbedBuilder, TextChannel, ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { createTicket, getTicketByChannel, getTicketsByGuild, getTicketsByUser, updateTicketStatus, assignTicket, Ticket, getGuild, logEvent } from '../db/local';
+
+/**
+ * Ticket Manager Service
+ *
+ * Handles Discord ticket lifecycle:
+ * - Create private ticket channels
+ * - Manage permissions
+ * - Track in local SQLite
+ * - Close and archive tickets
+ */
+
+export class TicketManager {
+  private client: Client;
+
+  constructor(client: Client) {
+    this.client = client;
+  }
+
+  /**
+   * Create a new ticket channel for a user.
+   */
+  async createTicketChannel(
+    guildId: string,
+    userId: string,
+    username: string,
+    subject: string
+  ): Promise<{ ticket: Ticket; channelId: string } | { error: string }> {
+    const guildConfig = getGuild(guildId);
+    if (!guildConfig || !guildConfig.enable_tickets) {
+      return { error: 'Ticketing is not enabled for this server.' };
+    }
+
+    const discordGuild = this.client.guilds.cache.get(guildId);
+    if (!discordGuild) {
+      return { error: 'Bot is not in this server.' };
+    }
+
+    // Check existing open tickets by this user
+    const existingTickets = getTicketsByUser(guildId, userId);
+    const openTickets = existingTickets.filter(t => t.status !== 'closed');
+    if (openTickets.length >= 3) {
+      return { error: 'You already have 3 open tickets. Please close some before opening a new one.' };
+    }
+
+    // Generate ticket number
+    const allTickets = getTicketsByGuild(guildId);
+    const ticketNumber = allTickets.length + 1;
+    const channelName = `ticket-${String(ticketNumber).padStart(4, '0')}`;
+
+    try {
+      // Create the private channel
+      const channel = await discordGuild.channels.create({
+        name: channelName,
+        type: ChannelType.GuildText,
+        parent: guildConfig.channel_ticket_category || undefined,
+        permissionOverwrites: [
+          {
+            id: discordGuild.id, // @everyone
+            deny: [PermissionFlagsBits.ViewChannel],
+          },
+          {
+            id: userId,
+            allow: [
+              PermissionFlagsBits.ViewChannel,
+              PermissionFlagsBits.SendMessages,
+              PermissionFlagsBits.ReadMessageHistory,
+              PermissionFlagsBits.AttachFiles,
+            ],
+          },
+          {
+            id: this.client.user!.id, // Bot itself
+            allow: [
+              PermissionFlagsBits.ViewChannel,
+              PermissionFlagsBits.SendMessages,
+              PermissionFlagsBits.ManageChannels,
+              PermissionFlagsBits.ManageMessages,
+            ],
+          },
+        ],
+      });
+
+      // Insert ticket into local DB
+      const ticketId = createTicket({
+        guild_id: guildId,
+        channel_id: channel.id,
+        user_id: userId,
+        username,
+        subject,
+      });
+
+      // Send initial embed with close button
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2) // Discord blurple
+        .setTitle(`🎫 Ticket #${String(ticketNumber).padStart(4, '0')}`)
+        .setDescription(`**Subject:** ${subject}`)
+        .addFields(
+          { name: 'Opened by', value: `<@${userId}>`, inline: true },
+          { name: 'Status', value: '🟢 Open', inline: true },
+        )
+        .setTimestamp()
+        .setFooter({ text: 'NXBot Ticketing System' });
+
+      const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`ticket_close_${ticketId}`)
+          .setLabel('Close Ticket')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🔒'),
+      );
+
+      await channel.send({ embeds: [embed], components: [closeButton] });
+      await channel.send(`<@${userId}> Your ticket has been created. Please describe your issue here.`);
+
+      // Log to ticket logs channel
+      if (guildConfig.channel_ticket_logs) {
+        await this.sendTicketLog(guildConfig.channel_ticket_logs, 'created', {
+          ticketNumber,
+          userId,
+          username,
+          subject,
+          channelId: channel.id,
+        });
+      }
+
+      logEvent(guildId, 'info', 'ticket', `Ticket #${ticketNumber} created by ${username}: ${subject}`);
+
+      const ticket = getTicketByChannel(channel.id)!;
+      return { ticket, channelId: channel.id };
+    } catch (err) {
+      console.error('[Ticket] Failed to create ticket channel:', err);
+      return { error: 'Failed to create ticket channel. Check bot permissions.' };
+    }
+  }
+
+  /**
+   * Close a ticket.
+   */
+  async closeTicket(channelId: string, closedByUserId: string): Promise<{ success: boolean; error?: string }> {
+    const ticket = getTicketByChannel(channelId);
+    if (!ticket) {
+      return { success: false, error: 'No ticket found for this channel.' };
+    }
+
+    if (ticket.status === 'closed') {
+      return { success: false, error: 'This ticket is already closed.' };
+    }
+
+    const guildConfig = getGuild(ticket.guild_id);
+
+    // Update status in DB
+    updateTicketStatus(ticket.id, 'closed', closedByUserId);
+
+    // Send closing message
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel && channel instanceof TextChannel) {
+        const embed = new EmbedBuilder()
+          .setColor(0xEF4444) // Red
+          .setTitle('🔒 Ticket Closed')
+          .setDescription(`This ticket has been closed by <@${closedByUserId}>.`)
+          .setTimestamp()
+          .setFooter({ text: 'This channel will be deleted in 10 seconds.' });
+
+        await channel.send({ embeds: [embed] });
+
+        // Log to ticket logs channel
+        if (guildConfig?.channel_ticket_logs) {
+          await this.sendTicketLog(guildConfig.channel_ticket_logs, 'closed', {
+            ticketNumber: ticket.id,
+            userId: ticket.user_id,
+            username: ticket.username || 'Unknown',
+            subject: ticket.subject,
+            closedBy: closedByUserId,
+          });
+        }
+
+        // Delete channel after delay
+        setTimeout(async () => {
+          try {
+            await channel.delete('Ticket closed');
+          } catch {
+            // Channel might already be deleted
+          }
+        }, 10_000);
+      }
+    } catch (err) {
+      console.error('[Ticket] Failed to close ticket channel:', err);
+    }
+
+    logEvent(ticket.guild_id, 'info', 'ticket', `Ticket #${ticket.id} closed by ${closedByUserId}`);
+    return { success: true };
+  }
+
+  /**
+   * Assign a ticket to a staff member.
+   */
+  async assignTicketToStaff(ticketId: number, staffUserId: string): Promise<{ success: boolean; error?: string }> {
+    const ticket = getTicketByChannel(String(ticketId));
+    if (!ticket) {
+      // Try by ID
+      assignTicket(ticketId, staffUserId);
+    } else {
+      assignTicket(ticket.id, staffUserId);
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Send a log message to the ticket logs channel.
+   */
+  private async sendTicketLog(
+    logChannelId: string,
+    action: 'created' | 'closed' | 'assigned',
+    data: {
+      ticketNumber: number;
+      userId: string;
+      username: string;
+      subject: string;
+      channelId?: string;
+      closedBy?: string;
+      assignedTo?: string;
+    }
+  ): Promise<void> {
+    try {
+      const channel = await this.client.channels.fetch(logChannelId);
+      if (!channel || !(channel instanceof TextChannel)) return;
+
+      const colors: Record<string, number> = {
+        created: 0x22C55E,  // Green
+        closed: 0xEF4444,   // Red
+        assigned: 0xF59E0B, // Yellow
+      };
+
+      const titles: Record<string, string> = {
+        created: '📩 Ticket Created',
+        closed: '🔒 Ticket Closed',
+        assigned: '👤 Ticket Assigned',
+      };
+
+      const embed = new EmbedBuilder()
+        .setColor(colors[action])
+        .setTitle(titles[action])
+        .addFields(
+          { name: 'Ticket', value: `#${String(data.ticketNumber).padStart(4, '0')}`, inline: true },
+          { name: 'User', value: `<@${data.userId}> (${data.username})`, inline: true },
+          { name: 'Subject', value: data.subject, inline: false },
+        )
+        .setTimestamp();
+
+      if (action === 'created' && data.channelId) {
+        embed.addFields({ name: 'Channel', value: `<#${data.channelId}>`, inline: true });
+      }
+      if (action === 'closed' && data.closedBy) {
+        embed.addFields({ name: 'Closed by', value: `<@${data.closedBy}>`, inline: true });
+      }
+      if (action === 'assigned' && data.assignedTo) {
+        embed.addFields({ name: 'Assigned to', value: `<@${data.assignedTo}>`, inline: true });
+      }
+
+      await channel.send({ embeds: [embed] });
+    } catch (err) {
+      console.error('[Ticket] Failed to send log:', err);
+    }
+  }
+}
