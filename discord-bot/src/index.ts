@@ -35,7 +35,6 @@ interface Command {
 
 const commands = new Collection<string, Command>();
 commands.set(pingCmd.data.name, pingCmd);
-commands.set(ticketCmd.data.name, ticketCmd);
 
 // ---- Services ----
 let firstBloodService: FirstBloodService;
