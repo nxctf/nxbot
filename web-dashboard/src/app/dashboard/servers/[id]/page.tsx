@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Server, Save, ArrowLeft, RefreshCw, AlertTriangle, CheckCircle, Database } from 'lucide-react';
+import { Server, Save, ArrowLeft, RefreshCw, AlertTriangle, CheckCircle, Database, Ticket, Users, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 
 interface GuildConfig {
@@ -17,6 +17,10 @@ interface GuildConfig {
   channel_announcements: string | null;
   channel_ticket_category: string | null;
   channel_ticket_logs: string | null;
+  channel_ticket_panel: string | null;
+  ticket_ping_roles: string | null;
+  ticket_required_roles: string | null;
+  ticket_welcome_message: string | null;
   enable_firstblood: number;
   enable_scoreboard: number;
   enable_tickets: number;
@@ -38,6 +42,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [btnLoading, setBtnLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [deployLoading, setDeployLoading] = useState(false);
+  const [deploySuccess, setDeploySuccess] = useState('');
+  const [deployError, setDeployError] = useState('');
   // Dynamic Events list from Supabase
   const [events, setEvents] = useState<EventItem[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -45,6 +52,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   // Dynamic Channels list from Discord API
   const [discordChannels, setDiscordChannels] = useState<{ id: string; name: string; type: number; parentId: string | null }[]>([]);
   const [botConnected, setBotConnected] = useState(false);
+
+  // Dynamic Roles list from Discord API
+  const [discordRoles, setDiscordRoles] = useState<{ id: string; name: string; color: number }[]>([]);
   const [channelsLoading, setChannelsLoading] = useState(false);
 
   // Form Fields state
@@ -58,6 +68,10 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [chanAnnouncements, setChanAnnouncements] = useState('');
   const [chanTicketCategory, setChanTicketCategory] = useState('');
   const [chanTicketLogs, setChanTicketLogs] = useState('');
+  const [chanTicketPanel, setChanTicketPanel] = useState('');
+  const [ticketPingRoles, setTicketPingRoles] = useState<string[]>([]);
+  const [ticketRequiredRoles, setTicketRequiredRoles] = useState<string[]>([]);
+  const [ticketWelcomeMessage, setTicketWelcomeMessage] = useState('');
   const [enableFirstBlood, setEnableFirstBlood] = useState(true);
   const [enableScoreboard, setEnableScoreboard] = useState(true);
   const [enableTickets, setEnableTickets] = useState(true);
@@ -85,6 +99,10 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
         setChanAnnouncements(data.channel_announcements || '');
         setChanTicketCategory(data.channel_ticket_category || '');
         setChanTicketLogs(data.channel_ticket_logs || '');
+        setChanTicketPanel(data.channel_ticket_panel || '');
+        setTicketPingRoles(data.ticket_ping_roles ? data.ticket_ping_roles.split(',') : []);
+        setTicketRequiredRoles(data.ticket_required_roles ? data.ticket_required_roles.split(',') : []);
+        setTicketWelcomeMessage(data.ticket_welcome_message || '');
         setEnableFirstBlood(data.enable_firstblood === 1);
         setEnableScoreboard(data.enable_scoreboard === 1);
         setEnableTickets(data.enable_tickets === 1);
@@ -94,8 +112,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
 
         // Fetch events list from Supabase
         fetchEventsList(data.supabase_url, data.supabase_anon_key);
-        // Fetch channels list from Discord API
+        // Fetch channels + roles list from Discord API
         fetchDiscordChannels();
+        fetchDiscordRoles();
       } catch (err: any) {
         setError(err.message || 'Error occurred.');
       } finally {
@@ -149,6 +168,37 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  // Load roles from Discord API
+  const fetchDiscordRoles = async () => {
+    try {
+      const res = await fetch(`/api/servers/${id}/roles`);
+      if (res.ok) {
+        const data = await res.json();
+        setDiscordRoles(data);
+      }
+    } catch (err) {
+      console.warn('Could not fetch Discord roles:', err);
+    }
+  };
+
+  // Toggle role in/out of a list
+  const toggleRole = (roleId: string, list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>) => {
+    if (list.includes(roleId)) {
+      setList(list.filter(r => r !== roleId));
+    } else {
+      setList([...list, roleId]);
+    }
+  };
+
+  // Helper: get role name by ID
+  const getRoleName = (roleId: string) => {
+    const role = discordRoles.find(r => r.id === roleId);
+    return role ? `@${role.name}` : roleId;
+  };
+
+  // Helper: convert Discord int color to hex CSS
+  const roleColorHex = (color: number) => color === 0 ? '#94a3b8' : `#${color.toString(16).padStart(6, '0')}`;
+
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,6 +221,10 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           channel_announcements: chanAnnouncements || null,
           channel_ticket_category: chanTicketCategory || null,
           channel_ticket_logs: chanTicketLogs || null,
+          channel_ticket_panel: chanTicketPanel || null,
+          ticket_ping_roles: ticketPingRoles.length > 0 ? ticketPingRoles.join(',') : null,
+          ticket_required_roles: ticketRequiredRoles.length > 0 ? ticketRequiredRoles.join(',') : null,
+          ticket_welcome_message: ticketWelcomeMessage || null,
           enable_firstblood: enableFirstBlood,
           enable_scoreboard: enableScoreboard,
           enable_tickets: enableTickets,
@@ -195,6 +249,27 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       setBtnLoading(false);
     }
   };
+
+  const handleDeployPanel = async () => {
+    setDeployLoading(true);
+    setDeployError('');
+    setDeploySuccess('');
+    try {
+      const res = await fetch(`/api/servers/${id}/deploy-panel`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to deploy panel.');
+      }
+      setDeploySuccess('Embed panel deployed successfully!');
+    } catch (err: any) {
+      setDeployError(err.message || 'Error occurred.');
+    } finally {
+      setDeployLoading(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -465,6 +540,202 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 placeholder="e.g. 112233445566778899"
               />
             )}
+          </div>
+        </div>
+
+        {/* Section 3.5: Ticket System Configuration */}
+        <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Ticket size={20} />
+            Ticket System Configuration
+          </h2>
+          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '24px' }}>
+            Configure how the support ticket system works in your Discord server. Set the panel channel, roles, and custom messages.
+          </p>
+
+          {/* Ticket Panel Channel */}
+          <div className="form-group" style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MessageSquare size={16} />
+              Ticket Panel Channel
+            </label>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+              The channel where the &quot;Open a Ticket&quot; embed panel will be posted. Users click a button here to create tickets.
+            </p>
+            {botConnected ? (
+              <select 
+                className="glass-input glass-select"
+                value={chanTicketPanel}
+                onChange={(e) => setChanTicketPanel(e.target.value)}
+              >
+                <option value="">-- Select Channel --</option>
+                {discordChannels.filter(c => c.type === 0).map(c => (
+                  <option key={c.id} value={c.id}>#{c.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input 
+                type="text" 
+                className="glass-input" 
+                value={chanTicketPanel}
+                onChange={(e) => setChanTicketPanel(e.target.value)}
+                placeholder="e.g. 112233445566778899"
+              />
+            )}
+            
+            {chanTicketPanel && (
+              <div style={{ marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={handleDeployPanel}
+                  disabled={deployLoading}
+                  className="btn btn-secondary"
+                  style={{
+                    fontSize: '13px',
+                    padding: '8px 16px',
+                    borderColor: '#a78bfa',
+                    color: '#c084fc',
+                    background: 'rgba(167, 139, 250, 0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {deployLoading ? <RefreshCw className="animate-spin" size={14} /> : <Ticket size={14} />}
+                  {deployLoading ? 'Deploying...' : 'Deploy Panel Embed'}
+                </button>
+                <p style={{ color: '#94a3b8', fontSize: '11px', marginTop: '6px' }}>
+                  ⚠️ Make sure to save the configuration changes first before deploying the panel.
+                </p>
+                {deploySuccess && (
+                  <p style={{ color: '#10b981', fontSize: '12px', marginTop: '6px' }}>✓ {deploySuccess}</p>
+                )}
+                {deployError && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px' }}>✗ {deployError}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Ping Roles on Ticket Open */}
+          <div className="form-group" style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Users size={16} />
+              Roles to Ping When a Ticket Opens
+            </label>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+              These roles will be mentioned/pinged inside every new ticket channel so staff gets notified.
+            </p>
+            {discordRoles.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {discordRoles.map(role => {
+                  const isSelected = ticketPingRoles.includes(role.id);
+                  return (
+                    <button
+                      key={role.id}
+                      type="button"
+                      onClick={() => toggleRole(role.id, ticketPingRoles, setTicketPingRoles)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
+                        background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
+                        color: isSelected ? roleColorHex(role.color) : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {isSelected ? '✓ ' : ''}@{role.name}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <input 
+                type="text" 
+                className="glass-input" 
+                value={ticketPingRoles.join(',')}
+                onChange={(e) => setTicketPingRoles(e.target.value ? e.target.value.split(',') : [])}
+                placeholder="Comma-separated Role IDs (e.g. 123456,789012)"
+              />
+            )}
+            {ticketPingRoles.length > 0 && (
+              <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
+                Selected: {ticketPingRoles.map(id => getRoleName(id)).join(', ')}
+              </div>
+            )}
+          </div>
+
+          {/* Required Roles to Open Ticket */}
+          <div className="form-group" style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Users size={16} />
+              Required Roles to Open a Ticket
+            </label>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+              Only members with at least one of these roles can open a ticket. Leave empty to allow all members.
+            </p>
+            {discordRoles.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {discordRoles.map(role => {
+                  const isSelected = ticketRequiredRoles.includes(role.id);
+                  return (
+                    <button
+                      key={role.id}
+                      type="button"
+                      onClick={() => toggleRole(role.id, ticketRequiredRoles, setTicketRequiredRoles)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
+                        background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
+                        color: isSelected ? roleColorHex(role.color) : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {isSelected ? '✓ ' : ''}@{role.name}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <input 
+                type="text" 
+                className="glass-input" 
+                value={ticketRequiredRoles.join(',')}
+                onChange={(e) => setTicketRequiredRoles(e.target.value ? e.target.value.split(',') : [])}
+                placeholder="Comma-separated Role IDs (leave empty = everyone)"
+              />
+            )}
+            {ticketRequiredRoles.length > 0 && (
+              <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
+                Selected: {ticketRequiredRoles.map(id => getRoleName(id)).join(', ')}
+              </div>
+            )}
+          </div>
+
+          {/* Custom Welcome Message */}
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MessageSquare size={16} />
+              Custom Ticket Welcome Message
+            </label>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+              This message will be posted inside every new ticket channel. Use <code style={{ background: 'rgba(56,189,248,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>{'{{user}}'}</code> to mention the ticket opener.
+            </p>
+            <textarea 
+              className="glass-input" 
+              value={ticketWelcomeMessage}
+              onChange={(e) => setTicketWelcomeMessage(e.target.value)}
+              placeholder={"Hello {{user}}! 👋\n\nA staff member will assist you shortly.\nPlease describe your issue in detail."}
+              rows={5}
+              style={{ resize: 'vertical', minHeight: '100px', fontFamily: 'inherit' }}
+            />
           </div>
         </div>
 

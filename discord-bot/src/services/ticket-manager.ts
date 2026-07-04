@@ -37,6 +37,22 @@ export class TicketManager {
       return { error: 'Bot is not in this server.' };
     }
 
+    // Check required roles (if configured)
+    if (guildConfig.ticket_required_roles) {
+      const requiredRoleIds = guildConfig.ticket_required_roles.split(',').filter(Boolean);
+      if (requiredRoleIds.length > 0) {
+        try {
+          const member = await discordGuild.members.fetch(userId);
+          const hasRole = requiredRoleIds.some(roleId => member.roles.cache.has(roleId));
+          if (!hasRole) {
+            return { error: 'You do not have the required role to open a ticket.' };
+          }
+        } catch {
+          return { error: 'Could not verify your roles. Please try again.' };
+        }
+      }
+    }
+
     // Check existing open tickets by this user
     const existingTickets = getTicketsByUser(guildId, userId);
     const openTickets = existingTickets.filter(t => t.status !== 'closed');
@@ -49,36 +65,54 @@ export class TicketManager {
     const ticketNumber = allTickets.length + 1;
     const channelName = `ticket-${String(ticketNumber).padStart(4, '0')}`;
 
+    // Build permission overwrites
+    const pingRoleIds = guildConfig.ticket_ping_roles ? guildConfig.ticket_ping_roles.split(',').filter(Boolean) : [];
+
+    const permissionOverwrites: any[] = [
+      {
+        id: discordGuild.id, // @everyone — deny view
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+      {
+        id: userId,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.AttachFiles,
+        ],
+      },
+      {
+        id: this.client.user!.id, // Bot itself
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ManageChannels,
+          PermissionFlagsBits.ManageMessages,
+        ],
+      },
+    ];
+
+    // Grant view access to all ping roles (staff roles)
+    for (const roleId of pingRoleIds) {
+      permissionOverwrites.push({
+        id: roleId,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.AttachFiles,
+        ],
+      });
+    }
+
     try {
       // Create the private channel
       const channel = await discordGuild.channels.create({
         name: channelName,
         type: ChannelType.GuildText,
         parent: guildConfig.channel_ticket_category || undefined,
-        permissionOverwrites: [
-          {
-            id: discordGuild.id, // @everyone
-            deny: [PermissionFlagsBits.ViewChannel],
-          },
-          {
-            id: userId,
-            allow: [
-              PermissionFlagsBits.ViewChannel,
-              PermissionFlagsBits.SendMessages,
-              PermissionFlagsBits.ReadMessageHistory,
-              PermissionFlagsBits.AttachFiles,
-            ],
-          },
-          {
-            id: this.client.user!.id, // Bot itself
-            allow: [
-              PermissionFlagsBits.ViewChannel,
-              PermissionFlagsBits.SendMessages,
-              PermissionFlagsBits.ManageChannels,
-              PermissionFlagsBits.ManageMessages,
-            ],
-          },
-        ],
+        permissionOverwrites,
       });
 
       // Insert ticket into local DB
@@ -111,7 +145,20 @@ export class TicketManager {
       );
 
       await channel.send({ embeds: [embed], components: [closeButton] });
-      await channel.send(`<@${userId}> Your ticket has been created. Please describe your issue here.`);
+
+      // Send custom welcome message or default
+      const defaultWelcome = `<@${userId}> Your ticket has been created. Please describe your issue here.`;
+      let welcomeMsg = defaultWelcome;
+      if (guildConfig.ticket_welcome_message) {
+        welcomeMsg = guildConfig.ticket_welcome_message.replace(/\{\{user\}\}/g, `<@${userId}>`);
+      }
+      await channel.send(welcomeMsg);
+
+      // Ping staff roles if configured
+      if (pingRoleIds.length > 0) {
+        const roleMentions = pingRoleIds.map(id => `<@&${id}>`).join(' ');
+        await channel.send({ content: `📢 ${roleMentions}`, allowedMentions: { roles: pingRoleIds } });
+      }
 
       // Log to ticket logs channel
       if (guildConfig.channel_ticket_logs) {
@@ -131,6 +178,54 @@ export class TicketManager {
     } catch (err) {
       console.error('[Ticket] Failed to create ticket channel:', err);
       return { error: 'Failed to create ticket channel. Check bot permissions.' };
+    }
+  }
+
+  /**
+   * Deploy a ticket panel embed with "Open Ticket" button to the configured panel channel.
+   */
+  async deployTicketPanel(guildId: string): Promise<{ success: boolean; error?: string }> {
+    const guildConfig = getGuild(guildId);
+    if (!guildConfig || !guildConfig.enable_tickets) {
+      return { success: false, error: 'Ticketing is not enabled for this server.' };
+    }
+
+    if (!guildConfig.channel_ticket_panel) {
+      return { success: false, error: 'No ticket panel channel configured.' };
+    }
+
+    try {
+      const channel = await this.client.channels.fetch(guildConfig.channel_ticket_panel);
+      if (!channel || !(channel instanceof TextChannel)) {
+        return { success: false, error: 'Ticket panel channel not found or is not a text channel.' };
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle('🎫 Support Tickets')
+        .setDescription(
+          '**Need help?** Click the button below to open a support ticket.\n\n' +
+          'A private channel will be created for you where our staff can assist you.\n\n' +
+          '> ⚠️ Please do not abuse the ticket system.'
+        )
+        .setFooter({ text: 'NXBot Ticketing System' })
+        .setTimestamp();
+
+      const openButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('ticket_open_panel')
+          .setLabel('Open a Ticket')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('🎫'),
+      );
+
+      await channel.send({ embeds: [embed], components: [openButton] });
+
+      logEvent(guildId, 'info', 'ticket', `Ticket panel deployed in channel ${guildConfig.channel_ticket_panel}`);
+      return { success: true };
+    } catch (err) {
+      console.error('[Ticket] Failed to deploy panel:', err);
+      return { success: false, error: 'Failed to deploy ticket panel. Check bot permissions.' };
     }
   }
 

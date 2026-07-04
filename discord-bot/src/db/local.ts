@@ -48,6 +48,8 @@ function initSchema(): void {
       createInlineSchema();
     }
   }
+  // Always run migrations
+  runMigrations();
 }
 
 function createInlineSchema(): void {
@@ -71,6 +73,10 @@ function createInlineSchema(): void {
       channel_announcements TEXT DEFAULT NULL,
       channel_ticket_category TEXT DEFAULT NULL,
       channel_ticket_logs TEXT DEFAULT NULL,
+      channel_ticket_panel TEXT DEFAULT NULL,
+      ticket_ping_roles TEXT DEFAULT NULL,
+      ticket_required_roles TEXT DEFAULT NULL,
+      ticket_welcome_message TEXT DEFAULT NULL,
       enable_firstblood INTEGER DEFAULT 1,
       enable_scoreboard INTEGER DEFAULT 1,
       enable_tickets INTEGER DEFAULT 1,
@@ -120,6 +126,27 @@ function createInlineSchema(): void {
   `);
 }
 
+function runMigrations(): void {
+  try {
+    const columns = db.prepare("PRAGMA table_info(guilds)").all() as { name: string }[];
+    const colNames = columns.map(c => c.name);
+    const migrations = [
+      { name: 'channel_ticket_panel', type: 'TEXT DEFAULT NULL' },
+      { name: 'ticket_ping_roles', type: 'TEXT DEFAULT NULL' },
+      { name: 'ticket_required_roles', type: 'TEXT DEFAULT NULL' },
+      { name: 'ticket_welcome_message', type: 'TEXT DEFAULT NULL' },
+    ];
+    for (const m of migrations) {
+      if (!colNames.includes(m.name)) {
+        db.exec(`ALTER TABLE guilds ADD COLUMN ${m.name} ${m.type}`);
+        console.log(`[DB Migration] Added column ${m.name} to guilds table`);
+      }
+    }
+  } catch (err) {
+    console.error('[DB Migration] Error:', err);
+  }
+}
+
 // ---- System Settings ----
 
 export function getSetting(key: string): string | null {
@@ -151,6 +178,10 @@ export interface GuildConfig {
   channel_announcements: string | null;
   channel_ticket_category: string | null;
   channel_ticket_logs: string | null;
+  channel_ticket_panel: string | null;
+  ticket_ping_roles: string | null;
+  ticket_required_roles: string | null;
+  ticket_welcome_message: string | null;
   enable_firstblood: number;
   enable_scoreboard: number;
   enable_tickets: number;

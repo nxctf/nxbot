@@ -101,11 +101,27 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // Handle button interactions (ticket close buttons)
+  // Handle button interactions (ticket close & open panel buttons)
   if (interaction.isButton()) {
     if (interaction.customId.startsWith('ticket_close_')) {
       if (!ticketManager) return;
       await ticketManager.closeTicket(interaction.channelId, interaction.user.id);
+    }
+    if (interaction.customId === 'ticket_open_panel') {
+      if (!ticketManager) return;
+      if (!interaction.guildId) return;
+      await interaction.deferReply({ ephemeral: true });
+      const result = await ticketManager.createTicketChannel(
+        interaction.guildId,
+        interaction.user.id,
+        interaction.user.username,
+        'Support Request (via panel)',
+      );
+      if ('error' in result) {
+        await interaction.editReply(`❌ ${result.error}`);
+      } else {
+        await interaction.editReply(`✅ Ticket created! Go to <#${result.channelId}>`);
+      }
     }
   }
 });
