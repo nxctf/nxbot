@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Server, Save, ArrowLeft, RefreshCw, AlertTriangle, CheckCircle, Database, Ticket, Users, MessageSquare } from 'lucide-react';
+import { Server, Save, ArrowLeft, RefreshCw, AlertTriangle, CheckCircle, Database, Ticket, Users, MessageSquare, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 
 interface GuildConfig {
@@ -446,17 +446,19 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        {/* Section 2: Active CTF Event selector */}
+        {/* Section 3: Supabase Channel Configurations */}
         <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Database size={18} /> Active CTF Event
+            Supabase Discord Channel Settings
           </h2>
-          <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
-            Select the specific CTF event from the database that this Discord Server will track and pull challenges from.
-          </p>
 
-          <div className="form-group">
-            <label>Select Active Event ID</label>
+          <div className="form-group" style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Database size={16} /> Select Active Event ID
+            </label>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+              Select the specific CTF event from the database that this Discord Server will track and pull challenges/scores from.
+            </p>
             {eventsLoading ? (
               <div style={{ color: '#94a3b8', fontSize: '14px' }}>Querying Supabase events...</div>
             ) : events.length > 0 ? (
@@ -480,11 +482,6 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               />
             )}
           </div>
-        </div>
-
-        {/* Section 3: Channel Configurations */}
-        <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8' }}>Discord Channels Settings</h2>
 
           {channelsLoading && (
             <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>Fetching guild channels from Discord...</div>
@@ -573,93 +570,44 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>CTF Announcements Channel ID</label>
-              {botConnected ? (
-                <select 
-                  className="glass-input glass-select"
-                  value={chanAnnouncements}
-                  onChange={(e) => setChanAnnouncements(e.target.value)}
-                >
-                  <option value="">-- Select Channel --</option>
-                  {discordChannels.filter(c => c.type === 0).map(c => (
-                    <option key={c.id} value={c.id}>#{c.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <input 
-                  type="text" 
-                  className="glass-input" 
-                  value={chanAnnouncements}
-                  onChange={(e) => setChanAnnouncements(e.target.value)}
-                  placeholder="e.g. 112233445566778899"
-                />
-              )}
-
-              {chanAnnouncements && (
-                <div style={{ marginTop: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={handleTestAnnouncement}
-                    disabled={testAnnLoading}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    {testAnnLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
-                    Test Announcement
-                  </button>
-                  {testAnnSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {testAnnSuccess}</span>}
-                  {testAnnError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {testAnnError}</span>}
-                </div>
-              )}
-            </div>
-            <div className="form-group">
-              <label>Support Ticket Logs Channel ID</label>
-              {botConnected ? (
-                <select 
-                  className="glass-input glass-select"
-                  value={chanTicketLogs}
-                  onChange={(e) => setChanTicketLogs(e.target.value)}
-                >
-                  <option value="">-- Select Channel --</option>
-                  {discordChannels.filter(c => c.type === 0).map(c => (
-                    <option key={c.id} value={c.id}>#{c.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <input 
-                  type="text" 
-                  className="glass-input" 
-                  value={chanTicketLogs}
-                  onChange={(e) => setChanTicketLogs(e.target.value)}
-                  placeholder="e.g. 112233445566778899"
-                />
-              )}
-            </div>
-          </div>
-
           <div className="form-group">
-            <label>Support Ticket Parent Category ID</label>
+            <label>CTF Announcements Channel ID</label>
             {botConnected ? (
               <select 
                 className="glass-input glass-select"
-                value={chanTicketCategory}
-                onChange={(e) => setChanTicketCategory(e.target.value)}
+                value={chanAnnouncements}
+                onChange={(e) => setChanAnnouncements(e.target.value)}
               >
-                <option value="">-- Select Category --</option>
-                {discordChannels.filter(c => c.type === 4).map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                <option value="">-- Select Channel --</option>
+                {discordChannels.filter(c => c.type === 0).map(c => (
+                  <option key={c.id} value={c.id}>#{c.name}</option>
                 ))}
               </select>
             ) : (
               <input 
                 type="text" 
                 className="glass-input" 
-                value={chanTicketCategory}
-                onChange={(e) => setChanTicketCategory(e.target.value)}
+                value={chanAnnouncements}
+                onChange={(e) => setChanAnnouncements(e.target.value)}
                 placeholder="e.g. 112233445566778899"
               />
+            )}
+
+            {chanAnnouncements && (
+              <div style={{ marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={handleTestAnnouncement}
+                  disabled={testAnnLoading}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {testAnnLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
+                  Test Announcement
+                </button>
+                {testAnnSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {testAnnSuccess}</span>}
+                {testAnnError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {testAnnError}</span>}
+              </div>
             )}
           </div>
         </div>
@@ -735,6 +683,68 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px' }}>✗ {deployError}</p>
                 )}
               </div>
+            )}
+          </div>
+
+          {/* Support Ticket Logs Channel */}
+          <div className="form-group" style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MessageSquare size={16} />
+              Support Ticket Logs Channel ID
+            </label>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+              The channel where all ticket logs (creation, closure, assignments) will be sent.
+            </p>
+            {botConnected ? (
+              <select 
+                className="glass-input glass-select"
+                value={chanTicketLogs}
+                onChange={(e) => setChanTicketLogs(e.target.value)}
+              >
+                <option value="">-- Select Channel --</option>
+                {discordChannels.filter(c => c.type === 0).map(c => (
+                  <option key={c.id} value={c.id}>#{c.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input 
+                type="text" 
+                className="glass-input" 
+                value={chanTicketLogs}
+                onChange={(e) => setChanTicketLogs(e.target.value)}
+                placeholder="e.g. 112233445566778899"
+              />
+            )}
+          </div>
+
+          {/* Support Ticket Parent Category */}
+          <div className="form-group" style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FolderOpen size={16} />
+              Support Ticket Parent Category ID
+            </label>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+              The Discord category under which all new private ticket channels will be created.
+            </p>
+            {botConnected ? (
+              <select 
+                className="glass-input glass-select"
+                value={chanTicketCategory}
+                onChange={(e) => setChanTicketCategory(e.target.value)}
+              >
+                <option value="">-- Select Category --</option>
+                {discordChannels.filter(c => c.type === 4).map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input 
+                type="text" 
+                className="glass-input" 
+                value={chanTicketCategory}
+                onChange={(e) => setChanTicketCategory(e.target.value)}
+                placeholder="e.g. 112233445566778899"
+              />
             )}
           </div>
 

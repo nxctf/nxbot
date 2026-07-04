@@ -32,24 +32,33 @@ export async function POST(
       return NextResponse.json({ error: 'Please configure and save the Live Scoreboard Channel ID first.' }, { status: 400 });
     }
 
-    // 1. Fetch Scoreboard Data from Supabase via REST
+    // 1. Fetch Leaderboard Data from Supabase RPC Function
     const cleanUrl = guild.supabase_url.replace(/\/$/, '');
     const supabaseRes = await fetch(
-      `${cleanUrl}/rest/v1/users?select=id,username,solves(id,challenge_id,challenges:challenge_id(points))&limit=50`,
+      `${cleanUrl}/rest/v1/rpc/get_leaderboard`,
       {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'apikey': guild.supabase_anon_key,
           'Authorization': `Bearer ${guild.supabase_anon_key}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          limit_rows: 15,
+          offset_rows: 0,
+          p_event_id: guild.active_event_id || null,
+          p_event_mode: guild.active_event_id ? 'equals' : 'any'
+        }),
       }
     );
 
     if (!supabaseRes.ok) {
+      const errText = await supabaseRes.text();
+      console.error('[Scoreboard] Supabase RPC failed:', errText);
       return NextResponse.json({ error: 'Failed to fetch scoreboard data from Supabase CTF.' }, { status: 400 });
     }
 
-    const users = await supabaseRes.json();
+    const leaderboard = await supabaseRes.json();
 
     // 2. Fetch active event name if configured
     let eventName = 'CTF';
@@ -76,23 +85,14 @@ export async function POST(
       }
     }
 
-    // 3. Process scoreboard calculations
-    const scoreboard = users
-      .map((u: any) => {
-        const solves = u.solves || [];
-        const totalPoints = solves.reduce((sum: number, s: any) => {
-          const points = s.challenges?.points ?? 0;
-          return sum + points;
-        }, 0);
-        return {
-          username: u.username,
-          score: totalPoints,
-          solveCount: solves.length,
-        };
-      })
-      .filter((u: any) => u.score > 0)
-      .sort((a: any, b: any) => b.score - a.score)
-      .slice(0, 15); // Top 15 players
+    // 3. Process scoreboard entries
+    const scoreboard = leaderboard
+      .map((entry: any) => ({
+        username: entry.username,
+        score: Number(entry.score || 0),
+        rank: Number(entry.rank || 0),
+      }))
+      .filter((u: any) => u.score > 0);
 
     // 4. Construct Scoreboard Embed lines
     let scoreboardDescription = '📊 No solves yet. Be the first!';
@@ -100,7 +100,7 @@ export async function POST(
       const medals = ['🥇', '🥈', '🥉'];
       const lines = scoreboard.map((entry: any, i: number) => {
         const medal = i < 3 ? medals[i] : `\`${i + 1}.\``;
-        return `${medal} **${entry.username}** — ${entry.score} pts (${entry.solveCount} solves)`;
+        return `${medal} **${entry.username}** — ${entry.score} pts`;
       });
       scoreboardDescription = lines.join('\n');
     }
