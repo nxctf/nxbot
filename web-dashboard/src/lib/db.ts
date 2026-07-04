@@ -62,6 +62,7 @@ function initSchema(database: Database.Database): void {
           ticket_ping_roles TEXT DEFAULT NULL,
           ticket_required_roles TEXT DEFAULT NULL,
           ticket_welcome_message TEXT DEFAULT NULL,
+          scoreboard_message_id TEXT DEFAULT NULL,
           enable_firstblood INTEGER DEFAULT 1,
           enable_scoreboard INTEGER DEFAULT 1,
           enable_tickets INTEGER DEFAULT 1,
@@ -124,6 +125,7 @@ function runMigrations(database: Database.Database): void {
       { name: 'ticket_ping_roles', type: 'TEXT DEFAULT NULL' },
       { name: 'ticket_required_roles', type: 'TEXT DEFAULT NULL' },
       { name: 'ticket_welcome_message', type: 'TEXT DEFAULT NULL' },
+      { name: 'scoreboard_message_id', type: 'TEXT DEFAULT NULL' },
     ];
     
     for (const m of migrations) {

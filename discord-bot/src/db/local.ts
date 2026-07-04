@@ -77,6 +77,7 @@ function createInlineSchema(): void {
       ticket_ping_roles TEXT DEFAULT NULL,
       ticket_required_roles TEXT DEFAULT NULL,
       ticket_welcome_message TEXT DEFAULT NULL,
+      scoreboard_message_id TEXT DEFAULT NULL,
       enable_firstblood INTEGER DEFAULT 1,
       enable_scoreboard INTEGER DEFAULT 1,
       enable_tickets INTEGER DEFAULT 1,
@@ -135,6 +136,7 @@ function runMigrations(): void {
       { name: 'ticket_ping_roles', type: 'TEXT DEFAULT NULL' },
       { name: 'ticket_required_roles', type: 'TEXT DEFAULT NULL' },
       { name: 'ticket_welcome_message', type: 'TEXT DEFAULT NULL' },
+      { name: 'scoreboard_message_id', type: 'TEXT DEFAULT NULL' },
     ];
     for (const m of migrations) {
       if (!colNames.includes(m.name)) {
@@ -182,6 +184,7 @@ export interface GuildConfig {
   ticket_ping_roles: string | null;
   ticket_required_roles: string | null;
   ticket_welcome_message: string | null;
+  scoreboard_message_id: string | null;
   enable_firstblood: number;
   enable_scoreboard: number;
   enable_tickets: number;
@@ -256,6 +259,11 @@ export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_na
     );
   }
 }
+
+export function updateGuildScoreboardMessageId(guildId: string, messageId: string | null): void {
+  getDb().prepare('UPDATE guilds SET scoreboard_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(messageId, guildId);
+}
+
 
 export function deleteGuild(guildId: string): void {
   getDb().prepare('DELETE FROM guilds WHERE id = ?').run(guildId);

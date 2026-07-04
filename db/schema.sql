@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS guilds (
     ticket_ping_roles TEXT DEFAULT NULL,         -- Comma-separated list of Role IDs to ping
     ticket_required_roles TEXT DEFAULT NULL,     -- Comma-separated list of Role IDs required to open a ticket
     ticket_welcome_message TEXT DEFAULT NULL,    -- Custom welcome message inside ticket channel
+    scoreboard_message_id TEXT DEFAULT NULL,     -- Message ID of the deployed live scoreboard embed
 
 
     -- Feature toggles

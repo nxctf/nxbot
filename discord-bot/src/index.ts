@@ -3,15 +3,13 @@ import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js'
 import { getDb, isSetup, getActiveGuilds, logEvent, closeDb } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
 import { FirstBloodService } from './services/firstblood';
+import { AnnouncementService } from './services/announcements';
 import { TicketManager } from './services/ticket-manager';
 import { setTicketManager } from './commands/ticket';
 
 // Import commands
-import * as scoreboardCmd from './commands/scoreboard';
-import * as challengesCmd from './commands/challenges';
-import * as ctfInfoCmd from './commands/ctf-info';
+import * as pingCmd from './commands/ping';
 import * as ticketCmd from './commands/ticket';
-import * as firstbloodCmd from './commands/firstblood';
 
 // ---- Configuration ----
 const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -36,14 +34,12 @@ interface Command {
 }
 
 const commands = new Collection<string, Command>();
-commands.set(scoreboardCmd.data.name, scoreboardCmd);
-commands.set(challengesCmd.data.name, challengesCmd);
-commands.set(ctfInfoCmd.data.name, ctfInfoCmd);
+commands.set(pingCmd.data.name, pingCmd);
 commands.set(ticketCmd.data.name, ticketCmd);
-commands.set(firstbloodCmd.data.name, firstbloodCmd);
 
 // ---- Services ----
 let firstBloodService: FirstBloodService;
+let announcementService: AnnouncementService;
 let ticketManager: TicketManager;
 
 // ---- Event: Ready ----
@@ -70,12 +66,14 @@ client.once('ready', async () => {
   setTicketManager(ticketManager);
 
   firstBloodService = new FirstBloodService(client);
+  announcementService = new AnnouncementService(client);
 
   // Initialize Supabase connections for all active guilds
   await supabaseManager.initAll();
 
-  // Start first blood listeners
+  // Start first blood and announcements listeners
   await firstBloodService.startAll();
+  await announcementService.startAll();
 
   logEvent(null, 'info', 'startup', `Bot started. ${supabaseManager.connectionCount} Supabase connection(s) active.`);
   console.log(`[Bot] Ready! ${supabaseManager.connectionCount} Supabase connection(s) active.`);

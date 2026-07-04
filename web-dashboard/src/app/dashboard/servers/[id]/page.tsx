@@ -45,6 +45,15 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [deployLoading, setDeployLoading] = useState(false);
   const [deploySuccess, setDeploySuccess] = useState('');
   const [deployError, setDeployError] = useState('');
+  const [testFbLoading, setTestFbLoading] = useState(false);
+  const [testFbSuccess, setTestFbSuccess] = useState('');
+  const [testFbError, setTestFbError] = useState('');
+  const [testAnnLoading, setTestAnnLoading] = useState(false);
+  const [testAnnSuccess, setTestAnnSuccess] = useState('');
+  const [testAnnError, setTestAnnError] = useState('');
+  const [scoreLoading, setScoreLoading] = useState(false);
+  const [scoreSuccess, setScoreSuccess] = useState('');
+  const [scoreError, setScoreError] = useState('');
   // Dynamic Events list from Supabase
   const [events, setEvents] = useState<EventItem[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -270,6 +279,67 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  const handleTestFirstBlood = async () => {
+    setTestFbLoading(true);
+    setTestFbError('');
+    setTestFbSuccess('');
+    try {
+      const res = await fetch(`/api/servers/${id}/test-firstblood`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send test First Blood alert.');
+      }
+      setTestFbSuccess('Test alert sent successfully to First Blood channel!');
+    } catch (err: any) {
+      setTestFbError(err.message || 'Error occurred.');
+    } finally {
+      setTestFbLoading(false);
+    }
+  };
+
+  const handleTestAnnouncement = async () => {
+    setTestAnnLoading(true);
+    setTestAnnError('');
+    setTestAnnSuccess('');
+    try {
+      const res = await fetch(`/api/servers/${id}/test-announcement`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send test CTF announcement.');
+      }
+      setTestAnnSuccess('Test announcement sent successfully to channel!');
+    } catch (err: any) {
+      setTestAnnError(err.message || 'Error occurred.');
+    } finally {
+      setTestAnnLoading(false);
+    }
+  };
+
+  const handleDeployScoreboard = async () => {
+    setScoreLoading(true);
+    setScoreError('');
+    setScoreSuccess('');
+    try {
+      const res = await fetch(`/api/servers/${id}/deploy-scoreboard`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to deploy/update live scoreboard.');
+      }
+      setScoreSuccess(data.message || 'Scoreboard deployed/updated successfully!');
+    } catch (err: any) {
+      setScoreError(err.message || 'Error occurred.');
+    } finally {
+      setScoreLoading(false);
+    }
+  };
+
+
 
   if (loading) {
     return (
@@ -443,6 +513,23 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   placeholder="e.g. 112233445566778899"
                 />
               )}
+
+              {chanFirstBlood && (
+                <div style={{ marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleTestFirstBlood}
+                    disabled={testFbLoading}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    {testFbLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
+                    Test First Blood
+                  </button>
+                  {testFbSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {testFbSuccess}</span>}
+                  {testFbError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {testFbError}</span>}
+                </div>
+              )}
             </div>
             <div className="form-group">
               <label>Live Scoreboard Channel ID</label>
@@ -465,6 +552,23 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   onChange={(e) => setChanScoreboard(e.target.value)}
                   placeholder="e.g. 112233445566778899"
                 />
+              )}
+
+              {chanScoreboard && (
+                <div style={{ marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleDeployScoreboard}
+                    disabled={scoreLoading}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px', borderColor: '#f59e0b', color: '#fbbf24', background: 'rgba(245, 158, 11, 0.03)' }}
+                  >
+                    {scoreLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
+                    Deploy / Update Scoreboard
+                  </button>
+                  {scoreSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {scoreSuccess}</span>}
+                  {scoreError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {scoreError}</span>}
+                </div>
               )}
             </div>
           </div>
@@ -491,6 +595,23 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   onChange={(e) => setChanAnnouncements(e.target.value)}
                   placeholder="e.g. 112233445566778899"
                 />
+              )}
+
+              {chanAnnouncements && (
+                <div style={{ marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleTestAnnouncement}
+                    disabled={testAnnLoading}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    {testAnnLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
+                    Test Announcement
+                  </button>
+                  {testAnnSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {testAnnSuccess}</span>}
+                  {testAnnError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {testAnnError}</span>}
+                </div>
               )}
             </div>
             <div className="form-group">
