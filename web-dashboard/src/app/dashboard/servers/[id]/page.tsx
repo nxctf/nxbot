@@ -38,10 +38,14 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [btnLoading, setBtnLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
   // Dynamic Events list from Supabase
   const [events, setEvents] = useState<EventItem[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+
+  // Dynamic Channels list from Discord API
+  const [discordChannels, setDiscordChannels] = useState<{ id: string; name: string; type: number; parentId: string | null }[]>([]);
+  const [botConnected, setBotConnected] = useState(false);
+  const [channelsLoading, setChannelsLoading] = useState(false);
 
   // Form Fields state
   const [guildName, setGuildName] = useState('');
@@ -61,7 +65,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [activeEventId, setActiveEventId] = useState('');
   const [isActive, setIsActive] = useState(true);
 
-  // Fetch Server details
+  // Fetch Server details & channels
   useEffect(() => {
     async function fetchServer() {
       try {
@@ -88,8 +92,10 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
         setActiveEventId(data.active_event_id || '');
         setIsActive(data.is_active === 1);
 
-        // Fetch events list from Supabase using their credentials
+        // Fetch events list from Supabase
         fetchEventsList(data.supabase_url, data.supabase_anon_key);
+        // Fetch channels list from Discord API
+        fetchDiscordChannels();
       } catch (err: any) {
         setError(err.message || 'Error occurred.');
       } finally {
@@ -123,6 +129,26 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       setEventsLoading(false);
     }
   };
+
+  // Load channels from Discord API via Web Dashboard
+  const fetchDiscordChannels = async () => {
+    setChannelsLoading(true);
+    try {
+      const res = await fetch(`/api/servers/${id}/channels`);
+      if (res.ok) {
+        const data = await res.json();
+        setDiscordChannels(data);
+        setBotConnected(true);
+      } else {
+        setBotConnected(false);
+      }
+    } catch (err) {
+      setBotConnected(false);
+    } finally {
+      setChannelsLoading(false);
+    }
+  };
+
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -315,61 +341,130 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
         <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8' }}>Discord Channels Settings</h2>
 
+          {channelsLoading && (
+            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>Fetching guild channels from Discord...</div>
+          )}
+
           <div className="form-row">
             <div className="form-group">
               <label>First Blood Channel ID</label>
-              <input 
-                type="text" 
-                className="glass-input" 
-                value={chanFirstBlood}
-                onChange={(e) => setChanFirstBlood(e.target.value)}
-                placeholder="e.g. 112233445566778899"
-              />
+              {botConnected ? (
+                <select 
+                  className="glass-input glass-select"
+                  value={chanFirstBlood}
+                  onChange={(e) => setChanFirstBlood(e.target.value)}
+                >
+                  <option value="">-- Select Channel --</option>
+                  {discordChannels.filter(c => c.type === 0).map(c => (
+                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input 
+                  type="text" 
+                  className="glass-input" 
+                  value={chanFirstBlood}
+                  onChange={(e) => setChanFirstBlood(e.target.value)}
+                  placeholder="e.g. 112233445566778899"
+                />
+              )}
             </div>
             <div className="form-group">
               <label>Live Scoreboard Channel ID</label>
-              <input 
-                type="text" 
-                className="glass-input" 
-                value={chanScoreboard}
-                onChange={(e) => setChanScoreboard(e.target.value)}
-                placeholder="e.g. 112233445566778899"
-              />
+              {botConnected ? (
+                <select 
+                  className="glass-input glass-select"
+                  value={chanScoreboard}
+                  onChange={(e) => setChanScoreboard(e.target.value)}
+                >
+                  <option value="">-- Select Channel --</option>
+                  {discordChannels.filter(c => c.type === 0).map(c => (
+                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input 
+                  type="text" 
+                  className="glass-input" 
+                  value={chanScoreboard}
+                  onChange={(e) => setChanScoreboard(e.target.value)}
+                  placeholder="e.g. 112233445566778899"
+                />
+              )}
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>CTF Announcements Channel ID</label>
-              <input 
-                type="text" 
-                className="glass-input" 
-                value={chanAnnouncements}
-                onChange={(e) => setChanAnnouncements(e.target.value)}
-                placeholder="e.g. 112233445566778899"
-              />
+              {botConnected ? (
+                <select 
+                  className="glass-input glass-select"
+                  value={chanAnnouncements}
+                  onChange={(e) => setChanAnnouncements(e.target.value)}
+                >
+                  <option value="">-- Select Channel --</option>
+                  {discordChannels.filter(c => c.type === 0).map(c => (
+                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input 
+                  type="text" 
+                  className="glass-input" 
+                  value={chanAnnouncements}
+                  onChange={(e) => setChanAnnouncements(e.target.value)}
+                  placeholder="e.g. 112233445566778899"
+                />
+              )}
             </div>
             <div className="form-group">
               <label>Support Ticket Logs Channel ID</label>
-              <input 
-                type="text" 
-                className="glass-input" 
-                value={chanTicketLogs}
-                onChange={(e) => setChanTicketLogs(e.target.value)}
-                placeholder="e.g. 112233445566778899"
-              />
+              {botConnected ? (
+                <select 
+                  className="glass-input glass-select"
+                  value={chanTicketLogs}
+                  onChange={(e) => setChanTicketLogs(e.target.value)}
+                >
+                  <option value="">-- Select Channel --</option>
+                  {discordChannels.filter(c => c.type === 0).map(c => (
+                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input 
+                  type="text" 
+                  className="glass-input" 
+                  value={chanTicketLogs}
+                  onChange={(e) => setChanTicketLogs(e.target.value)}
+                  placeholder="e.g. 112233445566778899"
+                />
+              )}
             </div>
           </div>
 
           <div className="form-group">
             <label>Support Ticket Parent Category ID</label>
-            <input 
-              type="text" 
-              className="glass-input" 
-              value={chanTicketCategory}
-              onChange={(e) => setChanTicketCategory(e.target.value)}
-              placeholder="e.g. 112233445566778899"
-            />
+            {botConnected ? (
+              <select 
+                className="glass-input glass-select"
+                value={chanTicketCategory}
+                onChange={(e) => setChanTicketCategory(e.target.value)}
+              >
+                <option value="">-- Select Category --</option>
+                {discordChannels.filter(c => c.type === 4).map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input 
+                type="text" 
+                className="glass-input" 
+                value={chanTicketCategory}
+                onChange={(e) => setChanTicketCategory(e.target.value)}
+                placeholder="e.g. 112233445566778899"
+              />
+            )}
           </div>
         </div>
 
