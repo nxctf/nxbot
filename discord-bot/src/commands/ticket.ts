@@ -52,6 +52,10 @@ export const data = new SlashCommandBuilder()
           .setDescription('Staff member to assign')
           .setRequired(true)
       )
+  )
+  .addSubcommand(sub =>
+    sub.setName('panel')
+      .setDescription('Deploy the ticket panel embed (admin only)')
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -80,6 +84,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       break;
     case 'assign':
       await handleAssign(interaction);
+      break;
+    case 'panel':
+      await handlePanel(interaction);
       break;
   }
 }
@@ -186,4 +193,21 @@ async function handleAssign(interaction: ChatInputCommandInteraction): Promise<v
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed] });
+}
+
+async function handlePanel(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+    await interaction.reply({ content: '❌ Only administrators can deploy the ticket panel.', ephemeral: true });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const result = await ticketManager.deployTicketPanel(interaction.guildId!);
+
+  if (!result.success) {
+    await interaction.editReply(`❌ ${result.error}`);
+  } else {
+    await interaction.editReply('✅ Ticket panel deployed successfully!');
+  }
 }

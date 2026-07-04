@@ -18,10 +18,11 @@ export default function SetupPage() {
   useEffect(() => {
     async function checkSetup() {
       try {
-        const res = await fetch('/api/settings');
-        if (res.status === 200) {
-          // If 200, system is already setup and authenticated or can get settings info
-          router.push('/dashboard');
+        const res = await fetch('/api/setup-status');
+        const data = await res.json();
+        if (data.is_setup) {
+          // If already setup, send to login
+          router.push('/login');
         } else {
           setChecking(false);
         }
@@ -31,6 +32,7 @@ export default function SetupPage() {
     }
     checkSetup();
   }, [router]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,13 +88,13 @@ export default function SetupPage() {
     <div className="auth-wrapper">
       <div className="glass-panel auth-card animate-fade-in">
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ 
-            display: 'inline-flex', 
-            padding: '12px', 
-            borderRadius: '12px', 
-            background: 'rgba(56, 189, 248, 0.1)', 
+          <div style={{
+            display: 'inline-flex',
+            padding: '12px',
+            borderRadius: '12px',
+            background: 'rgba(56, 189, 248, 0.1)',
             color: '#38bdf8',
-            marginBottom: '16px' 
+            marginBottom: '16px'
           }}>
             <Shield size={32} />
           </div>
@@ -101,26 +103,26 @@ export default function SetupPage() {
         </div>
 
         {error && (
-          <div style={{ 
-            background: 'rgba(244, 63, 94, 0.1)', 
-            border: '1px solid rgba(244, 63, 94, 0.2)', 
-            color: '#f43f5e', 
-            padding: '12px 16px', 
-            borderRadius: '8px', 
+          <div style={{
+            background: 'rgba(244, 63, 94, 0.1)',
+            border: '1px solid rgba(244, 63, 94, 0.2)',
+            color: '#f43f5e',
+            padding: '12px 16px',
+            borderRadius: '8px',
             marginBottom: '20px',
-            fontSize: '14px' 
+            fontSize: '14px'
           }}>
             {error}
           </div>
         )}
 
         {success && (
-          <div style={{ 
-            background: 'rgba(16, 185, 129, 0.1)', 
-            border: '1px solid rgba(16, 185, 129, 0.2)', 
-            color: '#10b981', 
-            padding: '12px 16px', 
-            borderRadius: '8px', 
+          <div style={{
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+            color: '#10b981',
+            padding: '12px 16px',
+            borderRadius: '8px',
             marginBottom: '20px',
             fontSize: '14px',
             display: 'flex',

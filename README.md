@@ -60,6 +60,8 @@ JWT_SECRET=your_glowing_dashboard_session_secret
 ### 3. Spin Up Services
 Build and start the dashboard and discord bot in background containers:
 ```bash
+docker compose build --no-cache web-dashboard
+
 ./nxbot build
 ./nxbot start
 ```

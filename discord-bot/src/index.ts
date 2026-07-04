@@ -3,15 +3,13 @@ import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js'
 import { getDb, isSetup, getActiveGuilds, logEvent, closeDb } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
 import { FirstBloodService } from './services/firstblood';
+import { AnnouncementService } from './services/announcements';
 import { TicketManager } from './services/ticket-manager';
 import { setTicketManager } from './commands/ticket';
 
 // Import commands
-import * as scoreboardCmd from './commands/scoreboard';
-import * as challengesCmd from './commands/challenges';
-import * as ctfInfoCmd from './commands/ctf-info';
+import * as pingCmd from './commands/ping';
 import * as ticketCmd from './commands/ticket';
-import * as firstbloodCmd from './commands/firstblood';
 
 // ---- Configuration ----
 const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -25,11 +23,9 @@ if (!DISCORD_TOKEN) {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent,
   ],
 });
+
 
 // ---- Command Registry ----
 interface Command {
@@ -38,14 +34,12 @@ interface Command {
 }
 
 const commands = new Collection<string, Command>();
-commands.set(scoreboardCmd.data.name, scoreboardCmd);
-commands.set(challengesCmd.data.name, challengesCmd);
-commands.set(ctfInfoCmd.data.name, ctfInfoCmd);
+commands.set(pingCmd.data.name, pingCmd);
 commands.set(ticketCmd.data.name, ticketCmd);
-commands.set(firstbloodCmd.data.name, firstbloodCmd);
 
 // ---- Services ----
 let firstBloodService: FirstBloodService;
+let announcementService: AnnouncementService;
 let ticketManager: TicketManager;
 
 // ---- Event: Ready ----
@@ -72,12 +66,14 @@ client.once('ready', async () => {
   setTicketManager(ticketManager);
 
   firstBloodService = new FirstBloodService(client);
+  announcementService = new AnnouncementService(client);
 
   // Initialize Supabase connections for all active guilds
   await supabaseManager.initAll();
 
-  // Start first blood listeners
+  // Start first blood and announcements listeners
   await firstBloodService.startAll();
+  await announcementService.startAll();
 
   logEvent(null, 'info', 'startup', `Bot started. ${supabaseManager.connectionCount} Supabase connection(s) active.`);
   console.log(`[Bot] Ready! ${supabaseManager.connectionCount} Supabase connection(s) active.`);
@@ -103,11 +99,27 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // Handle button interactions (ticket close buttons)
+  // Handle button interactions (ticket close & open panel buttons)
   if (interaction.isButton()) {
     if (interaction.customId.startsWith('ticket_close_')) {
       if (!ticketManager) return;
       await ticketManager.closeTicket(interaction.channelId, interaction.user.id);
+    }
+    if (interaction.customId === 'ticket_open_panel') {
+      if (!ticketManager) return;
+      if (!interaction.guildId) return;
+      await interaction.deferReply({ ephemeral: true });
+      const result = await ticketManager.createTicketChannel(
+        interaction.guildId,
+        interaction.user.id,
+        interaction.user.username,
+        'Support Request (via panel)',
+      );
+      if ('error' in result) {
+        await interaction.editReply(`❌ ${result.error}`);
+      } else {
+        await interaction.editReply(`✅ Ticket created! Go to <#${result.channelId}>`);
+      }
     }
   }
 });
@@ -133,14 +145,31 @@ async function registerCommands(): Promise<void> {
   const commandData = commands.map(cmd => cmd.data.toJSON());
 
   try {
-    console.log(`[Bot] Registering ${commandData.length} slash command(s)...`);
+    console.log(`[Bot] Registering ${commandData.length} slash command(s) globally...`);
 
     await rest.put(
       Routes.applicationCommands(client.user!.id),
       { body: commandData },
     );
 
-    console.log('[Bot] Slash commands registered globally.');
+    console.log('[Bot] Global slash commands registered.');
+
+    // Instant registration for all currently connected guilds (bypasses 1-hour cache delay)
+    const guildIds = client.guilds.cache.map(g => g.id);
+    if (guildIds.length > 0) {
+      console.log(`[Bot] Syncing slash commands instantly for ${guildIds.length} guild(s)...`);
+      for (const guildId of guildIds) {
+        try {
+          await rest.put(
+            Routes.applicationGuildCommands(client.user!.id, guildId),
+            { body: commandData },
+          );
+        } catch (guildErr) {
+          console.warn(`[Bot] Could not register commands for guild ${guildId}:`, guildErr);
+        }
+      }
+      console.log('[Bot] Slash commands synced instantly.');
+    }
   } catch (err) {
     console.error('[Bot] Failed to register commands:', err);
   }

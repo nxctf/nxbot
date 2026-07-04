@@ -57,6 +57,10 @@ export async function POST(request: Request) {
       channel_announcements,
       channel_ticket_category,
       channel_ticket_logs,
+      channel_ticket_panel,
+      ticket_ping_roles,
+      ticket_required_roles,
+      ticket_welcome_message,
       enable_firstblood,
       enable_scoreboard,
       enable_tickets,
@@ -87,8 +91,9 @@ export async function POST(request: Request) {
       INSERT INTO guilds (
         id, guild_name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
         channel_firstblood, channel_scoreboard, channel_announcements, channel_ticket_category, channel_ticket_logs,
+        channel_ticket_panel, ticket_ping_roles, ticket_required_roles, ticket_welcome_message,
         enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, active_event_id, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `).run(
       id,
       guild_name,
@@ -101,6 +106,10 @@ export async function POST(request: Request) {
       channel_announcements || null,
       channel_ticket_category || null,
       channel_ticket_logs || null,
+      channel_ticket_panel || null,
+      ticket_ping_roles || null,
+      ticket_required_roles || null,
+      ticket_welcome_message || null,
       enable_firstblood ? 1 : 0,
       enable_scoreboard ? 1 : 0,
       enable_tickets ? 1 : 0,

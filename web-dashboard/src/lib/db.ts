@@ -58,6 +58,11 @@ function initSchema(database: Database.Database): void {
           channel_announcements TEXT DEFAULT NULL,
           channel_ticket_category TEXT DEFAULT NULL,
           channel_ticket_logs TEXT DEFAULT NULL,
+          channel_ticket_panel TEXT DEFAULT NULL,
+          ticket_ping_roles TEXT DEFAULT NULL,
+          ticket_required_roles TEXT DEFAULT NULL,
+          ticket_welcome_message TEXT DEFAULT NULL,
+          scoreboard_message_id TEXT DEFAULT NULL,
           enable_firstblood INTEGER DEFAULT 1,
           enable_scoreboard INTEGER DEFAULT 1,
           enable_tickets INTEGER DEFAULT 1,
@@ -67,7 +72,6 @@ function initSchema(database: Database.Database): void {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
-
         CREATE TABLE IF NOT EXISTS tickets (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
@@ -82,7 +86,6 @@ function initSchema(database: Database.Database): void {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
-
         CREATE TABLE IF NOT EXISTS firstblood_cache (
           guild_id TEXT NOT NULL,
           challenge_id TEXT NOT NULL,
@@ -94,7 +97,6 @@ function initSchema(database: Database.Database): void {
           notified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (guild_id, challenge_id)
         );
-
         CREATE TABLE IF NOT EXISTS bot_logs (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           guild_id TEXT DEFAULT NULL,
@@ -107,5 +109,32 @@ function initSchema(database: Database.Database): void {
       `);
       console.log('[Dashboard DB] Initialized fallback inline schema');
     }
+  }
+  
+  // Always run migrations to ensure columns exist on startup
+  runMigrations(database);
+}
+
+function runMigrations(database: Database.Database): void {
+  try {
+    const columns = database.prepare("PRAGMA table_info(guilds)").all() as { name: string }[];
+    const colNames = columns.map(c => c.name);
+    
+    const migrations = [
+      { name: 'channel_ticket_panel', type: 'TEXT DEFAULT NULL' },
+      { name: 'ticket_ping_roles', type: 'TEXT DEFAULT NULL' },
+      { name: 'ticket_required_roles', type: 'TEXT DEFAULT NULL' },
+      { name: 'ticket_welcome_message', type: 'TEXT DEFAULT NULL' },
+      { name: 'scoreboard_message_id', type: 'TEXT DEFAULT NULL' },
+    ];
+    
+    for (const m of migrations) {
+      if (!colNames.includes(m.name)) {
+        database.exec(`ALTER TABLE guilds ADD COLUMN ${m.name} ${m.type}`);
+        console.log(`[DB Migration] Added column ${m.name} to guilds table`);
+      }
+    }
+  } catch (err) {
+    console.error('[DB Migration] Error checking/running migrations:', err);
   }
 }
