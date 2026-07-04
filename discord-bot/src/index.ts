@@ -145,14 +145,31 @@ async function registerCommands(): Promise<void> {
   const commandData = commands.map(cmd => cmd.data.toJSON());
 
   try {
-    console.log(`[Bot] Registering ${commandData.length} slash command(s)...`);
+    console.log(`[Bot] Registering ${commandData.length} slash command(s) globally...`);
 
     await rest.put(
       Routes.applicationCommands(client.user!.id),
       { body: commandData },
     );
 
-    console.log('[Bot] Slash commands registered globally.');
+    console.log('[Bot] Global slash commands registered.');
+
+    // Instant registration for all currently connected guilds (bypasses 1-hour cache delay)
+    const guildIds = client.guilds.cache.map(g => g.id);
+    if (guildIds.length > 0) {
+      console.log(`[Bot] Syncing slash commands instantly for ${guildIds.length} guild(s)...`);
+      for (const guildId of guildIds) {
+        try {
+          await rest.put(
+            Routes.applicationGuildCommands(client.user!.id, guildId),
+            { body: commandData },
+          );
+        } catch (guildErr) {
+          console.warn(`[Bot] Could not register commands for guild ${guildId}:`, guildErr);
+        }
+      }
+      console.log('[Bot] Slash commands synced instantly.');
+    }
   } catch (err) {
     console.error('[Bot] Failed to register commands:', err);
   }

@@ -888,18 +888,6 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-              <div>
-                <span style={{ fontWeight: 600 }}>Enable Scoreboards updates</span>
-                <p style={{ color: '#94a3b8', fontSize: '13px' }}>Allow users to execute /scoreboard inside the server.</p>
-              </div>
-              <input 
-                type="checkbox" 
-                checked={enableScoreboard} 
-                onChange={(e) => setEnableScoreboard(e.target.checked)} 
-                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-              />
-            </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
               <div>
