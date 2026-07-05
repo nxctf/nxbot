@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js';
-import { getDb, isSetup, getActiveGuilds, logEvent, closeDb } from './db/local';
+import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
 import { FirstBloodService } from './services/firstblood';
 import { AnnouncementService } from './services/announcements';
@@ -23,6 +23,8 @@ if (!DISCORD_TOKEN) {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -172,6 +174,27 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply(`✅ Ticket created! Go to <#${result.channelId}>`);
       }
     }
+  }
+});
+
+// ---- Event: Message Create (log ticket chats) ----
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  try {
+    const ticket = getTicketByChannel(message.channelId);
+    if (ticket && ticket.status !== 'closed') {
+      const avatarUrl = message.author.displayAvatarURL({ forceStatic: false }) || null;
+      saveTicketMessage(
+        ticket.id,
+        message.author.id,
+        message.author.username,
+        avatarUrl,
+        message.content
+      );
+    }
+  } catch (err) {
+    console.error('[Bot] Failed to log ticket message:', err);
   }
 });
 

@@ -124,6 +124,16 @@ function createInlineSchema(): void {
       metadata TEXT DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS ticket_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      avatar_url TEXT DEFAULT NULL,
+      message_content TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 }
 
@@ -490,6 +500,23 @@ export function assignTicket(ticketId: number, assignedTo: string): void {
   getDb().prepare(`
     UPDATE tickets SET assigned_to = ?, status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `).run(assignedTo, ticketId);
+}
+
+export interface TicketMessage {
+  id: number;
+  ticket_id: number;
+  user_id: string;
+  username: string;
+  avatar_url: string | null;
+  message_content: string;
+  created_at: string;
+}
+
+export function saveTicketMessage(ticketId: number, userId: string, username: string, avatarUrl: string | null, content: string): void {
+  getDb().prepare(`
+    INSERT INTO ticket_messages (ticket_id, user_id, username, avatar_url, message_content)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(ticketId, userId, username, avatarUrl, content);
 }
 
 // ---- Logging ----

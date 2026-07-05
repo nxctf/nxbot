@@ -127,3 +127,20 @@ CREATE INDEX IF NOT EXISTS idx_logs_created ON bot_logs(created_at);
 -- Initial seed: mark system as not yet set up
 -- =============================================
 INSERT OR IGNORE INTO system_settings (key, value) VALUES ('is_setup', 'false');
+
+-- =============================================
+-- Table: ticket_messages
+-- Chat logs / transcript for support tickets
+-- =============================================
+CREATE TABLE IF NOT EXISTS ticket_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    username TEXT NOT NULL,
+    avatar_url TEXT DEFAULT NULL,
+    message_content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket ON ticket_messages(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_created ON ticket_messages(created_at);

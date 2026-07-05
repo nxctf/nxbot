@@ -4,6 +4,7 @@ import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Server, Save, ArrowLeft, RefreshCw, AlertTriangle, CheckCircle, Database, Ticket, Users, MessageSquare, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
+import Toggle from '@/components/Toggle';
 import Script from 'next/script';
 
 interface GuildConfig {
@@ -522,29 +523,19 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             </h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px', background: 'rgba(30, 41, 59, 0.2)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <span style={{ fontWeight: 600, fontSize: '15px' }}>Active Status</span>
-                  <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>Turn completely ON/OFF the bot listeners for this server configuration.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                />
-              </div>
+              <Toggle
+                checked={isActive}
+                onChange={setIsActive}
+                label="Active Status"
+                description="Turn completely ON/OFF the bot listeners for this server configuration."
+              />
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                <div>
-                  <span style={{ fontWeight: 600, fontSize: '15px' }}>Enable Supabase Realtime synchronization</span>
-                  <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>Instantly track CTF solves, announcements, and challenges from Supabase.</p>
-                </div>
-                <input
-                  type="checkbox"
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                <Toggle
                   checked={enableRealtime}
-                  onChange={(e) => setEnableRealtime(e.target.checked)}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                  onChange={setEnableRealtime}
+                  label="Enable Supabase Realtime synchronization"
+                  description="Instantly track CTF solves, announcements, and challenges from Supabase."
                 />
               </div>
             </div>
@@ -684,19 +675,13 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             )}
 
             <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <div>
-                  <span style={{ fontWeight: 600, fontSize: '15px' }}>Enable First Blood Alerts</span>
-                  <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>Notify Discord server immediately when challenges are solved the first time.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={enableFirstBlood}
-                  onChange={(e) => setEnableFirstBlood(e.target.checked)}
-                  disabled={!enableRealtime}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                />
-              </div>
+              <Toggle
+                checked={enableFirstBlood}
+                onChange={setEnableFirstBlood}
+                disabled={!enableRealtime}
+                label="Enable First Blood Alerts"
+                description="Notify Discord server immediately when challenges are solved the first time."
+              />
 
               <div className="form-group" style={{ opacity: enableFirstBlood && enableRealtime ? 1 : 0.5 }}>
                 <label>First Blood Channel ID</label>
@@ -743,19 +728,13 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             </div>
 
             <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <div>
-                  <span style={{ fontWeight: 600, fontSize: '15px' }}>Enable Live Scoreboard</span>
-                  <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>Allow users to execute `/scoreboard` command inside the server.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={enableScoreboard}
-                  onChange={(e) => setEnableScoreboard(e.target.checked)}
-                  disabled={!enableRealtime}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                />
-              </div>
+              <Toggle
+                checked={enableScoreboard}
+                onChange={setEnableScoreboard}
+                disabled={!enableRealtime}
+                label="Enable Live Scoreboard"
+                description="Allow users to execute `/scoreboard` command inside the server."
+              />
 
               <div className="form-group" style={{ opacity: enableScoreboard && enableRealtime ? 1 : 0.5 }}>
                 <label>Live Scoreboard Channel ID</label>
@@ -848,21 +827,12 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
 
         {activeTab === 'tickets' && (
           <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
-              <div>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Ticket size={20} />
-                  Ticket System Configuration
-                </h2>
-                <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0, marginTop: '4px' }}>
-                  Configure the support ticket channels, pingable moderator roles, and custom greeting templates.
-                </p>
-              </div>
-              <input
-                type="checkbox"
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '24px' }}>
+              <Toggle
                 checked={enableTickets}
-                onChange={(e) => setEnableTickets(e.target.checked)}
-                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                onChange={setEnableTickets}
+                label="Enable Support Ticket System"
+                description="Allow opening support ticket channels dynamically via /ticket create or panel buttons."
               />
             </div>
 
