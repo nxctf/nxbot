@@ -142,6 +142,20 @@ CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket ON ticket_messages(ticket_
 CREATE INDEX IF NOT EXISTS idx_ticket_messages_created ON ticket_messages(created_at);
 
 -- =============================================
+-- Table: bot_actions
+-- Actions queued by web dashboard to be executed by the bot
+-- =============================================
+CREATE TABLE IF NOT EXISTS bot_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'done', 'failed')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_actions_status ON bot_actions(status);
+
+-- =============================================
 -- Initial seed: mark system as not yet set up
 -- =============================================
 INSERT OR IGNORE INTO system_settings (key, value) VALUES ('is_setup', 'false');

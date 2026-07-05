@@ -2,7 +2,7 @@ import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js';
-import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage } from './db/local';
+import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage, getPendingBotActions, completeBotAction } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
 import { FirstBloodService } from './services/firstblood';
 import { AnnouncementService } from './services/announcements';
@@ -168,12 +168,31 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // Handle button interactions (ticket close & open panel buttons)
+  // Handle button interactions
   if (interaction.isButton()) {
-    if (interaction.customId.startsWith('ticket_close_')) {
+    // Ticket close confirmation — Yes
+    if (interaction.customId.startsWith('ticket_close_confirm_')) {
       if (!ticketManager) return;
-      await ticketManager.closeTicket(interaction.channelId, interaction.user.id);
+      await interaction.deferUpdate();
+      const result = await ticketManager.closeTicket(interaction.channelId, interaction.user.id);
+      if (!result.success) {
+        await interaction.followUp({ content: `❌ ${result.error}`, ephemeral: true });
+      }
+      // Channel will be deleted by closeTicket — no further reply needed
+      return;
     }
+
+    // Ticket close confirmation — Cancel
+    if (interaction.customId.startsWith('ticket_close_cancel_')) {
+      await interaction.update({
+        embeds: [],
+        components: [],
+        content: '✅ Ticket close cancelled.',
+      });
+      return;
+    }
+
+    // Ticket open panel button
     if (interaction.customId === 'ticket_open_panel') {
       if (!ticketManager) return;
       if (!interaction.guildId) return;
@@ -192,6 +211,41 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 });
+
+// ---- Bot Actions Poller (dashboard → bot channel deletion) ----
+setInterval(async () => {
+  try {
+    const actions = getPendingBotActions();
+    for (const action of actions) {
+      try {
+        if (action.action_type === 'close_channel') {
+          const payload = JSON.parse(action.payload) as { channel_id: string; ticket_id: number; closed_by_user_id?: string };
+          const channel = await client.channels.fetch(payload.channel_id).catch(() => null);
+          if (channel && 'delete' in channel) {
+            const { TextChannel } = await import('discord.js');
+            if (channel instanceof TextChannel) {
+              const { EmbedBuilder } = await import('discord.js');
+              const embed = new EmbedBuilder()
+                .setColor(0xEF4444)
+                .setTitle('🔒 Ticket Closed')
+                .setDescription('This ticket has been closed by an administrator via the dashboard.')
+                .setFooter({ text: 'This channel will be deleted in 10 seconds.' })
+                .setTimestamp();
+              await channel.send({ embeds: [embed] }).catch(() => null);
+              setTimeout(() => channel.delete('Closed via dashboard').catch(() => null), 10_000);
+            }
+          }
+        }
+        completeBotAction(action.id, true);
+      } catch (actionErr) {
+        console.error(`[Bot Actions] Failed action ${action.id}:`, actionErr);
+        completeBotAction(action.id, false);
+      }
+    }
+  } catch (pollErr) {
+    console.error('[Bot Actions] Poller error:', pollErr);
+  }
+}, 5000);
 
 // ---- Event: Message Create (log ticket chats + attachments) ----
 client.on('messageCreate', async (message) => {

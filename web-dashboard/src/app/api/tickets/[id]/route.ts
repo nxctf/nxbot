@@ -57,9 +57,19 @@ export async function PUT(
       if (status === 'closed') {
         db.prepare(`
           UPDATE tickets 
-          SET status = ?, closed_by = ?, closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+          SET status = ?, closed_by = ?, closed_by_username = ?, closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
           WHERE id = ?
-        `).run(status, user.username, id);
+        `).run(status, user.username, user.username, id);
+
+        // Enqueue bot action to delete the Discord channel
+        if (existing.channel_id) {
+          db.prepare(`
+            INSERT INTO bot_actions (action_type, payload) VALUES (?, ?)
+          `).run('close_channel', JSON.stringify({
+            channel_id: existing.channel_id,
+            ticket_id: existing.id,
+          }));
+        }
       } else {
         db.prepare(`
           UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?

@@ -131,6 +131,13 @@ function initSchema(database: Database.Database): void {
           attachment_size INTEGER DEFAULT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS bot_actions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          action_type TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'done', 'failed')),
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
       `);
       console.log('[Dashboard DB] Initialized fallback inline schema');
     }
@@ -167,7 +174,21 @@ function runMigrations(database: Database.Database): void {
         user_id TEXT NOT NULL,
         username TEXT NOT NULL,
         avatar_url TEXT DEFAULT NULL,
-        message_content TEXT NOT NULL,
+        message_content TEXT DEFAULT NULL,
+        attachment_filename TEXT DEFAULT NULL,
+        attachment_original_name TEXT DEFAULT NULL,
+        attachment_size INTEGER DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 2d. Create bot_actions table if not exists
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS bot_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action_type TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'done', 'failed')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);

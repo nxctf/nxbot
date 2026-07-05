@@ -150,6 +150,14 @@ function createInlineSchema(): void {
       attachment_size INTEGER DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS bot_actions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      action_type TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'done', 'failed')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 }
 
@@ -238,6 +246,17 @@ function runMigrations(): void {
         console.log(`[DB Migration] Added column ${m.name} to tickets table`);
       }
     }
+
+    // 2d. Create bot_actions table if not exists
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS bot_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action_type TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'done', 'failed')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
     // 3. Migrate existing guild credentials to supabase_connections table
     const guilds = db.prepare('SELECT * FROM guilds WHERE supabase_connection_id IS NULL').all() as any[];
@@ -614,4 +633,31 @@ export function closeDb(): void {
   if (db) {
     db.close();
   }
+}
+// ---- Bot Actions Queue ----
+
+export interface BotAction {
+  id: number;
+  action_type: string;
+  payload: string;
+  status: 'pending' | 'done' | 'failed';
+  created_at: string;
+}
+
+export function enqueueBotAction(actionType: string, payload: object): void {
+  getDb().prepare(`
+    INSERT INTO bot_actions (action_type, payload) VALUES (?, ?)
+  `).run(actionType, JSON.stringify(payload));
+}
+
+export function getPendingBotActions(): BotAction[] {
+  return getDb().prepare(`
+    SELECT * FROM bot_actions WHERE status = 'pending' ORDER BY created_at ASC LIMIT 20
+  `).all() as BotAction[];
+}
+
+export function completeBotAction(id: number, success = true): void {
+  getDb().prepare(`
+    UPDATE bot_actions SET status = ? WHERE id = ?
+  `).run(success ? 'done' : 'failed', id);
 }
