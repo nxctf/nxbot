@@ -131,7 +131,10 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
     user_id TEXT NOT NULL,
     username TEXT NOT NULL,
     avatar_url TEXT DEFAULT NULL,
-    message_content TEXT NOT NULL,
+    message_content TEXT DEFAULT NULL,
+    attachment_filename TEXT DEFAULT NULL,
+    attachment_original_name TEXT DEFAULT NULL,
+    attachment_size INTEGER DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

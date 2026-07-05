@@ -142,7 +142,10 @@ function createInlineSchema(): void {
       user_id TEXT NOT NULL,
       username TEXT NOT NULL,
       avatar_url TEXT DEFAULT NULL,
-      message_content TEXT NOT NULL,
+      message_content TEXT DEFAULT NULL,
+      attachment_filename TEXT DEFAULT NULL,
+      attachment_original_name TEXT DEFAULT NULL,
+      attachment_size INTEGER DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -202,6 +205,21 @@ function runMigrations(): void {
         if (m.name === 'guild_id') {
           db.exec('UPDATE guilds SET guild_id = id WHERE guild_id IS NULL');
         }
+      }
+    }
+
+    // 2b. Migrate ticket_messages table columns
+    const tmCols = db.prepare("PRAGMA table_info(ticket_messages)").all() as { name: string }[];
+    const tmColNames = tmCols.map(c => c.name);
+    const tmMigrations = [
+      { name: 'attachment_filename', type: 'TEXT DEFAULT NULL' },
+      { name: 'attachment_original_name', type: 'TEXT DEFAULT NULL' },
+      { name: 'attachment_size', type: 'INTEGER DEFAULT NULL' },
+    ];
+    for (const m of tmMigrations) {
+      if (!tmColNames.includes(m.name)) {
+        db.exec(`ALTER TABLE ticket_messages ADD COLUMN ${m.name} ${m.type}`);
+        console.log(`[DB Migration] Added column ${m.name} to ticket_messages table`);
       }
     }
 
@@ -532,15 +550,27 @@ export interface TicketMessage {
   user_id: string;
   username: string;
   avatar_url: string | null;
-  message_content: string;
+  message_content: string | null;
+  attachment_filename: string | null;
+  attachment_original_name: string | null;
+  attachment_size: number | null;
   created_at: string;
 }
 
-export function saveTicketMessage(ticketId: number, userId: string, username: string, avatarUrl: string | null, content: string): void {
+export function saveTicketMessage(
+  ticketId: number,
+  userId: string,
+  username: string,
+  avatarUrl: string | null,
+  content: string | null,
+  attachmentFilename?: string | null,
+  attachmentOriginalName?: string | null,
+  attachmentSize?: number | null,
+): void {
   getDb().prepare(`
-    INSERT INTO ticket_messages (ticket_id, user_id, username, avatar_url, message_content)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(ticketId, userId, username, avatarUrl, content);
+    INSERT INTO ticket_messages (ticket_id, user_id, username, avatar_url, message_content, attachment_filename, attachment_original_name, attachment_size)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(ticketId, userId, username, avatarUrl, content ?? null, attachmentFilename ?? null, attachmentOriginalName ?? null, attachmentSize ?? null);
 }
 
 // ---- Logging ----

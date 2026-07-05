@@ -193,21 +193,66 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// ---- Event: Message Create (log ticket chats) ----
+// ---- Event: Message Create (log ticket chats + attachments) ----
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
   try {
     const ticket = getTicketByChannel(message.channelId);
-    if (ticket && ticket.status !== 'closed') {
-      const avatarUrl = message.author.displayAvatarURL({ forceStatic: false }) || null;
-      saveTicketMessage(
-        ticket.id,
-        message.author.id,
-        message.author.username,
-        avatarUrl,
-        message.content
-      );
+    if (!ticket || ticket.status === 'closed') return;
+
+    const avatarUrl = message.author.displayAvatarURL({ forceStatic: false }) || null;
+    const content = message.content || null;
+
+    // Handle attachments (images + files, max 10MB each)
+    if (message.attachments.size > 0) {
+      const attachment = message.attachments.first()!;
+      const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+      if (attachment.size <= MAX_SIZE) {
+        try {
+          const https = require('https');
+          const http = require('http');
+          const fs = require('fs');
+          const path = require('path');
+
+          const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../data/nxbot.db');
+          const attachDir = path.join(path.dirname(dbPath), 'attachments');
+          if (!fs.existsSync(attachDir)) fs.mkdirSync(attachDir, { recursive: true });
+
+          // Unique filename: timestamp_originalname
+          const origName = attachment.name;
+          const uniqueName = `${Date.now()}_${origName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const destPath = path.join(attachDir, uniqueName);
+
+          // Download the file
+          await new Promise<void>((resolve, reject) => {
+            const fileStream = fs.createWriteStream(destPath);
+            const proto = attachment.url.startsWith('https') ? https : http;
+            proto.get(attachment.url, (res: any) => {
+              res.pipe(fileStream);
+              fileStream.on('finish', () => { fileStream.close(); resolve(); });
+              fileStream.on('error', reject);
+            }).on('error', reject);
+          });
+
+          saveTicketMessage(
+            ticket.id, message.author.id, message.author.username,
+            avatarUrl, content, uniqueName, origName, attachment.size,
+          );
+        } catch (dlErr) {
+          console.error('[Bot] Failed to download ticket attachment:', dlErr);
+          // Still save the message text even if attachment download fails
+          saveTicketMessage(ticket.id, message.author.id, message.author.username, avatarUrl, content);
+        }
+      } else {
+        // File too large — log message with note
+        const note = content ? `${content}\n\n⚠️ [Attachment too large to save: ${attachment.name}]` : `⚠️ [Attachment too large to save: ${attachment.name}]`;
+        saveTicketMessage(ticket.id, message.author.id, message.author.username, avatarUrl, note);
+      }
+    } else if (content) {
+      // Text-only message
+      saveTicketMessage(ticket.id, message.author.id, message.author.username, avatarUrl, content);
     }
   } catch (err) {
     console.error('[Bot] Failed to log ticket message:', err);

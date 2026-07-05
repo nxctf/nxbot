@@ -28,7 +28,8 @@ export async function GET(
 
     // 2. Fetch all messages in order
     const messages = db.prepare(`
-      SELECT id, ticket_id, user_id, username, avatar_url, message_content, created_at
+      SELECT id, ticket_id, user_id, username, avatar_url, message_content,
+             attachment_filename, attachment_original_name, attachment_size, created_at
       FROM ticket_messages
       WHERE ticket_id = ?
       ORDER BY created_at ASC

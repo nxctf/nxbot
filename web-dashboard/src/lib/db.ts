@@ -123,7 +123,10 @@ function initSchema(database: Database.Database): void {
           user_id TEXT NOT NULL,
           username TEXT NOT NULL,
           avatar_url TEXT DEFAULT NULL,
-          message_content TEXT NOT NULL,
+          message_content TEXT DEFAULT NULL,
+          attachment_filename TEXT DEFAULT NULL,
+          attachment_original_name TEXT DEFAULT NULL,
+          attachment_size INTEGER DEFAULT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
       `);
@@ -191,6 +194,21 @@ function runMigrations(database: Database.Database): void {
         if (m.name === 'guild_id') {
           database.exec('UPDATE guilds SET guild_id = id WHERE guild_id IS NULL');
         }
+      }
+    }
+
+    // 2b. Migrate ticket_messages table columns (for existing DBs)
+    const tmCols = database.prepare("PRAGMA table_info(ticket_messages)").all() as { name: string }[];
+    const tmColNames = tmCols.map(c => c.name);
+    const tmMigrations = [
+      { name: 'attachment_filename', type: 'TEXT DEFAULT NULL' },
+      { name: 'attachment_original_name', type: 'TEXT DEFAULT NULL' },
+      { name: 'attachment_size', type: 'INTEGER DEFAULT NULL' },
+    ];
+    for (const m of tmMigrations) {
+      if (!tmColNames.includes(m.name)) {
+        database.exec(`ALTER TABLE ticket_messages ADD COLUMN ${m.name} ${m.type}`);
+        console.log(`[DB Migration] Added column ${m.name} to ticket_messages table`);
       }
     }
 

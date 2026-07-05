@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert } from 'lucide-react';
+import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download } from 'lucide-react';
 
 interface TicketData {
   id: number;
@@ -30,6 +30,9 @@ interface TicketMessage {
   username: string;
   avatar_url: string | null;
   message_content: string;
+  attachment_filename?: string | null;
+  attachment_original_name?: string | null;
+  attachment_size?: number | null;
   created_at: string;
 }
 
@@ -377,7 +380,9 @@ export default function TicketsPage() {
               >
                 <X size={24} />
               </button>
-                       {/* Ticket Info Section */}
+            </div>
+            
+            {/* Ticket Info Section */}
             <div style={{ padding: '16px 24px', background: 'rgba(13, 17, 28, 0.4)', borderBottom: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px', fontSize: '13px' }}>
               <div>
                 <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Opened By</span>
@@ -472,18 +477,73 @@ export default function TicketsPage() {
                             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <div style={{
-                          color: '#e2e8f0',
-                          fontSize: '14px',
-                          lineHeight: '1.5',
-                          whiteSpace: 'pre-wrap',
-                          background: 'rgba(22, 28, 45, 0.3)',
-                          padding: '10px 14px',
-                          borderRadius: '0 12px 12px 12px',
-                          border: '1px solid rgba(255,255,255,0.03)',
-                        }}>
-                          {msg.message_content}
-                        </div>
+                        {msg.message_content && (
+                          <div style={{
+                            color: '#e2e8f0',
+                            fontSize: '14px',
+                            lineHeight: '1.5',
+                            whiteSpace: 'pre-wrap',
+                            background: 'rgba(22, 28, 45, 0.3)',
+                            padding: '10px 14px',
+                            borderRadius: msg.attachment_filename ? '0 12px 0 0' : '0 12px 12px 12px',
+                            border: '1px solid rgba(255,255,255,0.03)',
+                          }}>
+                            {msg.message_content}
+                          </div>
+                        )}
+
+                        {msg.attachment_filename && (() => {
+                          const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(msg.attachment_filename);
+                          const downloadUrl = `/api/tickets/attachments/${msg.attachment_filename}`;
+                          const sizeKb = msg.attachment_size ? Math.round(msg.attachment_size / 1024) : 0;
+                          
+                          if (isImage) {
+                            return (
+                              <div style={{ marginTop: '8px', maxWidth: '100%', overflow: 'hidden', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                                  <img 
+                                    src={downloadUrl} 
+                                    alt={msg.attachment_original_name || 'Attachment'} 
+                                    style={{ maxWidth: '100%', maxHeight: '240px', objectFit: 'contain', display: 'block', cursor: 'zoom-in' }}
+                                  />
+                                </a>
+                              </div>
+                            );
+                          }
+                          
+                          return (
+                            <div style={{
+                              marginTop: '8px',
+                              padding: '12px',
+                              background: 'rgba(30, 41, 59, 0.4)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '12px'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                                <File size={20} style={{ color: '#38bdf8', flexShrink: 0 }} />
+                                <div style={{ overflow: 'hidden' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                    {msg.attachment_original_name}
+                                  </span>
+                                  <span style={{ fontSize: '11px', color: '#64748b' }}>{sizeKb} KB</span>
+                                </div>
+                              </div>
+                              <a 
+                                href={downloadUrl} 
+                                download 
+                                className="btn btn-secondary" 
+                                style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <Download size={14} />
+                                Download
+                              </a>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
@@ -530,7 +590,7 @@ export default function TicketsPage() {
                   <Lock size={14} /> Closed at {selectedTicket.closed_at ? new Date(selectedTicket.closed_at).toLocaleString() : 'N/A'} by @{selectedTicket.closed_by || 'system'}
                 </div>
               )}
-            </div>   </div>
+            </div>
           </div>
 
           {/* Slide & Fade Keyframe Styling */}
