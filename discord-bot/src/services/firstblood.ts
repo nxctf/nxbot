@@ -72,12 +72,18 @@ export class FirstBloodService {
 
               if (solve.id) {
                 // Have ID but missing fields — fetch full row
-                const { data } = await supabase.from('solves').select('*').eq('id', solve.id).single();
+                const { data, error } = await supabase.from('solves').select('*').eq('id', solve.id).single();
+                if (error) {
+                  console.error(`[FirstBlood] Failed to fetch solve details for ID ${solve.id}:`, error.message);
+                }
                 if (!data) return;
                 solve = data as SolvePayload;
               } else {
                 // Completely empty payload — fetch latest solve
-                const { data } = await supabase.from('solves').select('*').order('created_at', { ascending: false }).limit(1).single();
+                const { data, error } = await supabase.from('solves').select('*').order('created_at', { ascending: false }).limit(1).single();
+                if (error) {
+                  console.error(`[FirstBlood] Failed to fetch latest solve:`, error.message);
+                }
                 if (!data) return;
                 solve = data as SolvePayload;
               }
