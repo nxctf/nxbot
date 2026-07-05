@@ -140,11 +140,16 @@ function runMigrations(): void {
       { name: 'supabase_access_token', type: 'TEXT DEFAULT NULL' },
       { name: 'supabase_refresh_token', type: 'TEXT DEFAULT NULL' },
       { name: 'supabase_turnstile_site_key', type: 'TEXT DEFAULT NULL' },
+      { name: 'guild_id', type: 'TEXT DEFAULT NULL' },
     ];
     for (const m of migrations) {
       if (!colNames.includes(m.name)) {
         db.exec(`ALTER TABLE guilds ADD COLUMN ${m.name} ${m.type}`);
         console.log(`[DB Migration] Added column ${m.name} to guilds table`);
+        if (m.name === 'guild_id') {
+          db.exec('UPDATE guilds SET guild_id = id WHERE guild_id IS NULL');
+          console.log('[DB Migration] Populated guild_id values from existing id values');
+        }
       }
     }
   } catch (err) {
@@ -173,6 +178,7 @@ export function isSetup(): boolean {
 
 export interface GuildConfig {
   id: string;
+  guild_id: string;
   guild_name: string;
   supabase_url: string;
   supabase_anon_key: string;
@@ -206,7 +212,7 @@ export function getActiveGuilds(): GuildConfig[] {
 }
 
 export function getGuild(guildId: string): GuildConfig | null {
-  return (getDb().prepare('SELECT * FROM guilds WHERE id = ?').get(guildId) as GuildConfig) ?? null;
+  return (getDb().prepare('SELECT * FROM guilds WHERE guild_id = ? AND is_active = 1').get(guildId) as GuildConfig) ?? null;
 }
 
 export function getAllGuilds(): GuildConfig[] {
@@ -214,10 +220,11 @@ export function getAllGuilds(): GuildConfig[] {
 }
 
 export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_name: string; supabase_url: string; supabase_anon_key: string }): void {
-  const existing = getGuild(guild.id);
+  const existing = getDb().prepare('SELECT * FROM guilds WHERE id = ?').get(guild.id);
   if (existing) {
     getDb().prepare(`
       UPDATE guilds SET
+        guild_id = COALESCE(?, guild_id),
         guild_name = COALESCE(?, guild_name),
         supabase_url = COALESCE(?, supabase_url),
         supabase_anon_key = COALESCE(?, supabase_anon_key),
@@ -240,7 +247,7 @@ export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_na
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(
-      guild.guild_name, guild.supabase_url, guild.supabase_anon_key,
+      guild.guild_id ?? null, guild.guild_name, guild.supabase_url, guild.supabase_anon_key,
       guild.supabase_login_email ?? null, guild.supabase_login_password ?? null,
       guild.supabase_access_token ?? null, guild.supabase_refresh_token ?? null,
       guild.supabase_turnstile_site_key ?? null,
@@ -254,13 +261,13 @@ export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_na
     );
   } else {
     getDb().prepare(`
-      INSERT INTO guilds (id, guild_name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
+      INSERT INTO guilds (id, guild_id, guild_name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
         supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key,
         channel_firstblood, channel_scoreboard, channel_announcements, channel_ticket_category, channel_ticket_logs,
         enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, active_event_id, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      guild.id, guild.guild_name, guild.supabase_url, guild.supabase_anon_key,
+      guild.id, guild.guild_id || guild.id, guild.guild_name, guild.supabase_url, guild.supabase_anon_key,
       guild.supabase_login_email ?? null, guild.supabase_login_password ?? null,
       guild.supabase_access_token ?? null, guild.supabase_refresh_token ?? null,
       guild.supabase_turnstile_site_key ?? null,

@@ -129,12 +129,17 @@ function runMigrations(database: Database.Database): void {
       { name: 'supabase_access_token', type: 'TEXT DEFAULT NULL' },
       { name: 'supabase_refresh_token', type: 'TEXT DEFAULT NULL' },
       { name: 'supabase_turnstile_site_key', type: 'TEXT DEFAULT NULL' },
+      { name: 'guild_id', type: 'TEXT DEFAULT NULL' },
     ];
 
     for (const m of migrations) {
       if (!colNames.includes(m.name)) {
         database.exec(`ALTER TABLE guilds ADD COLUMN ${m.name} ${m.type}`);
         console.log(`[DB Migration] Added column ${m.name} to guilds table`);
+        if (m.name === 'guild_id') {
+          database.exec('UPDATE guilds SET guild_id = id WHERE guild_id IS NULL');
+          console.log('[DB Migration] Populated guild_id values from existing id values');
+        }
       }
     }
   } catch (err) {

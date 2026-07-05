@@ -41,7 +41,7 @@ export default function ServersPage() {
     if (!turnstileSiteKey) return;
 
     let checkInterval: NodeJS.Timeout;
-    
+
     const renderTurnstile = () => {
       const w = window as any;
       if (w.turnstile) {
@@ -78,7 +78,7 @@ export default function ServersPage() {
       if (w.turnstile) {
         try {
           w.turnstile.remove('#turnstile-container-add');
-        } catch (e) {}
+        } catch (e) { }
       }
     };
   }, [turnstileSiteKey, showAddForm]);
@@ -111,50 +111,67 @@ export default function ServersPage() {
 
     setBtnLoading(true);
 
-    try {
-      const res = await fetch('/api/servers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: guildId,
-          guild_name: guildName,
-          supabase_url: supabaseUrl,
-          supabase_anon_key: supabaseAnonKey,
-          supabase_login_email: loginEmail || null,
-          supabase_login_password: loginPassword || null,
-          supabase_turnstile_site_key: turnstileSiteKey || null,
-          captchaToken: captchaToken || null,
-          enable_firstblood: true,
-          enable_scoreboard: true,
-          enable_tickets: true,
-        }),
-      });
+    const performAdd = async (deactivateOthers: boolean) => {
+      try {
+        const res = await fetch('/api/servers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: guildId,
+            guild_name: guildName,
+            supabase_url: supabaseUrl,
+            supabase_anon_key: supabaseAnonKey,
+            supabase_login_email: loginEmail || null,
+            supabase_login_password: loginPassword || null,
+            supabase_turnstile_site_key: turnstileSiteKey || null,
+            captchaToken: captchaToken || null,
+            enable_firstblood: true,
+            enable_scoreboard: true,
+            enable_tickets: true,
+            deactivateOthers
+          }),
+        });
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to add server.');
+        if (!res.ok) {
+          if (data.error === 'guild_exists_confirm') {
+            const confirmDeactivate = confirm(
+              'A configuration for this Discord Guild ID already exists in the database.\n\nDo you want to deactivate the existing configuration and make this new one active?'
+            );
+            if (confirmDeactivate) {
+              await performAdd(true);
+              return;
+            } else {
+              setBtnLoading(false);
+              return;
+            }
+          }
+          throw new Error(data.error || 'Failed to add server.');
+        }
+
+        setSuccess('Server added and validated successfully!');
+        // Reset form
+        setGuildId('');
+        setGuildName('');
+        setSupabaseUrl('');
+        setSupabaseAnonKey('');
+        setLoginEmail('');
+        setLoginPassword('');
+        setTurnstileSiteKey('');
+        setCaptchaToken(null);
+        setShowAddForm(false);
+
+        // Reload
+        fetchServers();
+      } catch (err: any) {
+        setError(err.message || 'Verification failed. Double check your Supabase credentials.');
+      } finally {
+        setBtnLoading(false);
       }
+    };
 
-      setSuccess('Server added and validated successfully!');
-      // Reset form
-      setGuildId('');
-      setGuildName('');
-      setSupabaseUrl('');
-      setSupabaseAnonKey('');
-      setLoginEmail('');
-      setLoginPassword('');
-      setTurnstileSiteKey('');
-      setCaptchaToken(null);
-      setShowAddForm(false);
-      
-      // Reload
-      fetchServers();
-    } catch (err: any) {
-      setError(err.message || 'Verification failed. Double check your Supabase credentials.');
-    } finally {
-      setBtnLoading(false);
-    }
+    await performAdd(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -177,8 +194,8 @@ export default function ServersPage() {
           <h1 style={{ fontSize: '32px', fontWeight: 800 }}>CTF Servers</h1>
           <p style={{ color: '#94a3b8' }}>Connect and manage multiple Discord servers</p>
         </div>
-        <button 
-          onClick={() => { setShowAddForm(!showAddForm); setError(''); setSuccess(''); }} 
+        <button
+          onClick={() => { setShowAddForm(!showAddForm); setError(''); setSuccess(''); }}
           className="btn btn-primary"
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
@@ -188,12 +205,12 @@ export default function ServersPage() {
       </div>
 
       {error && (
-        <div style={{ 
-          background: 'rgba(244, 63, 94, 0.1)', 
-          border: '1px solid rgba(244, 63, 94, 0.2)', 
-          color: '#f43f5e', 
-          padding: '12px 16px', 
-          borderRadius: '8px', 
+        <div style={{
+          background: 'rgba(244, 63, 94, 0.1)',
+          border: '1px solid rgba(244, 63, 94, 0.2)',
+          color: '#f43f5e',
+          padding: '12px 16px',
+          borderRadius: '8px',
           marginBottom: '24px',
           fontSize: '14px',
           display: 'flex',
@@ -206,12 +223,12 @@ export default function ServersPage() {
       )}
 
       {success && (
-        <div style={{ 
-          background: 'rgba(16, 185, 129, 0.1)', 
-          border: '1px solid rgba(16, 185, 129, 0.2)', 
-          color: '#10b981', 
-          padding: '12px 16px', 
-          borderRadius: '8px', 
+        <div style={{
+          background: 'rgba(16, 185, 129, 0.1)',
+          border: '1px solid rgba(16, 185, 129, 0.2)',
+          color: '#10b981',
+          padding: '12px 16px',
+          borderRadius: '8px',
           marginBottom: '24px',
           fontSize: '14px',
           display: 'flex',
@@ -231,9 +248,9 @@ export default function ServersPage() {
             <div className="form-row">
               <div className="form-group">
                 <label>Discord Guild ID (Required)</label>
-                <input 
-                  type="text" 
-                  className="glass-input" 
+                <input
+                  type="text"
+                  className="glass-input"
                   placeholder="e.g. 112233445566778899"
                   value={guildId}
                   onChange={(e) => setGuildId(e.target.value)}
@@ -242,9 +259,9 @@ export default function ServersPage() {
               </div>
               <div className="form-group">
                 <label>Guild/Server Name (Required)</label>
-                <input 
-                  type="text" 
-                  className="glass-input" 
+                <input
+                  type="text"
+                  className="glass-input"
                   placeholder="e.g. My Awesome CTF"
                   value={guildName}
                   onChange={(e) => setGuildName(e.target.value)}
@@ -256,9 +273,9 @@ export default function ServersPage() {
             <div className="form-row">
               <div className="form-group">
                 <label>Supabase Project URL (Required)</label>
-                <input 
-                  type="url" 
-                  className="glass-input" 
+                <input
+                  type="url"
+                  className="glass-input"
                   placeholder="https://xyz.supabase.co"
                   value={supabaseUrl}
                   onChange={(e) => setSupabaseUrl(e.target.value)}
@@ -267,9 +284,9 @@ export default function ServersPage() {
               </div>
               <div className="form-group">
                 <label>Supabase Anon/Public Key (Required)</label>
-                <input 
-                  type="password" 
-                  className="glass-input" 
+                <input
+                  type="password"
+                  className="glass-input"
                   placeholder="eyJhbGciOi..."
                   value={supabaseAnonKey}
                   onChange={(e) => setSupabaseAnonKey(e.target.value)}
@@ -278,13 +295,13 @@ export default function ServersPage() {
               </div>
             </div>
 
-            <div style={{ 
-              marginTop: '12px', 
-              marginBottom: '24px', 
-              padding: '16px', 
-              background: 'rgba(30, 41, 59, 0.3)', 
-              border: '1px solid var(--border-color)', 
-              borderRadius: '8px' 
+            <div style={{
+              marginTop: '12px',
+              marginBottom: '24px',
+              padding: '16px',
+              background: 'rgba(30, 41, 59, 0.3)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <ShieldCheck size={18} style={{ color: '#38bdf8' }} />
@@ -296,9 +313,9 @@ export default function ServersPage() {
               <div className="form-row" style={{ marginBottom: 0 }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>Tester User Email</label>
-                  <input 
-                    type="email" 
-                    className="glass-input" 
+                  <input
+                    type="email"
+                    className="glass-input"
                     placeholder="bot-test@ctf.com"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
@@ -306,9 +323,9 @@ export default function ServersPage() {
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>Tester Password</label>
-                  <input 
-                    type="password" 
-                    className="glass-input" 
+                  <input
+                    type="password"
+                    className="glass-input"
                     placeholder="••••••••"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
@@ -348,9 +365,9 @@ export default function ServersPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
-              <button 
-                type="button" 
-                onClick={() => setShowAddForm(false)} 
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
                 className="btn btn-secondary"
                 disabled={btnLoading}
               >
@@ -421,9 +438,9 @@ export default function ServersPage() {
                   <Edit size={16} />
                   Configure
                 </Link>
-                <button 
-                  onClick={() => handleDelete(server.id)} 
-                  className="btn btn-secondary" 
+                <button
+                  onClick={() => handleDelete(server.id)}
+                  className="btn btn-secondary"
                   style={{ color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)' }}
                 >
                   <Trash2 size={16} />

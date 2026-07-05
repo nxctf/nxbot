@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const {
-      id,
+      id, // Discord Guild ID snowflake
       guild_name,
       supabase_url,
       supabase_anon_key,
@@ -69,6 +69,7 @@ export async function POST(request: Request) {
       enable_tickets,
       enable_realtime,
       active_event_id,
+      deactivateOthers, // confirmation flag
     } = body;
 
     // Validation
@@ -109,22 +110,35 @@ export async function POST(request: Request) {
 
     const db = getDb();
 
-    // Check if guild already exists
-    const existing = db.prepare('SELECT id FROM guilds WHERE id = ?').get(id);
-    if (existing) {
-      return NextResponse.json({ error: `Server with ID ${id} already exists.` }, { status: 400 });
+    // Check if configuration with same guild_id already exists
+    const existing = db.prepare('SELECT id, is_active FROM guilds WHERE guild_id = ?').all() as { id: string; is_active: number }[];
+    if (existing.length > 0) {
+      if (!deactivateOthers) {
+        return NextResponse.json({
+          error: 'guild_exists_confirm',
+          message: 'A configuration for this Discord Guild ID already exists. Do you want to deactivate it and activate this new one?'
+        }, { status: 400 });
+      } else {
+        // Deactivate all existing configurations for this guild_id
+        db.prepare('UPDATE guilds SET is_active = 0 WHERE guild_id = ?').run(id);
+        console.log(`[Dashboard API] Deactivated existing configuration(s) for guild ${id}`);
+      }
     }
+
+    // Generate unique configuration record ID
+    const configId = `${id}_${Date.now()}`;
 
     db.prepare(`
       INSERT INTO guilds (
-        id, guild_name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
+        id, guild_id, guild_name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
         supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key,
         channel_firstblood, channel_scoreboard, channel_announcements, channel_ticket_category, channel_ticket_logs,
         channel_ticket_panel, ticket_ping_roles, ticket_required_roles, ticket_welcome_message,
         enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, active_event_id, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `).run(
-      id,
+      configId,
+      id, // actual Guild ID snowflake
       guild_name,
       supabase_url,
       supabase_anon_key,

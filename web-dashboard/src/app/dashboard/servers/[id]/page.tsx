@@ -550,29 +550,41 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             <Ticket size={16} />
             Ticket System
           </button>
-          <button
-            type="button"
-            onClick={() => { setActiveTab('toggles'); setSuccess(''); setError(''); }}
-            className={`btn ${activeTab === 'toggles' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{
-              padding: '8px 16px',
-              fontSize: '14px',
-              background: activeTab === 'toggles' ? 'var(--primary)' : 'rgba(30, 41, 59, 0.3)',
-              color: activeTab === 'toggles' ? '#030712' : '#94a3b8',
-              borderColor: activeTab === 'toggles' ? 'var(--primary)' : 'var(--border-color)',
-            }}
-          >
-            <Users size={16} />
-            Feature Toggles
-          </button>
         </div>
 
-        {/* Tab 1: Supabase & Integration */}
         {activeTab === 'supabase' && (
           <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Server size={18} /> Credentials & Integration
             </h2>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px', background: 'rgba(30, 41, 59, 0.2)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: '15px' }}>Active Status</span>
+                  <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>Turn completely ON/OFF the bot listeners for this server configuration.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: '15px' }}>Enable Supabase Realtime synchronization</span>
+                  <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>Instantly track CTF solves, announcements, and challenges from Supabase.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={enableRealtime}
+                  onChange={(e) => setEnableRealtime(e.target.checked)}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </div>
+            </div>
 
             <div className="form-group">
               <label>Server/Guild Name (Display only)</label>
@@ -663,9 +675,6 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
 
             <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
               <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600 }}>Test Connection</label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '12px' }}>
-                Verify if the bot can connect to your Supabase project instance and authenticate with the provided credentials.
-              </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
@@ -684,7 +693,6 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           </div>
         )}
 
-        {/* Tab 2: Discord Channels */}
         {activeTab === 'channels' && (
           <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -695,9 +703,6 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Database size={16} /> Select Active Event ID
               </label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-                Select the specific CTF event from the database that this Discord Server will track and pull challenges/scores from.
-              </p>
               {eventsLoading ? (
                 <div style={{ color: '#94a3b8', fontSize: '14px' }}>Querying Supabase events...</div>
               ) : events.length > 0 ? (
@@ -705,6 +710,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   className="glass-input glass-select"
                   value={activeEventId}
                   onChange={(e) => setActiveEventId(e.target.value)}
+                  disabled={!enableRealtime}
                 >
                   <option value="">-- Direct Raw String / No specific Event --</option>
                   {events.map((e) => (
@@ -718,6 +724,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   value={activeEventId}
                   onChange={(e) => setActiveEventId(e.target.value)}
                   placeholder="Paste Event UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
+                  disabled={!enableRealtime}
                 />
               )}
             </div>
@@ -726,14 +733,29 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>Fetching guild channels from Discord...</div>
             )}
 
-            <div className="form-row">
-              <div className="form-group">
+            <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: '15px' }}>Enable First Blood Alerts</span>
+                  <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>Notify Discord server immediately when challenges are solved the first time.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={enableFirstBlood}
+                  onChange={(e) => setEnableFirstBlood(e.target.checked)}
+                  disabled={!enableRealtime}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ opacity: enableFirstBlood && enableRealtime ? 1 : 0.5 }}>
                 <label>First Blood Channel ID</label>
                 {botConnected ? (
                   <select
                     className="glass-input glass-select"
                     value={chanFirstBlood}
                     onChange={(e) => setChanFirstBlood(e.target.value)}
+                    disabled={!enableFirstBlood || !enableRealtime}
                   >
                     <option value="">-- Select Channel --</option>
                     {discordChannels.filter(c => c.type === 0).map(c => (
@@ -747,10 +769,11 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                     value={chanFirstBlood}
                     onChange={(e) => setChanFirstBlood(e.target.value)}
                     placeholder="e.g. 112233445566778899"
+                    disabled={!enableFirstBlood || !enableRealtime}
                   />
                 )}
 
-                {chanFirstBlood && (
+                {chanFirstBlood && enableFirstBlood && enableRealtime && (
                   <div style={{ marginTop: '8px' }}>
                     <button
                       type="button"
@@ -767,13 +790,31 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                 )}
               </div>
-              <div className="form-group">
+            </div>
+
+            <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: '15px' }}>Enable Live Scoreboard</span>
+                  <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>Allow users to execute `/scoreboard` command inside the server.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={enableScoreboard}
+                  onChange={(e) => setEnableScoreboard(e.target.checked)}
+                  disabled={!enableRealtime}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ opacity: enableScoreboard && enableRealtime ? 1 : 0.5 }}>
                 <label>Live Scoreboard Channel ID</label>
                 {botConnected ? (
                   <select
                     className="glass-input glass-select"
                     value={chanScoreboard}
                     onChange={(e) => setChanScoreboard(e.target.value)}
+                    disabled={!enableScoreboard || !enableRealtime}
                   >
                     <option value="">-- Select Channel --</option>
                     {discordChannels.filter(c => c.type === 0).map(c => (
@@ -787,10 +828,11 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                     value={chanScoreboard}
                     onChange={(e) => setChanScoreboard(e.target.value)}
                     placeholder="e.g. 112233445566778899"
+                    disabled={!enableScoreboard || !enableRealtime}
                   />
                 )}
 
-                {chanScoreboard && (
+                {chanScoreboard && enableScoreboard && enableRealtime && (
                   <div style={{ marginTop: '8px' }}>
                     <button
                       type="button"
@@ -809,13 +851,14 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
 
-            <div className="form-group">
+            <div className="form-group" style={{ opacity: enableRealtime ? 1 : 0.5 }}>
               <label>CTF Announcements Channel ID</label>
               {botConnected ? (
                 <select
                   className="glass-input glass-select"
                   value={chanAnnouncements}
                   onChange={(e) => setChanAnnouncements(e.target.value)}
+                  disabled={!enableRealtime}
                 >
                   <option value="">-- Select Channel --</option>
                   {discordChannels.filter(c => c.type === 0).map(c => (
@@ -829,10 +872,11 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   value={chanAnnouncements}
                   onChange={(e) => setChanAnnouncements(e.target.value)}
                   placeholder="e.g. 112233445566778899"
+                  disabled={!enableRealtime}
                 />
               )}
 
-              {chanAnnouncements && (
+              {chanAnnouncements && enableRealtime && (
                 <div style={{ marginTop: '8px' }}>
                   <button
                     type="button"
@@ -852,326 +896,256 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           </div>
         )}
 
-        {/* Tab 3: Tickets System */}
         {activeTab === 'tickets' && (
           <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Ticket size={20} />
-              Ticket System Configuration
-            </h2>
-            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '24px' }}>
-              Configure how the support ticket system works in your Discord server. Set the panel channel, roles, and custom messages.
-            </p>
-
-            {/* Ticket Panel Channel */}
-            <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MessageSquare size={16} />
-                Ticket Panel Channel
-              </label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-                The channel where the &quot;Open a Ticket&quot; embed panel will be posted. Users click a button here to create tickets.
-              </p>
-              {botConnected ? (
-                <select
-                  className="glass-input glass-select"
-                  value={chanTicketPanel}
-                  onChange={(e) => setChanTicketPanel(e.target.value)}
-                >
-                  <option value="">-- Select Channel --</option>
-                  {discordChannels.filter(c => c.type === 0).map(c => (
-                    <option key={c.id} value={c.id}>#{c.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  className="glass-input"
-                  value={chanTicketPanel}
-                  onChange={(e) => setChanTicketPanel(e.target.value)}
-                  placeholder="e.g. 112233445566778899"
-                />
-              )}
-
-              {chanTicketPanel && (
-                <div style={{ marginTop: '12px' }}>
-                  <button
-                    type="button"
-                    onClick={handleDeployPanel}
-                    disabled={deployLoading}
-                    className="btn btn-secondary"
-                    style={{
-                      fontSize: '13px',
-                      padding: '8px 16px',
-                      borderColor: '#a78bfa',
-                      color: '#c084fc',
-                      background: 'rgba(167, 139, 250, 0.05)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    {deployLoading ? <RefreshCw className="animate-spin" size={14} /> : <Ticket size={14} />}
-                    {deployLoading ? 'Deploying...' : 'Deploy Panel Embed'}
-                  </button>
-                  <p style={{ color: '#94a3b8', fontSize: '11px', marginTop: '6px' }}>
-                    ⚠️ Make sure to save the configuration changes first before deploying the panel.
-                  </p>
-                  {deploySuccess && (
-                    <p style={{ color: '#10b981', fontSize: '12px', marginTop: '6px' }}>✓ {deploySuccess}</p>
-                  )}
-                  {deployError && (
-                    <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px' }}>✗ {deployError}</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Support Ticket Logs Channel */}
-            <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MessageSquare size={16} />
-                Support Ticket Logs Channel ID
-              </label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-                The channel where all ticket logs (creation, closure, assignments) will be sent.
-              </p>
-              {botConnected ? (
-                <select
-                  className="glass-input glass-select"
-                  value={chanTicketLogs}
-                  onChange={(e) => setChanTicketLogs(e.target.value)}
-                >
-                  <option value="">-- Select Channel --</option>
-                  {discordChannels.filter(c => c.type === 0).map(c => (
-                    <option key={c.id} value={c.id}>#{c.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  className="glass-input"
-                  value={chanTicketLogs}
-                  onChange={(e) => setChanTicketLogs(e.target.value)}
-                  placeholder="e.g. 112233445566778899"
-                />
-              )}
-            </div>
-
-            {/* Support Ticket Parent Category */}
-            <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FolderOpen size={16} />
-                Support Ticket Parent Category ID
-              </label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-                The Discord category under which all new private ticket channels will be created.
-              </p>
-              {botConnected ? (
-                <select
-                  className="glass-input glass-select"
-                  value={chanTicketCategory}
-                  onChange={(e) => setChanTicketCategory(e.target.value)}
-                >
-                  <option value="">-- Select Category --</option>
-                  {discordChannels.filter(c => c.type === 4).map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  className="glass-input"
-                  value={chanTicketCategory}
-                  onChange={(e) => setChanTicketCategory(e.target.value)}
-                  placeholder="e.g. 112233445566778899"
-                />
-              )}
-            </div>
-
-            {/* Ping Roles on Ticket Open */}
-            <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={16} />
-                Roles to Ping When a Ticket Opens
-              </label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-                These roles will be mentioned/pinged inside every new ticket channel so staff gets notified.
-              </p>
-              {discordRoles.length > 0 ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {discordRoles.map(role => {
-                    const isSelected = ticketPingRoles.includes(role.id);
-                    return (
-                      <button
-                        key={role.id}
-                        type="button"
-                        onClick={() => toggleRole(role.id, ticketPingRoles, setTicketPingRoles)}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: '20px',
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
-                          background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
-                          color: isSelected ? roleColorHex(role.color) : '#94a3b8',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        {isSelected ? '✓ ' : ''}@{role.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  className="glass-input"
-                  value={ticketPingRoles.join(',')}
-                  onChange={(e) => setTicketPingRoles(e.target.value ? e.target.value.split(',') : [])}
-                  placeholder="Comma-separated Role IDs (e.g. 123456,789012)"
-                />
-              )}
-              {ticketPingRoles.length > 0 && (
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
-                  Selected: {ticketPingRoles.map(id => getRoleName(id)).join(', ')}
-                </div>
-              )}
-            </div>
-
-            {/* Required Roles to Open Ticket */}
-            <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={16} />
-                Required Roles to Open a Ticket
-              </label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-                Only members with at least one of these roles can open a ticket. Leave empty to allow all members.
-              </p>
-              {discordRoles.length > 0 ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {discordRoles.map(role => {
-                    const isSelected = ticketRequiredRoles.includes(role.id);
-                    return (
-                      <button
-                        key={role.id}
-                        type="button"
-                        onClick={() => toggleRole(role.id, ticketRequiredRoles, setTicketRequiredRoles)}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: '20px',
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
-                          background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
-                          color: isSelected ? roleColorHex(role.color) : '#94a3b8',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        {isSelected ? '✓ ' : ''}@{role.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  className="glass-input"
-                  value={ticketRequiredRoles.join(',')}
-                  onChange={(e) => setTicketRequiredRoles(e.target.value ? e.target.value.split(',') : [])}
-                  placeholder="Comma-separated Role IDs (leave empty = everyone)"
-                />
-              )}
-              {ticketRequiredRoles.length > 0 && (
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
-                  Selected: {ticketRequiredRoles.map(id => getRoleName(id)).join(', ')}
-                </div>
-              )}
-            </div>
-
-            {/* Custom Welcome Message */}
-            <div className="form-group">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MessageSquare size={16} />
-                Custom Ticket Welcome Message
-              </label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-                This message will be posted inside every new ticket channel. Use <code style={{ background: 'rgba(56,189,248,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>{'{{user}}'}</code> to mention the ticket opener.
-              </p>
-              <textarea
-                className="glass-input"
-                value={ticketWelcomeMessage}
-                onChange={(e) => setTicketWelcomeMessage(e.target.value)}
-                placeholder={"Hello {{user}}! 👋\n\nA staff member will assist you shortly.\nPlease describe your issue in detail."}
-                rows={5}
-                style={{ resize: 'vertical', minHeight: '100px', fontFamily: 'inherit' }}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Ticket size={20} />
+                  Ticket System Configuration
+                </h2>
+                <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0, marginTop: '4px' }}>
+                  Configure the support ticket channels, pingable moderator roles, and custom greeting templates.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={enableTickets}
+                onChange={(e) => setEnableTickets(e.target.checked)}
+                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
               />
             </div>
-          </div>
-        )}
 
-        {/* Tab 4: Feature Toggles */}
-        {activeTab === 'toggles' && (
-          <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8' }}>Feature Toggles</h2>
+            <div style={{ opacity: enableTickets ? 1 : 0.5, pointerEvents: enableTickets ? 'auto' : 'none' }}>
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MessageSquare size={16} />
+                  Ticket Panel Channel
+                </label>
+                {botConnected ? (
+                  <select
+                    className="glass-input glass-select"
+                    value={chanTicketPanel}
+                    onChange={(e) => setChanTicketPanel(e.target.value)}
+                    disabled={!enableTickets}
+                  >
+                    <option value="">-- Select Channel --</option>
+                    {discordChannels.filter(c => c.type === 0).map(c => (
+                      <option key={c.id} value={c.id}>#{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="glass-input"
+                    value={chanTicketPanel}
+                    onChange={(e) => setChanTicketPanel(e.target.value)}
+                    placeholder="e.g. 112233445566778899"
+                    disabled={!enableTickets}
+                  />
+                )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <span style={{ fontWeight: 600 }}>Enable First Blood Alerts</span>
-                  <p style={{ color: '#94a3b8', fontSize: '13px' }}>Notify Discord server immediately when challenges are solved the first time.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={enableFirstBlood}
-                  onChange={(e) => setEnableFirstBlood(e.target.checked)}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                />
+                {chanTicketPanel && enableTickets && (
+                  <div style={{ marginTop: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={handleDeployPanel}
+                      disabled={deployLoading}
+                      className="btn btn-secondary"
+                      style={{
+                        fontSize: '13px',
+                        padding: '8px 16px',
+                        borderColor: '#a78bfa',
+                        color: '#c084fc',
+                        background: 'rgba(167, 139, 250, 0.05)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      {deployLoading ? <RefreshCw className="animate-spin" size={14} /> : <Ticket size={14} />}
+                      {deployLoading ? 'Deploying...' : 'Deploy Panel Embed'}
+                    </button>
+                    {deploySuccess && <p style={{ color: '#10b981', fontSize: '12px', marginTop: '6px' }}>✓ {deploySuccess}</p>}
+                    {deployError && <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px' }}>✗ {deployError}</p>}
+                  </div>
+                )}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                <div>
-                  <span style={{ fontWeight: 600 }}>Enable Live Scoreboard</span>
-                  <p style={{ color: '#94a3b8', fontSize: '13px' }}>Allow users to execute /scoreboard command inside the server.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={enableScoreboard}
-                  onChange={(e) => setEnableScoreboard(e.target.checked)}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                />
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MessageSquare size={16} />
+                  Support Ticket Logs Channel ID
+                </label>
+                {botConnected ? (
+                  <select
+                    className="glass-input glass-select"
+                    value={chanTicketLogs}
+                    onChange={(e) => setChanTicketLogs(e.target.value)}
+                    disabled={!enableTickets}
+                  >
+                    <option value="">-- Select Channel --</option>
+                    {discordChannels.filter(c => c.type === 0).map(c => (
+                      <option key={c.id} value={c.id}>#{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="glass-input"
+                    value={chanTicketLogs}
+                    onChange={(e) => setChanTicketLogs(e.target.value)}
+                    placeholder="e.g. 112233445566778899"
+                    disabled={!enableTickets}
+                  />
+                )}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                <div>
-                  <span style={{ fontWeight: 600 }}>Enable Support Ticket System</span>
-                  <p style={{ color: '#94a3b8', fontSize: '13px' }}>Allow opening support ticket channels dynamically via ticket buttons.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={enableTickets}
-                  onChange={(e) => setEnableTickets(e.target.checked)}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                />
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FolderOpen size={16} />
+                  Support Ticket Parent Category ID
+                </label>
+                {botConnected ? (
+                  <select
+                    className="glass-input glass-select"
+                    value={chanTicketCategory}
+                    onChange={(e) => setChanTicketCategory(e.target.value)}
+                    disabled={!enableTickets}
+                  >
+                    <option value="">-- Select Category --</option>
+                    {discordChannels.filter(c => c.type === 4).map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="glass-input"
+                    value={chanTicketCategory}
+                    onChange={(e) => setChanTicketCategory(e.target.value)}
+                    placeholder="e.g. 112233445566778899"
+                    disabled={!enableTickets}
+                  />
+                )}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                <div>
-                  <span style={{ fontWeight: 600 }}>Active Status</span>
-                  <p style={{ color: '#94a3b8', fontSize: '13px' }}>Turn completely ON/OFF the bot listeners for this guild.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Users size={16} />
+                  Roles to Ping When a Ticket Opens
+                </label>
+                {discordRoles.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {discordRoles.map(role => {
+                      const isSelected = ticketPingRoles.includes(role.id);
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => toggleRole(role.id, ticketPingRoles, setTicketPingRoles)}
+                          disabled={!enableTickets}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
+                            background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
+                            color: isSelected ? roleColorHex(role.color) : '#94a3b8',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {isSelected ? '✓ ' : ''}@{role.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    className="glass-input"
+                    value={ticketPingRoles.join(',')}
+                    onChange={(e) => setTicketPingRoles(e.target.value ? e.target.value.split(',') : [])}
+                    placeholder="Comma-separated Role IDs (e.g. 123456,789012)"
+                    disabled={!enableTickets}
+                  />
+                )}
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Users size={16} />
+                  Required Roles to Open a Ticket
+                </label>
+                {discordRoles.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {discordRoles.map(role => {
+                      const isSelected = ticketRequiredRoles.includes(role.id);
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => toggleRole(role.id, ticketRequiredRoles, setTicketRequiredRoles)}
+                          disabled={!enableTickets}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
+                            background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
+                            color: isSelected ? roleColorHex(role.color) : '#94a3b8',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {isSelected ? '✓ ' : ''}@{role.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    className="glass-input"
+                    value={ticketRequiredRoles.join(',')}
+                    onChange={(e) => setTicketRequiredRoles(e.target.value ? e.target.value.split(',') : [])}
+                    placeholder="Comma-separated Role IDs (leave empty = everyone)"
+                    disabled={!enableTickets}
+                  />
+                )}
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MessageSquare size={16} />
+                  Custom Ticket Welcome Message
+                </label>
+                <textarea
+                  className="glass-input"
+                  value={ticketWelcomeMessage}
+                  onChange={(e) => setTicketWelcomeMessage(e.target.value)}
+                  placeholder={"Hello {{user}}! 👋\n\nA staff member will assist you shortly.\nPlease describe your issue in detail."}
+                  rows={5}
+                  disabled={!enableTickets}
+                  style={{ resize: 'vertical', minHeight: '100px', fontFamily: 'inherit' }}
                 />
               </div>
             </div>
           </div>
         )}
+
+        <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end', marginBottom: '48px' }}>
+          <Link href="/dashboard/servers" className="btn btn-secondary">
+            Cancel
+          </Link>
+          <button type="submit" className="btn btn-primary" disabled={btnLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Save size={18} />
+            {btnLoading ? 'Saving changes...' : 'Save Configuration'}
+          </button>
+        </div>
       </form>
     </div>
   );

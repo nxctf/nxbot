@@ -127,6 +127,10 @@ export async function PUT(
       refresh_token = null;
     }
 
+    if (is_active) {
+      db.prepare('UPDATE guilds SET is_active = 0 WHERE guild_id = ? AND id != ?').run(existing.guild_id || existing.id, id);
+    }
+
     db.prepare(`
       UPDATE guilds SET
         guild_name = ?,
