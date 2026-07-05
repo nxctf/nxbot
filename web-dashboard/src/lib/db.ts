@@ -46,13 +46,24 @@ function initSchema(database: Database.Database): void {
         );
         INSERT OR IGNORE INTO system_settings (key, value) VALUES ('is_setup', 'false');
 
-        CREATE TABLE IF NOT EXISTS guilds (
+        CREATE TABLE IF NOT EXISTS supabase_connections (
           id TEXT PRIMARY KEY,
-          guild_name TEXT NOT NULL,
+          name TEXT NOT NULL,
           supabase_url TEXT NOT NULL,
           supabase_anon_key TEXT NOT NULL,
           supabase_login_email TEXT DEFAULT NULL,
           supabase_login_password TEXT DEFAULT NULL,
+          supabase_access_token TEXT DEFAULT NULL,
+          supabase_refresh_token TEXT DEFAULT NULL,
+          supabase_turnstile_site_key TEXT DEFAULT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS guilds (
+          id TEXT PRIMARY KEY,
+          guild_name TEXT NOT NULL,
+          supabase_connection_id TEXT REFERENCES supabase_connections(id) ON DELETE SET NULL,
           channel_firstblood TEXT DEFAULT NULL,
           channel_scoreboard TEXT DEFAULT NULL,
           channel_announcements TEXT DEFAULT NULL,

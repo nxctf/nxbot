@@ -47,6 +47,7 @@ export default function TicketsPage() {
   const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [confirmCloseId, setConfirmCloseId] = useState<number | null>(null);
 
   const fetchTickets = async () => {
     try {
@@ -228,7 +229,6 @@ export default function TicketsPage() {
                 <th>Opened By</th>
                 <th>Subject</th>
                 <th>Status</th>
-                <th>Assignee</th>
                 <th>Created At</th>
                 <th>Actions</th>
               </tr>
@@ -265,39 +265,48 @@ export default function TicketsPage() {
                       {t.status === 'open' ? 'Open' : t.status === 'in_progress' ? 'In Progress' : 'Closed'}
                     </span>
                   </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    {t.status !== 'closed' ? (
-                      <input 
-                        type="text" 
-                        className="glass-input" 
-                        placeholder="Staff Name"
-                        value={t.assigned_to || ''}
-                        onChange={(e) => handleAssignTicket(t.id, e.target.value)}
-                        style={{ padding: '6px 12px', fontSize: '13px', maxWidth: '140px' }}
-                        disabled={actionLoading === t.id}
-                      />
-                    ) : (
-                      <span style={{ color: '#64748b', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <Lock size={12} /> Closed by @{t.closed_by || 'system'}
-                      </span>
-                    )}
-                  </td>
                   <td style={{ color: '#94a3b8', fontSize: '13px' }}>
                     {new Date(t.created_at).toLocaleDateString()}
                   </td>
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       {t.status !== 'closed' ? (
-                        <button 
-                          onClick={(e) => handleUpdateStatus(e, t.id, 'closed')}
-                          className="btn btn-secondary"
-                          style={{ padding: '6px 12px', fontSize: '13px', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)' }}
-                          disabled={actionLoading === t.id}
-                        >
-                          Close
-                        </button>
+                        confirmCloseId === t.id ? (
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            <span style={{ fontSize: '11px', color: '#f43f5e', marginRight: '4px', fontWeight: 600 }}>Sure?</span>
+                            <button
+                              onClick={(e) => {
+                                handleUpdateStatus(e, t.id, 'closed');
+                                setConfirmCloseId(null);
+                              }}
+                              className="btn"
+                              style={{ padding: '4px 8px', fontSize: '11px', background: '#f43f5e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                              disabled={actionLoading === t.id}
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setConfirmCloseId(null)}
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '4px', cursor: 'pointer' }}
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => setConfirmCloseId(t.id)}
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 12px', fontSize: '13px', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)' }}
+                            disabled={actionLoading === t.id}
+                          >
+                            Close
+                          </button>
+                        )
                       ) : (
-                        <span style={{ color: '#64748b', fontSize: '13px' }}>Closed</span>
+                        <span style={{ color: '#64748b', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Lock size={12} /> Closed by @{t.closed_by || 'system'}
+                        </span>
                       )}
                     </div>
                   </td>
@@ -368,10 +377,8 @@ export default function TicketsPage() {
               >
                 <X size={24} />
               </button>
-            </div>
-
-            {/* Ticket Info Section */}
-            <div style={{ padding: '16px 24px', background: 'rgba(13, 17, 28, 0.4)', borderBottom: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
+                       {/* Ticket Info Section */}
+            <div style={{ padding: '16px 24px', background: 'rgba(13, 17, 28, 0.4)', borderBottom: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px', fontSize: '13px' }}>
               <div>
                 <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Opened By</span>
                 <span style={{ fontWeight: 600, color: '#cbd5e1' }}>@{selectedTicket.username || 'unknown'}</span>
@@ -383,25 +390,6 @@ export default function TicketsPage() {
                   <Server size={12} style={{ color: '#94a3b8' }} />
                   {selectedTicket.guild_name}
                 </span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Assignee Staff</span>
-                <div onClick={(e) => e.stopPropagation()}>
-                  {selectedTicket.status !== 'closed' ? (
-                    <input 
-                      type="text" 
-                      className="glass-input" 
-                      placeholder="Unassigned"
-                      value={selectedTicket.assigned_to || ''}
-                      onChange={(e) => handleAssignTicket(selectedTicket.id, e.target.value)}
-                      style={{ padding: '4px 10px', fontSize: '12px', height: '28px', background: 'rgba(15, 23, 42, 0.4)' }}
-                    />
-                  ) : (
-                    <span style={{ fontWeight: 600, color: '#94a3b8' }}>
-                      {selectedTicket.assigned_to ? `@${selectedTicket.assigned_to}` : 'None'}
-                    </span>
-                  )}
-                </div>
               </div>
               <div>
                 <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Opened Date</span>
@@ -506,20 +494,43 @@ export default function TicketsPage() {
             {/* Drawer Footer Actions */}
             <div style={{ padding: '20px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px', background: 'rgba(13, 17, 28, 0.6)' }}>
               {selectedTicket.status !== 'closed' ? (
-                <button 
-                  onClick={(e) => handleUpdateStatus(e as any, selectedTicket.id, 'closed')}
-                  className="btn btn-danger"
-                  style={{ flex: 1, height: '40px', padding: 0 }}
-                  disabled={actionLoading === selectedTicket.id}
-                >
-                  Close Support Ticket
-                </button>
+                confirmCloseId === selectedTicket.id ? (
+                  <div style={{ display: 'flex', width: '100%', gap: '12px' }}>
+                    <button 
+                      onClick={(e) => {
+                        handleUpdateStatus(e as any, selectedTicket.id, 'closed');
+                        setConfirmCloseId(null);
+                      }}
+                      className="btn btn-danger"
+                      style={{ flex: 1, height: '40px', padding: 0, background: '#f43f5e', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                      disabled={actionLoading === selectedTicket.id}
+                    >
+                      Confirm Close (Yes)
+                    </button>
+                    <button 
+                      onClick={() => setConfirmCloseId(null)}
+                      className="btn btn-secondary"
+                      style={{ flex: 1, height: '40px', padding: 0, borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                      Cancel (No)
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setConfirmCloseId(selectedTicket.id)}
+                    className="btn btn-danger"
+                    style={{ flex: 1, height: '40px', padding: 0 }}
+                    disabled={actionLoading === selectedTicket.id}
+                  >
+                    Close Support Ticket
+                  </button>
+                )
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '13px', margin: '0 auto' }}>
-                  <Lock size={14} /> Closed at {selectedTicket.closed_at ? new Date(selectedTicket.closed_at).toLocaleString() : 'N/A'}
+                  <Lock size={14} /> Closed at {selectedTicket.closed_at ? new Date(selectedTicket.closed_at).toLocaleString() : 'N/A'} by @{selectedTicket.closed_by || 'system'}
                 </div>
               )}
-            </div>
+            </div>   </div>
           </div>
 
           {/* Slide & Fade Keyframe Styling */}
