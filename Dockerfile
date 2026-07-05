@@ -1,5 +1,5 @@
 # Base Image
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Install build dependencies for native modules (like better-sqlite3)
 RUN apk add --no-cache python3 make g++ git
@@ -21,7 +21,7 @@ WORKDIR /app/web-dashboard
 RUN npm ci && npm run build && npm prune --production
 
 # Final runtime image
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Install SQLite dependencies just in case
 RUN apk add --no-cache libc6-compat

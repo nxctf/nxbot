@@ -143,6 +143,19 @@ function runMigrations(database: Database.Database): void {
       );
     `);
 
+    // 2. Create ticket_messages table
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS ticket_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL,
+        username TEXT NOT NULL,
+        avatar_url TEXT DEFAULT NULL,
+        message_content TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     // 2. Add columns to guilds table
     const columns = database.prepare("PRAGMA table_info(guilds)").all() as { name: string }[];
     const colNames = columns.map(c => c.name);
