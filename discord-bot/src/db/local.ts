@@ -137,6 +137,9 @@ function runMigrations(): void {
       { name: 'ticket_required_roles', type: 'TEXT DEFAULT NULL' },
       { name: 'ticket_welcome_message', type: 'TEXT DEFAULT NULL' },
       { name: 'scoreboard_message_id', type: 'TEXT DEFAULT NULL' },
+      { name: 'supabase_access_token', type: 'TEXT DEFAULT NULL' },
+      { name: 'supabase_refresh_token', type: 'TEXT DEFAULT NULL' },
+      { name: 'supabase_turnstile_site_key', type: 'TEXT DEFAULT NULL' },
     ];
     for (const m of migrations) {
       if (!colNames.includes(m.name)) {
@@ -175,6 +178,9 @@ export interface GuildConfig {
   supabase_anon_key: string;
   supabase_login_email: string | null;
   supabase_login_password: string | null;
+  supabase_access_token: string | null;
+  supabase_refresh_token: string | null;
+  supabase_turnstile_site_key: string | null;
   channel_firstblood: string | null;
   channel_scoreboard: string | null;
   channel_announcements: string | null;
@@ -217,6 +223,9 @@ export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_na
         supabase_anon_key = COALESCE(?, supabase_anon_key),
         supabase_login_email = COALESCE(?, supabase_login_email),
         supabase_login_password = COALESCE(?, supabase_login_password),
+        supabase_access_token = COALESCE(?, supabase_access_token),
+        supabase_refresh_token = COALESCE(?, supabase_refresh_token),
+        supabase_turnstile_site_key = COALESCE(?, supabase_turnstile_site_key),
         channel_firstblood = COALESCE(?, channel_firstblood),
         channel_scoreboard = COALESCE(?, channel_scoreboard),
         channel_announcements = COALESCE(?, channel_announcements),
@@ -233,6 +242,8 @@ export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_na
     `).run(
       guild.guild_name, guild.supabase_url, guild.supabase_anon_key,
       guild.supabase_login_email ?? null, guild.supabase_login_password ?? null,
+      guild.supabase_access_token ?? null, guild.supabase_refresh_token ?? null,
+      guild.supabase_turnstile_site_key ?? null,
       guild.channel_firstblood ?? null, guild.channel_scoreboard ?? null,
       guild.channel_announcements ?? null, guild.channel_ticket_category ?? null,
       guild.channel_ticket_logs ?? null,
@@ -244,12 +255,15 @@ export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_na
   } else {
     getDb().prepare(`
       INSERT INTO guilds (id, guild_name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
+        supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key,
         channel_firstblood, channel_scoreboard, channel_announcements, channel_ticket_category, channel_ticket_logs,
         enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, active_event_id, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       guild.id, guild.guild_name, guild.supabase_url, guild.supabase_anon_key,
       guild.supabase_login_email ?? null, guild.supabase_login_password ?? null,
+      guild.supabase_access_token ?? null, guild.supabase_refresh_token ?? null,
+      guild.supabase_turnstile_site_key ?? null,
       guild.channel_firstblood ?? null, guild.channel_scoreboard ?? null,
       guild.channel_announcements ?? null, guild.channel_ticket_category ?? null,
       guild.channel_ticket_logs ?? null,
@@ -262,6 +276,10 @@ export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_na
 
 export function updateGuildScoreboardMessageId(guildId: string, messageId: string | null): void {
   getDb().prepare('UPDATE guilds SET scoreboard_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(messageId, guildId);
+}
+
+export function updateGuildSupabaseTokens(guildId: string, accessToken: string | null, refreshToken: string | null): void {
+  getDb().prepare('UPDATE guilds SET supabase_access_token = ?, supabase_refresh_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(accessToken, refreshToken, guildId);
 }
 
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Server, Save, ArrowLeft, RefreshCw, AlertTriangle, CheckCircle, Database, Ticket, Users, MessageSquare, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
+import Script from 'next/script';
 
 interface GuildConfig {
   id: string;
@@ -12,6 +13,7 @@ interface GuildConfig {
   supabase_anon_key: string;
   supabase_login_email: string | null;
   supabase_login_password: string | null;
+  supabase_turnstile_site_key: string | null;
   channel_firstblood: string | null;
   channel_scoreboard: string | null;
   channel_announcements: string | null;
@@ -87,6 +89,55 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [enableRealtime, setEnableRealtime] = useState(true);
   const [activeEventId, setActiveEventId] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  // Turnstile widget rendering effect
+  useEffect(() => {
+    if (!turnstileSiteKey) return;
+
+    let checkInterval: NodeJS.Timeout;
+
+    const renderTurnstile = () => {
+      const w = window as any;
+      if (w.turnstile) {
+        try {
+          w.turnstile.render('#turnstile-container', {
+            sitekey: turnstileSiteKey,
+            callback: (token: string) => {
+              setCaptchaToken(token);
+            },
+            'error-callback': () => {
+              console.error('Turnstile captcha failed to load');
+            }
+          });
+        } catch (e) {
+          // ignore duplicate render errors
+        }
+      }
+    };
+
+    if ((window as any).turnstile) {
+      renderTurnstile();
+    } else {
+      checkInterval = setInterval(() => {
+        if ((window as any).turnstile) {
+          renderTurnstile();
+          clearInterval(checkInterval);
+        }
+      }, 500);
+    }
+
+    return () => {
+      if (checkInterval) clearInterval(checkInterval);
+      const w = window as any;
+      if (w.turnstile) {
+        try {
+          w.turnstile.remove('#turnstile-container');
+        } catch (e) { }
+      }
+    };
+  }, [turnstileSiteKey]);
 
   // Fetch Server details & channels
   useEffect(() => {
@@ -118,6 +169,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
         setEnableRealtime(data.enable_realtime === 1);
         setActiveEventId(data.active_event_id || '');
         setIsActive(data.is_active === 1);
+        setTurnstileSiteKey(data.supabase_turnstile_site_key || '');
 
         // Fetch events list from Supabase
         fetchEventsList(data.supabase_url, data.supabase_anon_key);
@@ -225,6 +277,8 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           supabase_anon_key: supabaseAnonKey,
           supabase_login_email: loginEmail || null,
           supabase_login_password: loginPassword || null,
+          supabase_turnstile_site_key: turnstileSiteKey || null,
+          captchaToken: captchaToken || null,
           channel_firstblood: chanFirstBlood || null,
           channel_scoreboard: chanScoreboard || null,
           channel_announcements: chanAnnouncements || null,
@@ -387,12 +441,12 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Server size={18} /> Credentials & Integration
           </h2>
-          
+
           <div className="form-group">
             <label>Server/Guild Name (Display only)</label>
-            <input 
-              type="text" 
-              className="glass-input" 
+            <input
+              type="text"
+              className="glass-input"
               value={guildName}
               onChange={(e) => setGuildName(e.target.value)}
               required
@@ -402,9 +456,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           <div className="form-row">
             <div className="form-group">
               <label>Supabase URL</label>
-              <input 
-                type="url" 
-                className="glass-input" 
+              <input
+                type="url"
+                className="glass-input"
                 value={supabaseUrl}
                 onChange={(e) => setSupabaseUrl(e.target.value)}
                 required
@@ -412,9 +466,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             </div>
             <div className="form-group">
               <label>Supabase Anon Key</label>
-              <input 
-                type="password" 
-                className="glass-input" 
+              <input
+                type="password"
+                className="glass-input"
                 value={supabaseAnonKey}
                 onChange={(e) => setSupabaseAnonKey(e.target.value)}
                 required
@@ -425,9 +479,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           <div className="form-row" style={{ marginBottom: 0 }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label>Bypass RLS Email (Optional)</label>
-              <input 
-                type="email" 
-                className="glass-input" 
+              <input
+                type="email"
+                className="glass-input"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 placeholder="No authentication"
@@ -435,14 +489,44 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label>Bypass RLS Password (Optional)</label>
-              <input 
-                type="password" 
-                className="glass-input" 
+              <input
+                type="password"
+                className="glass-input"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
                 placeholder="No authentication"
               />
             </div>
+          </div>
+
+          {turnstileSiteKey && (
+            <div style={{ marginTop: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#38bdf8' }}>
+                Cloudflare Turnstile Verification
+              </label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '12px' }}>
+                This server&apos;s Supabase login is protected by Cloudflare Turnstile. Please verify you are human before saving.
+              </p>
+              <div id="turnstile-container" style={{ minHeight: '65px' }}></div>
+              <Script
+                src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+                strategy="afterInteractive"
+              />
+            </div>
+          )}
+
+          <div className="form-group" style={{ marginTop: '20px', marginBottom: 0 }}>
+            <label>Cloudflare Turnstile Site Key (Optional)</label>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+              If this server&apos;s Supabase enforces Cloudflare Turnstile captcha on login, paste the public site key here.
+            </p>
+            <input
+              type="text"
+              className="glass-input"
+              value={turnstileSiteKey}
+              onChange={(e) => setTurnstileSiteKey(e.target.value)}
+              placeholder="e.g. 0x4AAAAAADccgBtUIa17v76i"
+            />
           </div>
         </div>
 
@@ -462,7 +546,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             {eventsLoading ? (
               <div style={{ color: '#94a3b8', fontSize: '14px' }}>Querying Supabase events...</div>
             ) : events.length > 0 ? (
-              <select 
+              <select
                 className="glass-input glass-select"
                 value={activeEventId}
                 onChange={(e) => setActiveEventId(e.target.value)}
@@ -473,9 +557,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 ))}
               </select>
             ) : (
-              <input 
-                type="text" 
-                className="glass-input" 
+              <input
+                type="text"
+                className="glass-input"
                 value={activeEventId}
                 onChange={(e) => setActiveEventId(e.target.value)}
                 placeholder="Paste Event UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
@@ -491,7 +575,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             <div className="form-group">
               <label>First Blood Channel ID</label>
               {botConnected ? (
-                <select 
+                <select
                   className="glass-input glass-select"
                   value={chanFirstBlood}
                   onChange={(e) => setChanFirstBlood(e.target.value)}
@@ -502,9 +586,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   ))}
                 </select>
               ) : (
-                <input 
-                  type="text" 
-                  className="glass-input" 
+                <input
+                  type="text"
+                  className="glass-input"
                   value={chanFirstBlood}
                   onChange={(e) => setChanFirstBlood(e.target.value)}
                   placeholder="e.g. 112233445566778899"
@@ -531,7 +615,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             <div className="form-group">
               <label>Live Scoreboard Channel ID</label>
               {botConnected ? (
-                <select 
+                <select
                   className="glass-input glass-select"
                   value={chanScoreboard}
                   onChange={(e) => setChanScoreboard(e.target.value)}
@@ -542,9 +626,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                   ))}
                 </select>
               ) : (
-                <input 
-                  type="text" 
-                  className="glass-input" 
+                <input
+                  type="text"
+                  className="glass-input"
                   value={chanScoreboard}
                   onChange={(e) => setChanScoreboard(e.target.value)}
                   placeholder="e.g. 112233445566778899"
@@ -573,7 +657,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           <div className="form-group">
             <label>CTF Announcements Channel ID</label>
             {botConnected ? (
-              <select 
+              <select
                 className="glass-input glass-select"
                 value={chanAnnouncements}
                 onChange={(e) => setChanAnnouncements(e.target.value)}
@@ -584,9 +668,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 ))}
               </select>
             ) : (
-              <input 
-                type="text" 
-                className="glass-input" 
+              <input
+                type="text"
+                className="glass-input"
                 value={chanAnnouncements}
                 onChange={(e) => setChanAnnouncements(e.target.value)}
                 placeholder="e.g. 112233445566778899"
@@ -632,7 +716,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               The channel where the &quot;Open a Ticket&quot; embed panel will be posted. Users click a button here to create tickets.
             </p>
             {botConnected ? (
-              <select 
+              <select
                 className="glass-input glass-select"
                 value={chanTicketPanel}
                 onChange={(e) => setChanTicketPanel(e.target.value)}
@@ -643,15 +727,15 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 ))}
               </select>
             ) : (
-              <input 
-                type="text" 
-                className="glass-input" 
+              <input
+                type="text"
+                className="glass-input"
                 value={chanTicketPanel}
                 onChange={(e) => setChanTicketPanel(e.target.value)}
                 placeholder="e.g. 112233445566778899"
               />
             )}
-            
+
             {chanTicketPanel && (
               <div style={{ marginTop: '12px' }}>
                 <button
@@ -696,7 +780,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               The channel where all ticket logs (creation, closure, assignments) will be sent.
             </p>
             {botConnected ? (
-              <select 
+              <select
                 className="glass-input glass-select"
                 value={chanTicketLogs}
                 onChange={(e) => setChanTicketLogs(e.target.value)}
@@ -707,9 +791,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 ))}
               </select>
             ) : (
-              <input 
-                type="text" 
-                className="glass-input" 
+              <input
+                type="text"
+                className="glass-input"
                 value={chanTicketLogs}
                 onChange={(e) => setChanTicketLogs(e.target.value)}
                 placeholder="e.g. 112233445566778899"
@@ -727,7 +811,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               The Discord category under which all new private ticket channels will be created.
             </p>
             {botConnected ? (
-              <select 
+              <select
                 className="glass-input glass-select"
                 value={chanTicketCategory}
                 onChange={(e) => setChanTicketCategory(e.target.value)}
@@ -738,9 +822,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 ))}
               </select>
             ) : (
-              <input 
-                type="text" 
-                className="glass-input" 
+              <input
+                type="text"
+                className="glass-input"
                 value={chanTicketCategory}
                 onChange={(e) => setChanTicketCategory(e.target.value)}
                 placeholder="e.g. 112233445566778899"
@@ -784,9 +868,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 })}
               </div>
             ) : (
-              <input 
-                type="text" 
-                className="glass-input" 
+              <input
+                type="text"
+                className="glass-input"
                 value={ticketPingRoles.join(',')}
                 onChange={(e) => setTicketPingRoles(e.target.value ? e.target.value.split(',') : [])}
                 placeholder="Comma-separated Role IDs (e.g. 123456,789012)"
@@ -835,9 +919,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 })}
               </div>
             ) : (
-              <input 
-                type="text" 
-                className="glass-input" 
+              <input
+                type="text"
+                className="glass-input"
                 value={ticketRequiredRoles.join(',')}
                 onChange={(e) => setTicketRequiredRoles(e.target.value ? e.target.value.split(',') : [])}
                 placeholder="Comma-separated Role IDs (leave empty = everyone)"
@@ -859,8 +943,8 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
               This message will be posted inside every new ticket channel. Use <code style={{ background: 'rgba(56,189,248,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>{'{{user}}'}</code> to mention the ticket opener.
             </p>
-            <textarea 
-              className="glass-input" 
+            <textarea
+              className="glass-input"
               value={ticketWelcomeMessage}
               onChange={(e) => setTicketWelcomeMessage(e.target.value)}
               placeholder={"Hello {{user}}! 👋\n\nA staff member will assist you shortly.\nPlease describe your issue in detail."}
@@ -880,10 +964,10 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 <span style={{ fontWeight: 600 }}>Enable First Blood Alerts</span>
                 <p style={{ color: '#94a3b8', fontSize: '13px' }}>Notify Discord server immediately when challenges are solved the first time.</p>
               </div>
-              <input 
-                type="checkbox" 
-                checked={enableFirstBlood} 
-                onChange={(e) => setEnableFirstBlood(e.target.checked)} 
+              <input
+                type="checkbox"
+                checked={enableFirstBlood}
+                onChange={(e) => setEnableFirstBlood(e.target.checked)}
                 style={{ width: '20px', height: '20px', cursor: 'pointer' }}
               />
             </div>
@@ -894,10 +978,10 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 <span style={{ fontWeight: 600 }}>Enable Support Ticket System</span>
                 <p style={{ color: '#94a3b8', fontSize: '13px' }}>Allow opening support ticket channels dynamically via /ticket create.</p>
               </div>
-              <input 
-                type="checkbox" 
-                checked={enableTickets} 
-                onChange={(e) => setEnableTickets(e.target.checked)} 
+              <input
+                type="checkbox"
+                checked={enableTickets}
+                onChange={(e) => setEnableTickets(e.target.checked)}
                 style={{ width: '20px', height: '20px', cursor: 'pointer' }}
               />
             </div>
@@ -907,10 +991,10 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 <span style={{ fontWeight: 600 }}>Active Status</span>
                 <p style={{ color: '#94a3b8', fontSize: '13px' }}>Turn completely ON/OFF the bot listeners for this guild.</p>
               </div>
-              <input 
-                type="checkbox" 
-                checked={isActive} 
-                onChange={(e) => setIsActive(e.target.checked)} 
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
                 style={{ width: '20px', height: '20px', cursor: 'pointer' }}
               />
             </div>

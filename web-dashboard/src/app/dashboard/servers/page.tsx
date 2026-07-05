@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Server, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
+import Script from 'next/script';
 
 interface Guild {
   id: string;
@@ -32,6 +33,55 @@ export default function ServersPage() {
   const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  // Turnstile widget rendering effect for server creation
+  useEffect(() => {
+    if (!turnstileSiteKey) return;
+
+    let checkInterval: NodeJS.Timeout;
+    
+    const renderTurnstile = () => {
+      const w = window as any;
+      if (w.turnstile) {
+        try {
+          w.turnstile.render('#turnstile-container-add', {
+            sitekey: turnstileSiteKey,
+            callback: (token: string) => {
+              setCaptchaToken(token);
+            },
+            'error-callback': () => {
+              console.error('Turnstile captcha failed to load');
+            }
+          });
+        } catch (e) {
+          // ignore duplicate render errors
+        }
+      }
+    };
+
+    if ((window as any).turnstile) {
+      renderTurnstile();
+    } else {
+      checkInterval = setInterval(() => {
+        if ((window as any).turnstile) {
+          renderTurnstile();
+          clearInterval(checkInterval);
+        }
+      }, 500);
+    }
+
+    return () => {
+      if (checkInterval) clearInterval(checkInterval);
+      const w = window as any;
+      if (w.turnstile) {
+        try {
+          w.turnstile.remove('#turnstile-container-add');
+        } catch (e) {}
+      }
+    };
+  }, [turnstileSiteKey, showAddForm]);
 
   const fetchServers = async () => {
     try {
@@ -72,6 +122,8 @@ export default function ServersPage() {
           supabase_anon_key: supabaseAnonKey,
           supabase_login_email: loginEmail || null,
           supabase_login_password: loginPassword || null,
+          supabase_turnstile_site_key: turnstileSiteKey || null,
+          captchaToken: captchaToken || null,
           enable_firstblood: true,
           enable_scoreboard: true,
           enable_tickets: true,
@@ -92,6 +144,8 @@ export default function ServersPage() {
       setSupabaseAnonKey('');
       setLoginEmail('');
       setLoginPassword('');
+      setTurnstileSiteKey('');
+      setCaptchaToken(null);
       setShowAddForm(false);
       
       // Reload
@@ -261,6 +315,36 @@ export default function ServersPage() {
                   />
                 </div>
               </div>
+
+              <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
+                <label>Cloudflare Turnstile Site Key (Optional)</label>
+                <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+                  If the target Supabase project enforces Cloudflare Turnstile captcha on login, enter the public site key.
+                </p>
+                <input
+                  type="text"
+                  className="glass-input"
+                  placeholder="e.g. 0x4AAAAAADccgBtUIa17v76i"
+                  value={turnstileSiteKey}
+                  onChange={(e) => setTurnstileSiteKey(e.target.value)}
+                />
+              </div>
+
+              {turnstileSiteKey && (
+                <div style={{ marginTop: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#38bdf8' }}>
+                    Cloudflare Turnstile Verification
+                  </label>
+                  <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '12px' }}>
+                    Turnstile verification is required to complete authentication check during validation.
+                  </p>
+                  <div id="turnstile-container-add" style={{ minHeight: '65px' }}></div>
+                  <Script
+                    src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+                    strategy="afterInteractive"
+                  />
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>

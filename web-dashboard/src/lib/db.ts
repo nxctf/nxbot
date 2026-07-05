@@ -16,7 +16,7 @@ export function getDb(): Database.Database {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
-    
+
     // Auto-create tables if they don't exist
     initSchema(db);
   }
@@ -110,7 +110,7 @@ function initSchema(database: Database.Database): void {
       console.log('[Dashboard DB] Initialized fallback inline schema');
     }
   }
-  
+
   // Always run migrations to ensure columns exist on startup
   runMigrations(database);
 }
@@ -119,15 +119,18 @@ function runMigrations(database: Database.Database): void {
   try {
     const columns = database.prepare("PRAGMA table_info(guilds)").all() as { name: string }[];
     const colNames = columns.map(c => c.name);
-    
+
     const migrations = [
       { name: 'channel_ticket_panel', type: 'TEXT DEFAULT NULL' },
       { name: 'ticket_ping_roles', type: 'TEXT DEFAULT NULL' },
       { name: 'ticket_required_roles', type: 'TEXT DEFAULT NULL' },
       { name: 'ticket_welcome_message', type: 'TEXT DEFAULT NULL' },
       { name: 'scoreboard_message_id', type: 'TEXT DEFAULT NULL' },
+      { name: 'supabase_access_token', type: 'TEXT DEFAULT NULL' },
+      { name: 'supabase_refresh_token', type: 'TEXT DEFAULT NULL' },
+      { name: 'supabase_turnstile_site_key', type: 'TEXT DEFAULT NULL' },
     ];
-    
+
     for (const m of migrations) {
       if (!colNames.includes(m.name)) {
         database.exec(`ALTER TABLE guilds ADD COLUMN ${m.name} ${m.type}`);

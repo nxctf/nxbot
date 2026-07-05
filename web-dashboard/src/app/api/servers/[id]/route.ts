@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
+import { createClient } from '@supabase/supabase-js';
 
 async function testSupabaseConnection(url: string, key: string): Promise<boolean> {
   try {
@@ -61,6 +62,8 @@ export async function PUT(
       supabase_anon_key,
       supabase_login_email,
       supabase_login_password,
+      supabase_turnstile_site_key,
+      captchaToken,
       channel_firstblood,
       channel_scoreboard,
       channel_announcements,
@@ -93,6 +96,37 @@ export async function PUT(
       }
     }
 
+    let access_token = existing.supabase_access_token || null;
+    let refresh_token = existing.supabase_refresh_token || null;
+
+    if (supabase_login_email && (supabase_login_password || existing.supabase_login_password)) {
+      const emailToUse = supabase_login_email;
+      const passwordToUse = supabase_login_password || existing.supabase_login_password;
+
+      try {
+        const client = createClient(supabase_url, supabase_anon_key, {
+          auth: { persistSession: false }
+        });
+        const { data: authData, error: authError } = await client.auth.signInWithPassword({
+          email: emailToUse,
+          password: passwordToUse,
+          options: {
+            ...(captchaToken && { captchaToken })
+          }
+        });
+        if (authError) {
+          return NextResponse.json({ error: `Supabase authentication failed: ${authError.message}` }, { status: 400 });
+        }
+        access_token = authData.session?.access_token || null;
+        refresh_token = authData.session?.refresh_token || null;
+      } catch (err: any) {
+        return NextResponse.json({ error: `Supabase auth error: ${err.message}` }, { status: 400 });
+      }
+    } else {
+      access_token = null;
+      refresh_token = null;
+    }
+
     db.prepare(`
       UPDATE guilds SET
         guild_name = ?,
@@ -100,6 +134,9 @@ export async function PUT(
         supabase_anon_key = ?,
         supabase_login_email = ?,
         supabase_login_password = ?,
+        supabase_access_token = ?,
+        supabase_refresh_token = ?,
+        supabase_turnstile_site_key = ?,
         channel_firstblood = ?,
         channel_scoreboard = ?,
         channel_announcements = ?,
@@ -123,6 +160,9 @@ export async function PUT(
       supabase_anon_key,
       supabase_login_email || null,
       supabase_login_password || null,
+      access_token,
+      refresh_token,
+      supabase_turnstile_site_key || null,
       channel_firstblood || null,
       channel_scoreboard || null,
       channel_announcements || null,
@@ -160,7 +200,7 @@ export async function DELETE(
 
     const { id } = await params;
     const db = getDb();
-    
+
     const existing = db.prepare('SELECT id FROM guilds WHERE id = ?').get(id);
     if (!existing) {
       return NextResponse.json({ error: 'Server not found.' }, { status: 404 });

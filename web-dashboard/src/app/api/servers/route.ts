@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
+import { createClient } from '@supabase/supabase-js';
 
 // Helper to test Supabase connection
 async function testSupabaseConnection(url: string, key: string): Promise<boolean> {
@@ -52,6 +53,8 @@ export async function POST(request: Request) {
       supabase_anon_key,
       supabase_login_email,
       supabase_login_password,
+      supabase_turnstile_site_key,
+      captchaToken,
       channel_firstblood,
       channel_scoreboard,
       channel_announcements,
@@ -79,8 +82,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to connect to Supabase. Please verify URL and Anon Key.' }, { status: 400 });
     }
 
+    let access_token: string | null = null;
+    let refresh_token: string | null = null;
+
+    if (supabase_login_email && supabase_login_password) {
+      try {
+        const client = createClient(supabase_url, supabase_anon_key, {
+          auth: { persistSession: false }
+        });
+        const { data: authData, error: authError } = await client.auth.signInWithPassword({
+          email: supabase_login_email,
+          password: supabase_login_password,
+          options: {
+            ...(captchaToken && { captchaToken })
+          }
+        });
+        if (authError) {
+          return NextResponse.json({ error: `Supabase authentication failed: ${authError.message}` }, { status: 400 });
+        }
+        access_token = authData.session?.access_token || null;
+        refresh_token = authData.session?.refresh_token || null;
+      } catch (err: any) {
+        return NextResponse.json({ error: `Supabase auth error: ${err.message}` }, { status: 400 });
+      }
+    }
+
     const db = getDb();
-    
+
     // Check if guild already exists
     const existing = db.prepare('SELECT id FROM guilds WHERE id = ?').get(id);
     if (existing) {
@@ -90,10 +118,11 @@ export async function POST(request: Request) {
     db.prepare(`
       INSERT INTO guilds (
         id, guild_name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
+        supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key,
         channel_firstblood, channel_scoreboard, channel_announcements, channel_ticket_category, channel_ticket_logs,
         channel_ticket_panel, ticket_ping_roles, ticket_required_roles, ticket_welcome_message,
         enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, active_event_id, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `).run(
       id,
       guild_name,
@@ -101,6 +130,9 @@ export async function POST(request: Request) {
       supabase_anon_key,
       supabase_login_email || null,
       supabase_login_password || null,
+      access_token,
+      refresh_token,
+      supabase_turnstile_site_key || null,
       channel_firstblood || null,
       channel_scoreboard || null,
       channel_announcements || null,

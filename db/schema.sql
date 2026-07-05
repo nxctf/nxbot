@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS guilds (
     supabase_anon_key TEXT NOT NULL,            -- Per-server Supabase Anon Key
     supabase_login_email TEXT DEFAULT NULL,      -- Optional: Supabase auth email
     supabase_login_password TEXT DEFAULT NULL,   -- Optional: Supabase auth password
+    supabase_access_token TEXT DEFAULT NULL,     -- Optional: Cached access token
+    supabase_refresh_token TEXT DEFAULT NULL,    -- Optional: Cached refresh token
+    supabase_turnstile_site_key TEXT DEFAULT NULL, -- Optional: Per-server Turnstile site key
 
     -- Channel configurations (Discord Channel/Category IDs)
     channel_firstblood TEXT DEFAULT NULL,        -- Channel for first blood notifications
