@@ -92,6 +92,14 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'supabase' | 'channels' | 'tickets' | 'toggles'>('supabase');
+
+  // Test Connection State
+  const [testConnLoading, setTestConnLoading] = useState(false);
+  const [testConnSuccess, setTestConnSuccess] = useState('');
+  const [testConnError, setTestConnError] = useState('');
+
   // Turnstile widget rendering effect
   useEffect(() => {
     if (!turnstileSiteKey) return;
@@ -393,6 +401,34 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  const handleTestConnection = async () => {
+    setTestConnLoading(true);
+    setTestConnSuccess('');
+    setTestConnError('');
+    try {
+      const res = await fetch('/api/servers/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supabase_url: supabaseUrl,
+          supabase_anon_key: supabaseAnonKey,
+          supabase_login_email: loginEmail || null,
+          supabase_login_password: loginPassword || null,
+          captchaToken: captchaToken || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to verify connection.');
+      }
+      setTestConnSuccess(data.message || 'Verification successful!');
+    } catch (err: any) {
+      setTestConnError(err.message || 'Error testing connection.');
+    } finally {
+      setTestConnLoading(false);
+    }
+  };
+
 
 
   if (loading) {
@@ -404,181 +440,382 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '960px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <Link href="/dashboard/servers" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontWeight: 600, fontSize: '15px' }}>
-          <ArrowLeft size={16} /> Back to Servers
-        </Link>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Configure Bot</h1>
-            <span style={{ fontSize: '13px', background: 'rgba(56, 189, 248, 0.08)', color: '#38bdf8', padding: '4px 10px', borderRadius: '12px', border: '1px solid rgba(56, 189, 248, 0.2)', fontFamily: 'var(--font-mono)' }}>{id}</span>
-          </div>
-          <p style={{ color: '#94a3b8' }}>Adjust webhook channels, database connection rules, and active status</p>
-        </div>
-      </div>
-
-      {error && (
-        <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', color: '#f43f5e', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <AlertTriangle size={18} />
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <CheckCircle size={18} style={{ color: '#10b981' }} />
-          {success}
-        </div>
-      )}
-
+    <div className="animate-fade-in" style={{ maxWidth: '960px', margin: '0 auto', position: 'relative' }}>
       <form onSubmit={handleSave}>
-        {/* Section 1: Server Info & Credentials */}
-        <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Server size={18} /> Credentials & Integration
-          </h2>
-
-          <div className="form-group">
-            <label>Server/Guild Name (Display only)</label>
-            <input
-              type="text"
-              className="glass-input"
-              value={guildName}
-              onChange={(e) => setGuildName(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Supabase URL</label>
-              <input
-                type="url"
-                className="glass-input"
-                value={supabaseUrl}
-                onChange={(e) => setSupabaseUrl(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Supabase Anon Key</label>
-              <input
-                type="password"
-                className="glass-input"
-                value={supabaseAnonKey}
-                onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                required
-              />
+        {/* Sticky Header Bar */}
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          background: 'rgba(7, 9, 14, 0.95)',
+          backdropFilter: 'blur(16px)',
+          borderBottom: '1px solid var(--border-color)',
+          margin: '-40px -40px 32px -40px',
+          padding: '20px 40px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.3)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <Link href="/dashboard/servers" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid var(--border-color)', color: 'var(--foreground)', transition: 'all 0.2s ease' }} title="Back to Servers">
+              <ArrowLeft size={16} />
+            </Link>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Configure {guildName || 'Bot'}</h1>
+                <span style={{ fontSize: '11px', background: 'rgba(56, 189, 248, 0.08)', color: '#38bdf8', padding: '3px 8px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.2)', fontFamily: 'var(--font-mono)' }}>{id}</span>
+                <span className={`badge ${isActive ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '11px' }}>
+                  {isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>Manage settings and live integration channels</p>
             </div>
           </div>
 
-          <div className="form-row" style={{ marginBottom: 0 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Bypass RLS Email (Optional)</label>
-              <input
-                type="email"
-                className="glass-input"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="No authentication"
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Bypass RLS Password (Optional)</label>
-              <input
-                type="password"
-                className="glass-input"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="No authentication"
-              />
-            </div>
-          </div>
-
-          {turnstileSiteKey && (
-            <div style={{ marginTop: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#38bdf8' }}>
-                Cloudflare Turnstile Verification
-              </label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '12px' }}>
-                This server&apos;s Supabase login is protected by Cloudflare Turnstile. Please verify you are human before saving.
-              </p>
-              <div id="turnstile-container" style={{ minHeight: '65px' }}></div>
-              <Script
-                src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-                strategy="afterInteractive"
-              />
-            </div>
-          )}
-
-          <div className="form-group" style={{ marginTop: '20px', marginBottom: 0 }}>
-            <label>Cloudflare Turnstile Site Key (Optional)</label>
-            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-              If this server&apos;s Supabase enforces Cloudflare Turnstile captcha on login, paste the public site key here.
-            </p>
-            <input
-              type="text"
-              className="glass-input"
-              value={turnstileSiteKey}
-              onChange={(e) => setTurnstileSiteKey(e.target.value)}
-              placeholder="e.g. 0x4AAAAAADccgBtUIa17v76i"
-            />
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button type="submit" className="btn btn-primary" disabled={btnLoading} style={{ padding: '10px 20px', fontSize: '14px' }}>
+              {btnLoading ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+              {btnLoading ? 'Saving...' : 'Save Configuration'}
+            </button>
           </div>
         </div>
 
-        {/* Section 3: Supabase Channel Configurations */}
-        <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            Supabase Discord Channel Settings
-          </h2>
+        {/* Global Notifications */}
+        {error && (
+          <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', color: '#f43f5e', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={18} />
+            {error}
+          </div>
+        )}
 
-          <div className="form-group" style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Database size={16} /> Select Active Event ID
-            </label>
-            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-              Select the specific CTF event from the database that this Discord Server will track and pull challenges/scores from.
-            </p>
-            {eventsLoading ? (
-              <div style={{ color: '#94a3b8', fontSize: '14px' }}>Querying Supabase events...</div>
-            ) : events.length > 0 ? (
-              <select
-                className="glass-input glass-select"
-                value={activeEventId}
-                onChange={(e) => setActiveEventId(e.target.value)}
-              >
-                <option value="">-- Direct Raw String / No specific Event --</option>
-                {events.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name} ({e.id})</option>
-                ))}
-              </select>
-            ) : (
+        {success && (
+          <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle size={18} style={{ color: '#10b981' }} />
+            {success}
+          </div>
+        )}
+
+        {/* Tabs Bar */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          borderBottom: '1px solid var(--border-color)',
+          paddingBottom: '12px',
+          marginBottom: '32px',
+          overflowX: 'auto'
+        }}>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('supabase'); setSuccess(''); setError(''); }}
+            className={`btn ${activeTab === 'supabase' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              background: activeTab === 'supabase' ? 'var(--primary)' : 'rgba(30, 41, 59, 0.3)',
+              color: activeTab === 'supabase' ? '#030712' : '#94a3b8',
+              borderColor: activeTab === 'supabase' ? 'var(--primary)' : 'var(--border-color)',
+            }}
+          >
+            <Database size={16} />
+            Supabase & Integration
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('channels'); setSuccess(''); setError(''); }}
+            className={`btn ${activeTab === 'channels' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              background: activeTab === 'channels' ? 'var(--primary)' : 'rgba(30, 41, 59, 0.3)',
+              color: activeTab === 'channels' ? '#030712' : '#94a3b8',
+              borderColor: activeTab === 'channels' ? 'var(--primary)' : 'var(--border-color)',
+            }}
+          >
+            <MessageSquare size={16} />
+            Discord Channels
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('tickets'); setSuccess(''); setError(''); }}
+            className={`btn ${activeTab === 'tickets' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              background: activeTab === 'tickets' ? 'var(--primary)' : 'rgba(30, 41, 59, 0.3)',
+              color: activeTab === 'tickets' ? '#030712' : '#94a3b8',
+              borderColor: activeTab === 'tickets' ? 'var(--primary)' : 'var(--border-color)',
+            }}
+          >
+            <Ticket size={16} />
+            Ticket System
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('toggles'); setSuccess(''); setError(''); }}
+            className={`btn ${activeTab === 'toggles' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              background: activeTab === 'toggles' ? 'var(--primary)' : 'rgba(30, 41, 59, 0.3)',
+              color: activeTab === 'toggles' ? '#030712' : '#94a3b8',
+              borderColor: activeTab === 'toggles' ? 'var(--primary)' : 'var(--border-color)',
+            }}
+          >
+            <Users size={16} />
+            Feature Toggles
+          </button>
+        </div>
+
+        {/* Tab 1: Supabase & Integration */}
+        {activeTab === 'supabase' && (
+          <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Server size={18} /> Credentials & Integration
+            </h2>
+
+            <div className="form-group">
+              <label>Server/Guild Name (Display only)</label>
               <input
                 type="text"
                 className="glass-input"
-                value={activeEventId}
-                onChange={(e) => setActiveEventId(e.target.value)}
-                placeholder="Paste Event UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
+                value={guildName}
+                onChange={(e) => setGuildName(e.target.value)}
+                required
               />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Supabase URL</label>
+                <input
+                  type="url"
+                  className="glass-input"
+                  value={supabaseUrl}
+                  onChange={(e) => setSupabaseUrl(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Supabase Anon Key</label>
+                <input
+                  type="password"
+                  className="glass-input"
+                  value={supabaseAnonKey}
+                  onChange={(e) => setSupabaseAnonKey(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-row" style={{ marginBottom: 0 }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Bypass RLS Email (Optional)</label>
+                <input
+                  type="email"
+                  className="glass-input"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="No authentication"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Bypass RLS Password (Optional)</label>
+                <input
+                  type="password"
+                  className="glass-input"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="No authentication"
+                />
+              </div>
+            </div>
+
+            {turnstileSiteKey && (
+              <div style={{ marginTop: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#38bdf8' }}>
+                  Cloudflare Turnstile Verification
+                </label>
+                <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '12px' }}>
+                  This server&apos;s Supabase login is protected by Cloudflare Turnstile. Please verify you are human before saving.
+                </p>
+                <div id="turnstile-container" style={{ minHeight: '65px' }}></div>
+                <Script
+                  src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+                  strategy="afterInteractive"
+                />
+              </div>
             )}
+
+            <div className="form-group" style={{ marginTop: '20px', marginBottom: 0 }}>
+              <label>Cloudflare Turnstile Site Key (Optional)</label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+                If this server&apos;s Supabase enforces Cloudflare Turnstile captcha on login, paste the public site key here.
+              </p>
+              <input
+                type="text"
+                className="glass-input"
+                value={turnstileSiteKey}
+                onChange={(e) => setTurnstileSiteKey(e.target.value)}
+                placeholder="e.g. 0x4AAAAAADccgBtUIa17v76i"
+              />
+            </div>
+
+            <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600 }}>Test Connection</label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '12px' }}>
+                Verify if the bot can connect to your Supabase project instance and authenticate with the provided credentials.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleTestConnection}
+                  disabled={testConnLoading}
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 16px', fontSize: '13px' }}
+                >
+                  {testConnLoading ? <RefreshCw className="animate-spin" size={14} /> : <Database size={14} />}
+                  {testConnLoading ? 'Testing connection...' : 'Test Connection'}
+                </button>
+                {testConnSuccess && <span style={{ color: '#10b981', fontSize: '13px', fontWeight: 500 }}>✓ {testConnSuccess}</span>}
+                {testConnError && <span style={{ color: '#ef4444', fontSize: '13px', fontWeight: 500 }}>✗ {testConnError}</span>}
+              </div>
+            </div>
           </div>
+        )}
 
-          {channelsLoading && (
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>Fetching guild channels from Discord...</div>
-          )}
+        {/* Tab 2: Discord Channels */}
+        {activeTab === 'channels' && (
+          <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              Supabase Discord Channel Settings
+            </h2>
 
-          <div className="form-row">
+            <div className="form-group" style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Database size={16} /> Select Active Event ID
+              </label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+                Select the specific CTF event from the database that this Discord Server will track and pull challenges/scores from.
+              </p>
+              {eventsLoading ? (
+                <div style={{ color: '#94a3b8', fontSize: '14px' }}>Querying Supabase events...</div>
+              ) : events.length > 0 ? (
+                <select
+                  className="glass-input glass-select"
+                  value={activeEventId}
+                  onChange={(e) => setActiveEventId(e.target.value)}
+                >
+                  <option value="">-- Direct Raw String / No specific Event --</option>
+                  {events.map((e) => (
+                    <option key={e.id} value={e.id}>{e.name} ({e.id})</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="glass-input"
+                  value={activeEventId}
+                  onChange={(e) => setActiveEventId(e.target.value)}
+                  placeholder="Paste Event UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
+                />
+              )}
+            </div>
+
+            {channelsLoading && (
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>Fetching guild channels from Discord...</div>
+            )}
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>First Blood Channel ID</label>
+                {botConnected ? (
+                  <select
+                    className="glass-input glass-select"
+                    value={chanFirstBlood}
+                    onChange={(e) => setChanFirstBlood(e.target.value)}
+                  >
+                    <option value="">-- Select Channel --</option>
+                    {discordChannels.filter(c => c.type === 0).map(c => (
+                      <option key={c.id} value={c.id}>#{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="glass-input"
+                    value={chanFirstBlood}
+                    onChange={(e) => setChanFirstBlood(e.target.value)}
+                    placeholder="e.g. 112233445566778899"
+                  />
+                )}
+
+                {chanFirstBlood && (
+                  <div style={{ marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={handleTestFirstBlood}
+                      disabled={testFbLoading}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      {testFbLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
+                      Test First Blood
+                    </button>
+                    {testFbSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {testFbSuccess}</span>}
+                    {testFbError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {testFbError}</span>}
+                  </div>
+                )}
+              </div>
+              <div className="form-group">
+                <label>Live Scoreboard Channel ID</label>
+                {botConnected ? (
+                  <select
+                    className="glass-input glass-select"
+                    value={chanScoreboard}
+                    onChange={(e) => setChanScoreboard(e.target.value)}
+                  >
+                    <option value="">-- Select Channel --</option>
+                    {discordChannels.filter(c => c.type === 0).map(c => (
+                      <option key={c.id} value={c.id}>#{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="glass-input"
+                    value={chanScoreboard}
+                    onChange={(e) => setChanScoreboard(e.target.value)}
+                    placeholder="e.g. 112233445566778899"
+                  />
+                )}
+
+                {chanScoreboard && (
+                  <div style={{ marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={handleDeployScoreboard}
+                      disabled={scoreLoading}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px', borderColor: '#f59e0b', color: '#fbbf24', background: 'rgba(245, 158, 11, 0.03)' }}
+                    >
+                      {scoreLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
+                      Deploy / Update Scoreboard
+                    </button>
+                    {scoreSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {scoreSuccess}</span>}
+                    {scoreError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {scoreError}</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="form-group">
-              <label>First Blood Channel ID</label>
+              <label>CTF Announcements Channel ID</label>
               {botConnected ? (
                 <select
                   className="glass-input glass-select"
-                  value={chanFirstBlood}
-                  onChange={(e) => setChanFirstBlood(e.target.value)}
+                  value={chanAnnouncements}
+                  onChange={(e) => setChanAnnouncements(e.target.value)}
                 >
                   <option value="">-- Select Channel --</option>
                   {discordChannels.filter(c => c.type === 0).map(c => (
@@ -589,36 +826,57 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 <input
                   type="text"
                   className="glass-input"
-                  value={chanFirstBlood}
-                  onChange={(e) => setChanFirstBlood(e.target.value)}
+                  value={chanAnnouncements}
+                  onChange={(e) => setChanAnnouncements(e.target.value)}
                   placeholder="e.g. 112233445566778899"
                 />
               )}
 
-              {chanFirstBlood && (
+              {chanAnnouncements && (
                 <div style={{ marginTop: '8px' }}>
                   <button
                     type="button"
-                    onClick={handleTestFirstBlood}
-                    disabled={testFbLoading}
+                    onClick={handleTestAnnouncement}
+                    disabled={testAnnLoading}
                     className="btn btn-secondary"
                     style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                   >
-                    {testFbLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
-                    Test First Blood
+                    {testAnnLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
+                    Test Announcement
                   </button>
-                  {testFbSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {testFbSuccess}</span>}
-                  {testFbError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {testFbError}</span>}
+                  {testAnnSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {testAnnSuccess}</span>}
+                  {testAnnError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {testAnnError}</span>}
                 </div>
               )}
             </div>
-            <div className="form-group">
-              <label>Live Scoreboard Channel ID</label>
+          </div>
+        )}
+
+        {/* Tab 3: Tickets System */}
+        {activeTab === 'tickets' && (
+          <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Ticket size={20} />
+              Ticket System Configuration
+            </h2>
+            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '24px' }}>
+              Configure how the support ticket system works in your Discord server. Set the panel channel, roles, and custom messages.
+            </p>
+
+            {/* Ticket Panel Channel */}
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageSquare size={16} />
+                Ticket Panel Channel
+              </label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+                The channel where the &quot;Open a Ticket&quot; embed panel will be posted. Users click a button here to create tickets.
+              </p>
               {botConnected ? (
                 <select
                   className="glass-input glass-select"
-                  value={chanScoreboard}
-                  onChange={(e) => setChanScoreboard(e.target.value)}
+                  value={chanTicketPanel}
+                  onChange={(e) => setChanTicketPanel(e.target.value)}
                 >
                   <option value="">-- Select Channel --</option>
                   {discordChannels.filter(c => c.type === 0).map(c => (
@@ -629,388 +887,291 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 <input
                   type="text"
                   className="glass-input"
-                  value={chanScoreboard}
-                  onChange={(e) => setChanScoreboard(e.target.value)}
+                  value={chanTicketPanel}
+                  onChange={(e) => setChanTicketPanel(e.target.value)}
                   placeholder="e.g. 112233445566778899"
                 />
               )}
 
-              {chanScoreboard && (
-                <div style={{ marginTop: '8px' }}>
+              {chanTicketPanel && (
+                <div style={{ marginTop: '12px' }}>
                   <button
                     type="button"
-                    onClick={handleDeployScoreboard}
-                    disabled={scoreLoading}
+                    onClick={handleDeployPanel}
+                    disabled={deployLoading}
                     className="btn btn-secondary"
-                    style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px', borderColor: '#f59e0b', color: '#fbbf24', background: 'rgba(245, 158, 11, 0.03)' }}
+                    style={{
+                      fontSize: '13px',
+                      padding: '8px 16px',
+                      borderColor: '#a78bfa',
+                      color: '#c084fc',
+                      background: 'rgba(167, 139, 250, 0.05)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
                   >
-                    {scoreLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
-                    Deploy / Update Scoreboard
+                    {deployLoading ? <RefreshCw className="animate-spin" size={14} /> : <Ticket size={14} />}
+                    {deployLoading ? 'Deploying...' : 'Deploy Panel Embed'}
                   </button>
-                  {scoreSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {scoreSuccess}</span>}
-                  {scoreError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {scoreError}</span>}
+                  <p style={{ color: '#94a3b8', fontSize: '11px', marginTop: '6px' }}>
+                    ⚠️ Make sure to save the configuration changes first before deploying the panel.
+                  </p>
+                  {deploySuccess && (
+                    <p style={{ color: '#10b981', fontSize: '12px', marginTop: '6px' }}>✓ {deploySuccess}</p>
+                  )}
+                  {deployError && (
+                    <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px' }}>✗ {deployError}</p>
+                  )}
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="form-group">
-            <label>CTF Announcements Channel ID</label>
-            {botConnected ? (
-              <select
-                className="glass-input glass-select"
-                value={chanAnnouncements}
-                onChange={(e) => setChanAnnouncements(e.target.value)}
-              >
-                <option value="">-- Select Channel --</option>
-                {discordChannels.filter(c => c.type === 0).map(c => (
-                  <option key={c.id} value={c.id}>#{c.name}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                className="glass-input"
-                value={chanAnnouncements}
-                onChange={(e) => setChanAnnouncements(e.target.value)}
-                placeholder="e.g. 112233445566778899"
-              />
-            )}
-
-            {chanAnnouncements && (
-              <div style={{ marginTop: '8px' }}>
-                <button
-                  type="button"
-                  onClick={handleTestAnnouncement}
-                  disabled={testAnnLoading}
-                  className="btn btn-secondary"
-                  style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            {/* Support Ticket Logs Channel */}
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageSquare size={16} />
+                Support Ticket Logs Channel ID
+              </label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+                The channel where all ticket logs (creation, closure, assignments) will be sent.
+              </p>
+              {botConnected ? (
+                <select
+                  className="glass-input glass-select"
+                  value={chanTicketLogs}
+                  onChange={(e) => setChanTicketLogs(e.target.value)}
                 >
-                  {testAnnLoading ? <RefreshCw className="animate-spin" size={10} /> : null}
-                  Test Announcement
-                </button>
-                {testAnnSuccess && <span style={{ color: '#10b981', fontSize: '11px', marginLeft: '8px' }}>✓ {testAnnSuccess}</span>}
-                {testAnnError && <span style={{ color: '#ef4444', fontSize: '11px', marginLeft: '8px' }}>✗ {testAnnError}</span>}
-              </div>
-            )}
-          </div>
-        </div>
+                  <option value="">-- Select Channel --</option>
+                  {discordChannels.filter(c => c.type === 0).map(c => (
+                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="glass-input"
+                  value={chanTicketLogs}
+                  onChange={(e) => setChanTicketLogs(e.target.value)}
+                  placeholder="e.g. 112233445566778899"
+                />
+              )}
+            </div>
 
-        {/* Section 3.5: Ticket System Configuration */}
-        <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Ticket size={20} />
-            Ticket System Configuration
-          </h2>
-          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '24px' }}>
-            Configure how the support ticket system works in your Discord server. Set the panel channel, roles, and custom messages.
-          </p>
-
-          {/* Ticket Panel Channel */}
-          <div className="form-group" style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MessageSquare size={16} />
-              Ticket Panel Channel
-            </label>
-            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-              The channel where the &quot;Open a Ticket&quot; embed panel will be posted. Users click a button here to create tickets.
-            </p>
-            {botConnected ? (
-              <select
-                className="glass-input glass-select"
-                value={chanTicketPanel}
-                onChange={(e) => setChanTicketPanel(e.target.value)}
-              >
-                <option value="">-- Select Channel --</option>
-                {discordChannels.filter(c => c.type === 0).map(c => (
-                  <option key={c.id} value={c.id}>#{c.name}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                className="glass-input"
-                value={chanTicketPanel}
-                onChange={(e) => setChanTicketPanel(e.target.value)}
-                placeholder="e.g. 112233445566778899"
-              />
-            )}
-
-            {chanTicketPanel && (
-              <div style={{ marginTop: '12px' }}>
-                <button
-                  type="button"
-                  onClick={handleDeployPanel}
-                  disabled={deployLoading}
-                  className="btn btn-secondary"
-                  style={{
-                    fontSize: '13px',
-                    padding: '8px 16px',
-                    borderColor: '#a78bfa',
-                    color: '#c084fc',
-                    background: 'rgba(167, 139, 250, 0.05)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
+            {/* Support Ticket Parent Category */}
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FolderOpen size={16} />
+                Support Ticket Parent Category ID
+              </label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+                The Discord category under which all new private ticket channels will be created.
+              </p>
+              {botConnected ? (
+                <select
+                  className="glass-input glass-select"
+                  value={chanTicketCategory}
+                  onChange={(e) => setChanTicketCategory(e.target.value)}
                 >
-                  {deployLoading ? <RefreshCw className="animate-spin" size={14} /> : <Ticket size={14} />}
-                  {deployLoading ? 'Deploying...' : 'Deploy Panel Embed'}
-                </button>
-                <p style={{ color: '#94a3b8', fontSize: '11px', marginTop: '6px' }}>
-                  ⚠️ Make sure to save the configuration changes first before deploying the panel.
-                </p>
-                {deploySuccess && (
-                  <p style={{ color: '#10b981', fontSize: '12px', marginTop: '6px' }}>✓ {deploySuccess}</p>
-                )}
-                {deployError && (
-                  <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px' }}>✗ {deployError}</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Support Ticket Logs Channel */}
-          <div className="form-group" style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MessageSquare size={16} />
-              Support Ticket Logs Channel ID
-            </label>
-            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-              The channel where all ticket logs (creation, closure, assignments) will be sent.
-            </p>
-            {botConnected ? (
-              <select
-                className="glass-input glass-select"
-                value={chanTicketLogs}
-                onChange={(e) => setChanTicketLogs(e.target.value)}
-              >
-                <option value="">-- Select Channel --</option>
-                {discordChannels.filter(c => c.type === 0).map(c => (
-                  <option key={c.id} value={c.id}>#{c.name}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                className="glass-input"
-                value={chanTicketLogs}
-                onChange={(e) => setChanTicketLogs(e.target.value)}
-                placeholder="e.g. 112233445566778899"
-              />
-            )}
-          </div>
-
-          {/* Support Ticket Parent Category */}
-          <div className="form-group" style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FolderOpen size={16} />
-              Support Ticket Parent Category ID
-            </label>
-            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-              The Discord category under which all new private ticket channels will be created.
-            </p>
-            {botConnected ? (
-              <select
-                className="glass-input glass-select"
-                value={chanTicketCategory}
-                onChange={(e) => setChanTicketCategory(e.target.value)}
-              >
-                <option value="">-- Select Category --</option>
-                {discordChannels.filter(c => c.type === 4).map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                className="glass-input"
-                value={chanTicketCategory}
-                onChange={(e) => setChanTicketCategory(e.target.value)}
-                placeholder="e.g. 112233445566778899"
-              />
-            )}
-          </div>
-
-          {/* Ping Roles on Ticket Open */}
-          <div className="form-group" style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Users size={16} />
-              Roles to Ping When a Ticket Opens
-            </label>
-            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-              These roles will be mentioned/pinged inside every new ticket channel so staff gets notified.
-            </p>
-            {discordRoles.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {discordRoles.map(role => {
-                  const isSelected = ticketPingRoles.includes(role.id);
-                  return (
-                    <button
-                      key={role.id}
-                      type="button"
-                      onClick={() => toggleRole(role.id, ticketPingRoles, setTicketPingRoles)}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '20px',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
-                        background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
-                        color: isSelected ? roleColorHex(role.color) : '#94a3b8',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {isSelected ? '✓ ' : ''}@{role.name}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <input
-                type="text"
-                className="glass-input"
-                value={ticketPingRoles.join(',')}
-                onChange={(e) => setTicketPingRoles(e.target.value ? e.target.value.split(',') : [])}
-                placeholder="Comma-separated Role IDs (e.g. 123456,789012)"
-              />
-            )}
-            {ticketPingRoles.length > 0 && (
-              <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
-                Selected: {ticketPingRoles.map(id => getRoleName(id)).join(', ')}
-              </div>
-            )}
-          </div>
-
-          {/* Required Roles to Open Ticket */}
-          <div className="form-group" style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Users size={16} />
-              Required Roles to Open a Ticket
-            </label>
-            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-              Only members with at least one of these roles can open a ticket. Leave empty to allow all members.
-            </p>
-            {discordRoles.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {discordRoles.map(role => {
-                  const isSelected = ticketRequiredRoles.includes(role.id);
-                  return (
-                    <button
-                      key={role.id}
-                      type="button"
-                      onClick={() => toggleRole(role.id, ticketRequiredRoles, setTicketRequiredRoles)}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '20px',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
-                        background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
-                        color: isSelected ? roleColorHex(role.color) : '#94a3b8',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {isSelected ? '✓ ' : ''}@{role.name}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <input
-                type="text"
-                className="glass-input"
-                value={ticketRequiredRoles.join(',')}
-                onChange={(e) => setTicketRequiredRoles(e.target.value ? e.target.value.split(',') : [])}
-                placeholder="Comma-separated Role IDs (leave empty = everyone)"
-              />
-            )}
-            {ticketRequiredRoles.length > 0 && (
-              <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
-                Selected: {ticketRequiredRoles.map(id => getRoleName(id)).join(', ')}
-              </div>
-            )}
-          </div>
-
-          {/* Custom Welcome Message */}
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MessageSquare size={16} />
-              Custom Ticket Welcome Message
-            </label>
-            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-              This message will be posted inside every new ticket channel. Use <code style={{ background: 'rgba(56,189,248,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>{'{{user}}'}</code> to mention the ticket opener.
-            </p>
-            <textarea
-              className="glass-input"
-              value={ticketWelcomeMessage}
-              onChange={(e) => setTicketWelcomeMessage(e.target.value)}
-              placeholder={"Hello {{user}}! 👋\n\nA staff member will assist you shortly.\nPlease describe your issue in detail."}
-              rows={5}
-              style={{ resize: 'vertical', minHeight: '100px', fontFamily: 'inherit' }}
-            />
-          </div>
-        </div>
-
-        {/* Section 4: Feature Toggles */}
-        <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8' }}>Feature Toggles</h2>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <span style={{ fontWeight: 600 }}>Enable First Blood Alerts</span>
-                <p style={{ color: '#94a3b8', fontSize: '13px' }}>Notify Discord server immediately when challenges are solved the first time.</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={enableFirstBlood}
-                onChange={(e) => setEnableFirstBlood(e.target.checked)}
-                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-              />
+                  <option value="">-- Select Category --</option>
+                  {discordChannels.filter(c => c.type === 4).map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="glass-input"
+                  value={chanTicketCategory}
+                  onChange={(e) => setChanTicketCategory(e.target.value)}
+                  placeholder="e.g. 112233445566778899"
+                />
+              )}
             </div>
 
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-              <div>
-                <span style={{ fontWeight: 600 }}>Enable Support Ticket System</span>
-                <p style={{ color: '#94a3b8', fontSize: '13px' }}>Allow opening support ticket channels dynamically via /ticket create.</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={enableTickets}
-                onChange={(e) => setEnableTickets(e.target.checked)}
-                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-              />
+            {/* Ping Roles on Ticket Open */}
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={16} />
+                Roles to Ping When a Ticket Opens
+              </label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+                These roles will be mentioned/pinged inside every new ticket channel so staff gets notified.
+              </p>
+              {discordRoles.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {discordRoles.map(role => {
+                    const isSelected = ticketPingRoles.includes(role.id);
+                    return (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => toggleRole(role.id, ticketPingRoles, setTicketPingRoles)}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '20px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
+                          background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
+                          color: isSelected ? roleColorHex(role.color) : '#94a3b8',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {isSelected ? '✓ ' : ''}@{role.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  className="glass-input"
+                  value={ticketPingRoles.join(',')}
+                  onChange={(e) => setTicketPingRoles(e.target.value ? e.target.value.split(',') : [])}
+                  placeholder="Comma-separated Role IDs (e.g. 123456,789012)"
+                />
+              )}
+              {ticketPingRoles.length > 0 && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
+                  Selected: {ticketPingRoles.map(id => getRoleName(id)).join(', ')}
+                </div>
+              )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-              <div>
-                <span style={{ fontWeight: 600 }}>Active Status</span>
-                <p style={{ color: '#94a3b8', fontSize: '13px' }}>Turn completely ON/OFF the bot listeners for this guild.</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+            {/* Required Roles to Open Ticket */}
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={16} />
+                Required Roles to Open a Ticket
+              </label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+                Only members with at least one of these roles can open a ticket. Leave empty to allow all members.
+              </p>
+              {discordRoles.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {discordRoles.map(role => {
+                    const isSelected = ticketRequiredRoles.includes(role.id);
+                    return (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => toggleRole(role.id, ticketRequiredRoles, setTicketRequiredRoles)}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '20px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          border: isSelected ? `2px solid ${roleColorHex(role.color)}` : '1px solid var(--border-color)',
+                          background: isSelected ? `${roleColorHex(role.color)}22` : 'transparent',
+                          color: isSelected ? roleColorHex(role.color) : '#94a3b8',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {isSelected ? '✓ ' : ''}@{role.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  className="glass-input"
+                  value={ticketRequiredRoles.join(',')}
+                  onChange={(e) => setTicketRequiredRoles(e.target.value ? e.target.value.split(',') : [])}
+                  placeholder="Comma-separated Role IDs (leave empty = everyone)"
+                />
+              )}
+              {ticketRequiredRoles.length > 0 && (
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
+                  Selected: {ticketRequiredRoles.map(id => getRoleName(id)).join(', ')}
+                </div>
+              )}
+            </div>
+
+            {/* Custom Welcome Message */}
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageSquare size={16} />
+                Custom Ticket Welcome Message
+              </label>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
+                This message will be posted inside every new ticket channel. Use <code style={{ background: 'rgba(56,189,248,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>{'{{user}}'}</code> to mention the ticket opener.
+              </p>
+              <textarea
+                className="glass-input"
+                value={ticketWelcomeMessage}
+                onChange={(e) => setTicketWelcomeMessage(e.target.value)}
+                placeholder={"Hello {{user}}! 👋\n\nA staff member will assist you shortly.\nPlease describe your issue in detail."}
+                rows={5}
+                style={{ resize: 'vertical', minHeight: '100px', fontFamily: 'inherit' }}
               />
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end', marginBottom: '48px' }}>
-          <Link href="/dashboard/servers" className="btn btn-secondary">
-            Cancel
-          </Link>
-          <button type="submit" className="btn btn-primary" disabled={btnLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Save size={18} />
-            {btnLoading ? 'Saving changes...' : 'Save Configuration'}
-          </button>
-        </div>
+        {/* Tab 4: Feature Toggles */}
+        {activeTab === 'toggles' && (
+          <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', color: '#38bdf8' }}>Feature Toggles</h2>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <span style={{ fontWeight: 600 }}>Enable First Blood Alerts</span>
+                  <p style={{ color: '#94a3b8', fontSize: '13px' }}>Notify Discord server immediately when challenges are solved the first time.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={enableFirstBlood}
+                  onChange={(e) => setEnableFirstBlood(e.target.checked)}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                <div>
+                  <span style={{ fontWeight: 600 }}>Enable Live Scoreboard</span>
+                  <p style={{ color: '#94a3b8', fontSize: '13px' }}>Allow users to execute /scoreboard command inside the server.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={enableScoreboard}
+                  onChange={(e) => setEnableScoreboard(e.target.checked)}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                <div>
+                  <span style={{ fontWeight: 600 }}>Enable Support Ticket System</span>
+                  <p style={{ color: '#94a3b8', fontSize: '13px' }}>Allow opening support ticket channels dynamically via ticket buttons.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={enableTickets}
+                  onChange={(e) => setEnableTickets(e.target.checked)}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                <div>
+                  <span style={{ fontWeight: 600 }}>Active Status</span>
+                  <p style={{ color: '#94a3b8', fontSize: '13px' }}>Turn completely ON/OFF the bot listeners for this guild.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );
