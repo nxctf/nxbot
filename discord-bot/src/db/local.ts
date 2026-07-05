@@ -570,7 +570,7 @@ export function saveTicketMessage(
   getDb().prepare(`
     INSERT INTO ticket_messages (ticket_id, user_id, username, avatar_url, message_content, attachment_filename, attachment_original_name, attachment_size)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(ticketId, userId, username, avatarUrl, content ?? null, attachmentFilename ?? null, attachmentOriginalName ?? null, attachmentSize ?? null);
+  `).run(ticketId, userId, username, avatarUrl, content ?? '', attachmentFilename ?? null, attachmentOriginalName ?? null, attachmentSize ?? null);
 }
 
 // ---- Logging ----

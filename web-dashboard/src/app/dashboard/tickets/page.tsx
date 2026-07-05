@@ -477,7 +477,7 @@ export default function TicketsPage() {
                             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        {msg.message_content && (
+                        {msg.message_content?.trim() && (
                           <div style={{
                             color: '#e2e8f0',
                             fontSize: '14px',
