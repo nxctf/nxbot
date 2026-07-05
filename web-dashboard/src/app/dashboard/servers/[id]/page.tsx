@@ -367,6 +367,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
     setTestConnSuccess('');
     setTestConnError('');
     try {
+      const conn = connections.find(c => c.id === supabaseConnectionId);
       const res = await fetch('/api/servers/test-connection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -375,6 +376,8 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           supabase_anon_key: supabaseAnonKey,
           supabase_login_email: loginEmail || null,
           supabase_login_password: loginPassword || null,
+          supabase_access_token: conn?.supabase_access_token || null,
+          supabase_refresh_token: conn?.supabase_refresh_token || null,
         }),
       });
       const data = await res.json();

@@ -12,6 +12,8 @@ interface Connection {
   supabase_login_email: string | null;
   supabase_login_password: string | null;
   supabase_turnstile_site_key: string | null;
+  supabase_access_token?: string | null;
+  supabase_refresh_token?: string | null;
   created_at: string;
 }
 
@@ -204,13 +206,16 @@ export default function DatabasesPage() {
           supabase_anon_key: conn.supabase_anon_key,
           supabase_login_email: conn.supabase_login_email,
           supabase_login_password: conn.supabase_login_password,
+          supabase_access_token: conn.supabase_access_token || null,
+          supabase_refresh_token: conn.supabase_refresh_token || null,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        setTestConnStatus(prev => ({ ...prev, [id]: { success: 'Connected' } }));
+        const msg = data.warning === 'captcha_required' ? 'Connected (Auth Needs Edit/Save)' : 'Connected';
+        setTestConnStatus(prev => ({ ...prev, [id]: { success: msg } }));
       } else {
         setTestConnStatus(prev => ({ ...prev, [id]: { error: data.error || 'Failed' } }));
       }
