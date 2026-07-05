@@ -40,30 +40,44 @@ export async function POST(request: Request) {
       enable_tickets
     } = body;
 
-    // Validation
-    if (!id || !guild_name || !supabase_connection_id) {
-      return NextResponse.json({ error: 'ID, Guild Name, and Supabase Connection are required.' }, { status: 400 });
+    // Validation - Supabase Connection is optional
+    if (!id || !guild_name) {
+      return NextResponse.json({ error: 'Discord Guild ID and Server Name are required.' }, { status: 400 });
     }
 
     const db = getDb();
 
-    // Check if guild with same ID already exists (as primary key id)
+    // Check if guild with same ID already exists
     const existing = db.prepare('SELECT id FROM guilds WHERE id = ?').get(id);
     if (existing) {
       return NextResponse.json({ error: 'A configuration for this Discord Guild ID already exists.' }, { status: 400 });
+    }
+
+    // Resolve supabase_url and supabase_anon_key if connection is linked
+    let resolvedUrl = '';
+    let resolvedAnonKey = '';
+    if (supabase_connection_id) {
+      const conn = db.prepare('SELECT supabase_url, supabase_anon_key FROM supabase_connections WHERE id = ?').get(supabase_connection_id) as any;
+      if (conn) {
+        resolvedUrl = conn.supabase_url || '';
+        resolvedAnonKey = conn.supabase_anon_key || '';
+      }
     }
 
     // Insert server config
     db.prepare(`
       INSERT INTO guilds (
         id, guild_id, guild_name, supabase_connection_id,
+        supabase_url, supabase_anon_key,
         enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)
     `).run(
       id,
       id,
       guild_name,
-      supabase_connection_id,
+      supabase_connection_id || null,
+      resolvedUrl,
+      resolvedAnonKey,
       enable_firstblood ? 1 : 0,
       enable_scoreboard ? 1 : 0,
       enable_tickets ? 1 : 0

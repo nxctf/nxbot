@@ -33,6 +33,11 @@ export default function ServersPage() {
   const [connections, setConnections] = useState<any[]>([]);
   const [supabaseConnectionId, setSupabaseConnectionId] = useState('');
 
+  // Discord guilds available to the bot
+  const [discordGuilds, setDiscordGuilds] = useState<{ id: string; name: string }[]>([]);
+  const [isManualGuild, setIsManualGuild] = useState(false);
+  const [guildsLoading, setGuildsLoading] = useState(false);
+
   const fetchServers = async () => {
     try {
       const res = await fetch('/api/servers');
@@ -51,18 +56,39 @@ export default function ServersPage() {
       if (res.ok) {
         const data = await res.json();
         setConnections(data);
-        if (data.length > 0) {
-          setSupabaseConnectionId(data[0].id);
-        }
       }
     } catch (err) {
       console.error('Error fetching connections:', err);
     }
   };
 
+  const fetchDiscordGuilds = async () => {
+    setGuildsLoading(true);
+    try {
+      const res = await fetch('/api/servers/discord-guilds');
+      if (res.ok) {
+        const data = await res.json();
+        setDiscordGuilds(data);
+        if (data.length > 0) {
+          setIsManualGuild(false);
+        } else {
+          setIsManualGuild(true);
+        }
+      } else {
+        setIsManualGuild(true);
+      }
+    } catch (err) {
+      console.error('Error fetching Discord guilds:', err);
+      setIsManualGuild(true);
+    } finally {
+      setGuildsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchServers();
     fetchConnections();
+    fetchDiscordGuilds();
   }, []);
 
   const handleAddServer = async (e: React.FormEvent) => {
@@ -70,7 +96,7 @@ export default function ServersPage() {
     setError('');
     setSuccess('');
 
-    if (!guildId || !guildName || !supabaseConnectionId) {
+    if (!guildId || !guildName) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -84,7 +110,7 @@ export default function ServersPage() {
         body: JSON.stringify({
           id: guildId,
           guild_name: guildName,
-          supabase_connection_id: supabaseConnectionId,
+          supabase_connection_id: supabaseConnectionId || null,
           enable_firstblood: true,
           enable_scoreboard: true,
           enable_tickets: true,
@@ -183,58 +209,96 @@ export default function ServersPage() {
         <div className="glass-panel animate-fade-in" style={{ padding: '32px', marginBottom: '32px' }}>
           <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '24px' }}>Register New Server</h2>
           <form onSubmit={handleAddServer}>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Discord Guild ID (Required)</label>
-                <input
-                  type="text"
-                  className="glass-input"
-                  placeholder="e.g. 112233445566778899"
-                  value={guildId}
-                  onChange={(e) => setGuildId(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Guild/Server Name (Required)</label>
-                <input
-                  type="text"
-                  className="glass-input"
-                  placeholder="e.g. My Awesome CTF"
-                  value={guildName}
-                  onChange={(e) => setGuildName(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label>Link Supabase Connection</label>
-              {connections.length > 0 ? (
+            {/* Bot Guild List Selector or Manual Entry */}
+            {discordGuilds.length > 0 && !isManualGuild ? (
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label>Select Discord Server (Bot is joined to these)</label>
                 <select
                   className="glass-input glass-select"
-                  value={supabaseConnectionId}
-                  onChange={(e) => setSupabaseConnectionId(e.target.value)}
+                  value={guildId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'manual') {
+                      setIsManualGuild(true);
+                      setGuildId('');
+                      setGuildName('');
+                    } else {
+                      setGuildId(val);
+                      const found = discordGuilds.find(g => g.id === val);
+                      if (found) {
+                        setGuildName(found.name);
+                      }
+                    }
+                  }}
                   required
                 >
-                  {connections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.supabase_url})
-                    </option>
-                  ))}
+                  <option value="">-- Select Server --</option>
+                  {discordGuilds
+                    .filter(g => !servers.some(s => s.id === g.id))
+                    .map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({g.id})
+                      </option>
+                    ))}
+                  <option value="manual">➕ Enter Guild ID Manually...</option>
                 </select>
-              ) : (
-                <div style={{
-                  padding: '16px',
-                  background: 'rgba(245, 158, 11, 0.1)',
-                  border: '1px solid rgba(245, 158, 11, 0.2)',
-                  color: '#fbbf24',
-                  borderRadius: '8px',
-                  fontSize: '14px'
-                }}>
-                  ⚠️ No database connections saved yet. Please configure a connection under <strong>Supabase Configs</strong> in the sidebar first.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Discord Guild ID (Required)</label>
+                    <input
+                      type="text"
+                      className="glass-input"
+                      placeholder="e.g. 112233445566778899"
+                      value={guildId}
+                      onChange={(e) => setGuildId(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Guild/Server Name (Required)</label>
+                    <input
+                      type="text"
+                      className="glass-input"
+                      placeholder="e.g. My Awesome CTF"
+                      value={guildName}
+                      onChange={(e) => setGuildName(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
-              )}
+                {discordGuilds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsManualGuild(false);
+                      setGuildId('');
+                      setGuildName('');
+                    }}
+                    className="text-xs text-primary font-semibold hover:underline bg-transparent border-none cursor-pointer"
+                  >
+                    ← Select from Bot Guilds list instead
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label>Link Supabase Connection (Optional)</label>
+              <select
+                className="glass-input glass-select"
+                value={supabaseConnectionId}
+                onChange={(e) => setSupabaseConnectionId(e.target.value)}
+              >
+                <option value="">-- None / Link Later --</option>
+                {connections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.supabase_url})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
