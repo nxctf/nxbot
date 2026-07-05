@@ -65,12 +65,15 @@ export async function POST(request: Request) {
     }
 
     // 2. Test User authentication if credentials are supplied
+    let accessToken: string | null = null;
+    let refreshToken: string | null = null;
+
     if (supabase_login_email && supabase_login_password) {
       try {
         const client = createClient(supabase_url, supabase_anon_key, {
           auth: { persistSession: false }
         });
-        const { error: authError } = await client.auth.signInWithPassword({
+        const { data: authData, error: authError } = await client.auth.signInWithPassword({
           email: supabase_login_email,
           password: supabase_login_password,
           options: {
@@ -80,6 +83,8 @@ export async function POST(request: Request) {
         if (authError) {
           return NextResponse.json({ error: `Supabase login authentication failed: ${authError.message}` }, { status: 400 });
         }
+        accessToken = authData.session?.access_token || null;
+        refreshToken = authData.session?.refresh_token || null;
       } catch (err: any) {
         return NextResponse.json({ error: `Supabase auth verification error: ${err.message}` }, { status: 400 });
       }
@@ -90,8 +95,9 @@ export async function POST(request: Request) {
 
     db.prepare(`
       INSERT INTO supabase_connections (
-        id, name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password, supabase_turnstile_site_key
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        id, name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
+        supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       connId,
       name,
@@ -99,6 +105,8 @@ export async function POST(request: Request) {
       supabase_anon_key,
       supabase_login_email || null,
       supabase_login_password || null,
+      accessToken,
+      refreshToken,
       supabase_turnstile_site_key || null
     );
 

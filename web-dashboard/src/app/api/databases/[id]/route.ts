@@ -85,12 +85,15 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
       }
 
       // 2. Test User authentication if credentials are supplied
+      let accessToken: string | null = null;
+      let refreshToken: string | null = null;
+
       if (supabase_login_email && supabase_login_password) {
         try {
           const client = createClient(supabase_url, supabase_anon_key, {
             auth: { persistSession: false }
           });
-          const { error: authError } = await client.auth.signInWithPassword({
+          const { data: authData, error: authError } = await client.auth.signInWithPassword({
             email: supabase_login_email,
             password: supabase_login_password,
             options: {
@@ -100,31 +103,46 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
           if (authError) {
             return NextResponse.json({ error: `Supabase login authentication failed: ${authError.message}` }, { status: 400 });
           }
+          accessToken = authData.session?.access_token || null;
+          refreshToken = authData.session?.refresh_token || null;
         } catch (err: any) {
           return NextResponse.json({ error: `Supabase auth verification error: ${err.message}` }, { status: 400 });
         }
       }
-    }
 
-    db.prepare(`
-      UPDATE supabase_connections SET
-        name = ?,
-        supabase_url = ?,
-        supabase_anon_key = ?,
-        supabase_login_email = ?,
-        supabase_login_password = ?,
-        supabase_turnstile_site_key = ?,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(
-      name,
-      supabase_url,
-      supabase_anon_key,
-      supabase_login_email || null,
-      supabase_login_password || null,
-      supabase_turnstile_site_key || null,
-      params.id
-    );
+      // If credentials changed, update the credentials and new tokens
+      db.prepare(`
+        UPDATE supabase_connections SET
+          name = ?,
+          supabase_url = ?,
+          supabase_anon_key = ?,
+          supabase_login_email = ?,
+          supabase_login_password = ?,
+          supabase_access_token = ?,
+          supabase_refresh_token = ?,
+          supabase_turnstile_site_key = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        name,
+        supabase_url,
+        supabase_anon_key,
+        supabase_login_email || null,
+        supabase_login_password || null,
+        accessToken,
+        refreshToken,
+        supabase_turnstile_site_key || null,
+        params.id
+      );
+    } else {
+      // If credentials didn't change, just update the name
+      db.prepare(`
+        UPDATE supabase_connections SET
+          name = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(name, params.id);
+    }
 
     return NextResponse.json({ success: true, message: 'Database connection updated successfully.' });
   } catch (err: any) {
