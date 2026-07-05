@@ -10,48 +10,34 @@ interface ToggleProps {
 
 export function Toggle({ checked, onChange, disabled = false, label, description }: ToggleProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+    <div className="flex items-center justify-between py-2.5">
       {(label || description) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '16px', flex: 1 }}>
-          {label && <span style={{ fontWeight: 600, fontSize: '15px', color: '#f8fafc' }}>{label}</span>}
-          {description && <span style={{ fontSize: '13px', color: '#94a3b8' }}>{description}</span>}
+        <div className="flex flex-col gap-0.5 pr-4 flex-1">
+          {label && <span className="font-semibold text-[15px] text-slate-100">{label}</span>}
+          {description && <span className="text-xs text-slate-400">{description}</span>}
         </div>
       )}
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        style={{
-          position: 'relative',
-          display: 'inline-flex',
-          height: '24px',
-          width: '46px',
-          flexShrink: 0,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          borderRadius: '9999px',
-          border: '2px solid transparent',
-          transition: 'background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease',
-          outline: 'none',
-          backgroundColor: checked ? 'var(--primary, #38bdf8)' : 'rgba(148, 163, 184, 0.2)',
-          opacity: disabled ? 0.5 : 1,
-          boxShadow: checked ? '0 0 12px rgba(56, 189, 248, 0.4)' : 'none',
-        }}
+        className={`
+          relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
+          transition-colors duration-200 cubic-bezier(0.4, 0, 0.2, 1) outline-none
+          ${checked ? 'bg-primary shadow-lg shadow-primary/30' : 'bg-slate-700/60'}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'opacity-100'}
+        `}
       >
         <span
-          style={{
-            pointerEvents: 'none',
-            display: 'inline-block',
-            height: '20px',
-            width: '20px',
-            borderRadius: '9999px',
-            backgroundColor: '#ffffff',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.4)',
-            transform: checked ? 'translateX(22px)' : 'translateX(0px)',
-            transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
+          className={`
+            pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md
+            transform transition-transform duration-200 cubic-bezier(0.4, 0, 0.2, 1)
+            ${checked ? 'translate-x-5' : 'translate-x-0'}
+          `}
         />
       </button>
     </div>
   );
 }
+
 export default Toggle;
