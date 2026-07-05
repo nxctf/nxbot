@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Server, Ticket, Settings, LogOut, Terminal, Database } from 'lucide-react';
+import { LayoutDashboard, Server, Ticket, Settings, LogOut, Terminal, Database, ChevronRight } from 'lucide-react';
 
 interface SidebarProps {
   username: string;
@@ -34,54 +34,50 @@ export default function Sidebar({ username }: SidebarProps) {
 
   return (
     <aside className="sidebar">
-      <div>
-        <div className="sidebar-logo" style={{ marginBottom: '40px' }}>
-          <Terminal size={28} style={{ color: '#38bdf8' }} />
-          <span>NXBot</span>
+      {/* Logo */}
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-icon">
+          <Terminal size={20} />
         </div>
-
-        <nav className="sidebar-nav">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`nav-link ${isActive ? 'active' : ''}`}
-              >
-                <Icon size={20} />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <span>NXBot</span>
       </div>
 
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ 
-          padding: '12px 16px', 
-          background: 'rgba(30, 41, 59, 0.3)', 
-          border: '1px solid var(--border-color)', 
-          borderRadius: '8px',
-          fontSize: '14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '2px'
-        }}>
-          <span style={{ color: 'var(--muted)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Admin User</span>
-          <span style={{ color: '#38bdf8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            @{username}
-          </span>
+      {/* Navigation */}
+      <nav className="sidebar-nav">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`nav-link ${isActive ? 'active' : ''}`}
+            >
+              <span className="nav-link-icon">
+                <Icon size={18} />
+              </span>
+              <span className="nav-link-label">{item.name}</span>
+              {isActive && <ChevronRight size={14} className="nav-link-arrow" />}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div className="sidebar-footer">
+        <div className="sidebar-user">
+          <div className="sidebar-user-avatar">
+            {username.charAt(0).toUpperCase()}
+          </div>
+          <div className="sidebar-user-info">
+            <span className="sidebar-user-role">Administrator</span>
+            <span className="sidebar-user-name">@{username}</span>
+          </div>
         </div>
 
-        <button 
-          onClick={handleLogout} 
-          className="btn btn-secondary" 
-          style={{ justifyContent: 'flex-start', padding: '12px 16px', width: '100%' }}
-        >
-          <LogOut size={20} />
-          <span>Disconnect</span>
+        <button onClick={handleLogout} className="sidebar-logout-btn">
+          <LogOut size={16} />
+          <span>Sign Out</span>
         </button>
       </div>
     </aside>

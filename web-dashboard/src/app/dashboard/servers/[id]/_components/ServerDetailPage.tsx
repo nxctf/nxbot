@@ -83,10 +83,10 @@ export function ServerDetailPage({
   const [activeTab, setActiveTab] = useState<'general' | 'supabase' | 'tickets'>('general');
 
   return (
-    <div className="max-w-4xl mx-auto relative pb-16">
+    <div className="relative pb-16">
       <form onSubmit={onSave}>
         {/* Sticky Header Bar */}
-        <div className="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-md border-b border-border-color -mx-4 md:-mx-8 mb-8 px-4 md:px-8 py-5 flex items-center justify-between shadow-lg shadow-black/20">
+        <div className="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-md border-b border-border-color -mx-10 mb-8 px-10 py-4 flex items-center justify-between shadow-lg shadow-black/30">
           <div className="flex items-center gap-4">
             <Link
               href="/dashboard/servers"
