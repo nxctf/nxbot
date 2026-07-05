@@ -93,6 +93,8 @@ function initSchema(database: Database.Database): void {
           status TEXT DEFAULT 'open' CHECK(status IN ('open', 'in_progress', 'closed')),
           assigned_to TEXT DEFAULT NULL,
           closed_by TEXT DEFAULT NULL,
+          closed_by_username TEXT DEFAULT NULL,
+          closed_by_avatar TEXT DEFAULT NULL,
           closed_at DATETIME DEFAULT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -209,6 +211,20 @@ function runMigrations(database: Database.Database): void {
       if (!tmColNames.includes(m.name)) {
         database.exec(`ALTER TABLE ticket_messages ADD COLUMN ${m.name} ${m.type}`);
         console.log(`[DB Migration] Added column ${m.name} to ticket_messages table`);
+      }
+    }
+
+    // 2c. Migrate tickets table columns (for existing DBs)
+    const tCols = database.prepare("PRAGMA table_info(tickets)").all() as { name: string }[];
+    const tColNames = tCols.map(c => c.name);
+    const ticketMigrations = [
+      { name: 'closed_by_username', type: 'TEXT DEFAULT NULL' },
+      { name: 'closed_by_avatar', type: 'TEXT DEFAULT NULL' },
+    ];
+    for (const m of ticketMigrations) {
+      if (!tColNames.includes(m.name)) {
+        database.exec(`ALTER TABLE tickets ADD COLUMN ${m.name} ${m.type}`);
+        console.log(`[DB Migration] Added column ${m.name} to tickets table`);
       }
     }
 

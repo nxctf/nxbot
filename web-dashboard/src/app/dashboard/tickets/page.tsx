@@ -14,6 +14,8 @@ interface TicketData {
   status: 'open' | 'in_progress' | 'closed';
   assigned_to: string | null;
   closed_by: string | null;
+  closed_by_username: string | null;
+  closed_by_avatar: string | null;
   closed_at: string | null;
   created_at: string;
 }
@@ -586,8 +588,32 @@ export default function TicketsPage() {
                   </button>
                 )
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '13px', margin: '0 auto' }}>
-                  <Lock size={14} /> Closed at {selectedTicket.closed_at ? new Date(selectedTicket.closed_at).toLocaleString() : 'N/A'} by @{selectedTicket.closed_by || 'system'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                  {selectedTicket.closed_by_avatar ? (
+                    <img
+                      src={selectedTicket.closed_by_avatar}
+                      alt={selectedTicket.closed_by_username || 'closer'}
+                      style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(244,63,94,0.3)', flexShrink: 0 }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                      background: 'rgba(244,63,94,0.15)', border: '2px solid rgba(244,63,94,0.3)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Lock size={14} style={{ color: '#f43f5e' }} />
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc' }}>
+                      Closed by @{selectedTicket.closed_by_username || selectedTicket.closed_by || 'system'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                      {selectedTicket.closed_at ? new Date(selectedTicket.closed_at).toLocaleString() : 'Unknown time'}
+                    </div>
+                  </div>
+                  <span className="badge badge-danger" style={{ flexShrink: 0 }}>Closed</span>
                 </div>
               )}
             </div>
