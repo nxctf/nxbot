@@ -117,6 +117,24 @@ function initSchema(database: Database.Database): void {
 
 function runMigrations(database: Database.Database): void {
   try {
+    // 1. Create supabase_connections table
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS supabase_connections (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        supabase_url TEXT NOT NULL,
+        supabase_anon_key TEXT NOT NULL,
+        supabase_login_email TEXT DEFAULT NULL,
+        supabase_login_password TEXT DEFAULT NULL,
+        supabase_access_token TEXT DEFAULT NULL,
+        supabase_refresh_token TEXT DEFAULT NULL,
+        supabase_turnstile_site_key TEXT DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 2. Add columns to guilds table
     const columns = database.prepare("PRAGMA table_info(guilds)").all() as { name: string }[];
     const colNames = columns.map(c => c.name);
 
@@ -130,6 +148,7 @@ function runMigrations(database: Database.Database): void {
       { name: 'supabase_refresh_token', type: 'TEXT DEFAULT NULL' },
       { name: 'supabase_turnstile_site_key', type: 'TEXT DEFAULT NULL' },
       { name: 'guild_id', type: 'TEXT DEFAULT NULL' },
+      { name: 'supabase_connection_id', type: 'TEXT DEFAULT NULL' },
     ];
 
     for (const m of migrations) {
@@ -138,8 +157,39 @@ function runMigrations(database: Database.Database): void {
         console.log(`[DB Migration] Added column ${m.name} to guilds table`);
         if (m.name === 'guild_id') {
           database.exec('UPDATE guilds SET guild_id = id WHERE guild_id IS NULL');
-          console.log('[DB Migration] Populated guild_id values from existing id values');
         }
+      }
+    }
+
+    // 3. Migrate existing guild credentials to supabase_connections table
+    const guilds = database.prepare('SELECT * FROM guilds WHERE supabase_connection_id IS NULL').all() as any[];
+    for (const g of guilds) {
+      if (g.supabase_url && g.supabase_anon_key) {
+        const connId = `conn_${g.id}`;
+        // Insert connection record if not exists
+        const exists = database.prepare('SELECT id FROM supabase_connections WHERE id = ?').get(connId);
+        if (!exists) {
+          database.prepare(`
+            INSERT INTO supabase_connections (
+              id, name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
+              supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            connId,
+            `${g.guild_name} Supabase`,
+            g.supabase_url,
+            g.supabase_anon_key,
+            g.supabase_login_email || null,
+            g.supabase_login_password || null,
+            g.supabase_access_token || null,
+            g.supabase_refresh_token || null,
+            g.supabase_turnstile_site_key || null
+          );
+          console.log(`[DB Migration] Created supabase_connection record ${connId} for guild ${g.guild_name}`);
+        }
+        // Link guild to connection
+        database.prepare('UPDATE guilds SET supabase_connection_id = ? WHERE id = ?').run(connId, g.id);
+        console.log(`[DB Migration] Linked guild ${g.guild_name} to supabase_connection ${connId}`);
       }
     }
   } catch (err) {

@@ -8,6 +8,7 @@ import Script from 'next/script';
 interface Guild {
   id: string;
   guild_name: string;
+  supabase_connection_id: string | null;
   supabase_url: string;
   supabase_anon_key: string;
   channel_firstblood: string | null;
@@ -29,59 +30,8 @@ export default function ServersPage() {
   // Form Fields
   const [guildId, setGuildId] = useState('');
   const [guildName, setGuildName] = useState('');
-  const [supabaseUrl, setSupabaseUrl] = useState('');
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-
-  // Turnstile widget rendering effect for server creation
-  useEffect(() => {
-    if (!turnstileSiteKey) return;
-
-    let checkInterval: NodeJS.Timeout;
-
-    const renderTurnstile = () => {
-      const w = window as any;
-      if (w.turnstile) {
-        try {
-          w.turnstile.render('#turnstile-container-add', {
-            sitekey: turnstileSiteKey,
-            callback: (token: string) => {
-              setCaptchaToken(token);
-            },
-            'error-callback': () => {
-              console.error('Turnstile captcha failed to load');
-            }
-          });
-        } catch (e) {
-          // ignore duplicate render errors
-        }
-      }
-    };
-
-    if ((window as any).turnstile) {
-      renderTurnstile();
-    } else {
-      checkInterval = setInterval(() => {
-        if ((window as any).turnstile) {
-          renderTurnstile();
-          clearInterval(checkInterval);
-        }
-      }, 500);
-    }
-
-    return () => {
-      if (checkInterval) clearInterval(checkInterval);
-      const w = window as any;
-      if (w.turnstile) {
-        try {
-          w.turnstile.remove('#turnstile-container-add');
-        } catch (e) { }
-      }
-    };
-  }, [turnstileSiteKey, showAddForm]);
+  const [connections, setConnections] = useState<any[]>([]);
+  const [supabaseConnectionId, setSupabaseConnectionId] = useState('');
 
   const fetchServers = async () => {
     try {
@@ -95,8 +45,24 @@ export default function ServersPage() {
     }
   };
 
+  const fetchConnections = async () => {
+    try {
+      const res = await fetch('/api/databases');
+      if (res.ok) {
+        const data = await res.json();
+        setConnections(data);
+        if (data.length > 0) {
+          setSupabaseConnectionId(data[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching connections:', err);
+    }
+  };
+
   useEffect(() => {
     fetchServers();
+    fetchConnections();
   }, []);
 
   const handleAddServer = async (e: React.FormEvent) => {
@@ -104,74 +70,46 @@ export default function ServersPage() {
     setError('');
     setSuccess('');
 
-    if (!guildId || !guildName || !supabaseUrl || !supabaseAnonKey) {
+    if (!guildId || !guildName || !supabaseConnectionId) {
       setError('Please fill in all required fields.');
       return;
     }
 
     setBtnLoading(true);
 
-    const performAdd = async (deactivateOthers: boolean) => {
-      try {
-        const res = await fetch('/api/servers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: guildId,
-            guild_name: guildName,
-            supabase_url: supabaseUrl,
-            supabase_anon_key: supabaseAnonKey,
-            supabase_login_email: loginEmail || null,
-            supabase_login_password: loginPassword || null,
-            supabase_turnstile_site_key: turnstileSiteKey || null,
-            captchaToken: captchaToken || null,
-            enable_firstblood: true,
-            enable_scoreboard: true,
-            enable_tickets: true,
-            deactivateOthers
-          }),
-        });
+    try {
+      const res = await fetch('/api/servers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: guildId,
+          guild_name: guildName,
+          supabase_connection_id: supabaseConnectionId,
+          enable_firstblood: true,
+          enable_scoreboard: true,
+          enable_tickets: true,
+        }),
+      });
 
-        const data = await res.json();
+      const data = await res.json();
 
-        if (!res.ok) {
-          if (data.error === 'guild_exists_confirm') {
-            const confirmDeactivate = confirm(
-              'A configuration for this Discord Guild ID already exists in the database.\n\nDo you want to deactivate the existing configuration and make this new one active?'
-            );
-            if (confirmDeactivate) {
-              await performAdd(true);
-              return;
-            } else {
-              setBtnLoading(false);
-              return;
-            }
-          }
-          throw new Error(data.error || 'Failed to add server.');
-        }
-
-        setSuccess('Server added and validated successfully!');
-        // Reset form
-        setGuildId('');
-        setGuildName('');
-        setSupabaseUrl('');
-        setSupabaseAnonKey('');
-        setLoginEmail('');
-        setLoginPassword('');
-        setTurnstileSiteKey('');
-        setCaptchaToken(null);
-        setShowAddForm(false);
-
-        // Reload
-        fetchServers();
-      } catch (err: any) {
-        setError(err.message || 'Verification failed. Double check your Supabase credentials.');
-      } finally {
-        setBtnLoading(false);
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to add server.');
       }
-    };
 
-    await performAdd(false);
+      setSuccess('Server registered successfully!');
+      // Reset form
+      setGuildId('');
+      setGuildName('');
+      setShowAddForm(false);
+      
+      // Reload
+      fetchServers();
+    } catch (err: any) {
+      setError(err.message || 'Registration failed.');
+    } finally {
+      setBtnLoading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -270,96 +208,31 @@ export default function ServersPage() {
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Supabase Project URL (Required)</label>
-                <input
-                  type="url"
-                  className="glass-input"
-                  placeholder="https://xyz.supabase.co"
-                  value={supabaseUrl}
-                  onChange={(e) => setSupabaseUrl(e.target.value)}
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label>Link Supabase Connection</label>
+              {connections.length > 0 ? (
+                <select
+                  className="glass-input glass-select"
+                  value={supabaseConnectionId}
+                  onChange={(e) => setSupabaseConnectionId(e.target.value)}
                   required
-                />
-              </div>
-              <div className="form-group">
-                <label>Supabase Anon/Public Key (Required)</label>
-                <input
-                  type="password"
-                  className="glass-input"
-                  placeholder="eyJhbGciOi..."
-                  value={supabaseAnonKey}
-                  onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div style={{
-              marginTop: '12px',
-              marginBottom: '24px',
-              padding: '16px',
-              background: 'rgba(30, 41, 59, 0.3)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <ShieldCheck size={18} style={{ color: '#38bdf8' }} />
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>Authenticated Access (Optional)</span>
-              </div>
-              <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>
-                If your NXCTF tables are restricted by Row Level Security (RLS) policies, input a tester login account so the bot can bypass RLS limits.
-              </p>
-              <div className="form-row" style={{ marginBottom: 0 }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Tester User Email</label>
-                  <input
-                    type="email"
-                    className="glass-input"
-                    placeholder="bot-test@ctf.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Tester Password</label>
-                  <input
-                    type="password"
-                    className="glass-input"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
-                <label>Cloudflare Turnstile Site Key (Optional)</label>
-                <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-                  If the target Supabase project enforces Cloudflare Turnstile captcha on login, enter the public site key.
-                </p>
-                <input
-                  type="text"
-                  className="glass-input"
-                  placeholder="e.g. 0x4AAAAAADccgBtUIa17v76i"
-                  value={turnstileSiteKey}
-                  onChange={(e) => setTurnstileSiteKey(e.target.value)}
-                />
-              </div>
-
-              {turnstileSiteKey && (
-                <div style={{ marginTop: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#38bdf8' }}>
-                    Cloudflare Turnstile Verification
-                  </label>
-                  <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '12px' }}>
-                    Turnstile verification is required to complete authentication check during validation.
-                  </p>
-                  <div id="turnstile-container-add" style={{ minHeight: '65px' }}></div>
-                  <Script
-                    src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-                    strategy="afterInteractive"
-                  />
+                >
+                  {connections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.supabase_url})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{
+                  padding: '16px',
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid rgba(245, 158, 11, 0.2)',
+                  color: '#fbbf24',
+                  borderRadius: '8px',
+                  fontSize: '14px'
+                }}>
+                  ⚠️ No database connections saved yet. Please configure a connection under <strong>Supabase Configs</strong> in the sidebar first.
                 </div>
               )}
             </div>
@@ -373,8 +246,12 @@ export default function ServersPage() {
               >
                 Cancel
               </button>
-              <button type="submit" className="btn btn-primary" disabled={btnLoading}>
-                {btnLoading ? 'Validating & Registering...' : 'Register Guild'}
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                disabled={btnLoading || connections.length === 0}
+              >
+                {btnLoading ? 'Registering...' : 'Register Guild'}
               </button>
             </div>
           </form>

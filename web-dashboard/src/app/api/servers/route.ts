@@ -1,26 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
-import { createClient } from '@supabase/supabase-js';
-
-// Helper to test Supabase connection
-async function testSupabaseConnection(url: string, key: string): Promise<boolean> {
-  try {
-    const cleanUrl = url.replace(/\/$/, '');
-    const res = await fetch(`${cleanUrl}/rest/v1/challenges?select=id&limit=1`, {
-      method: 'GET',
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-      },
-    });
-    // RLS might return 401 or 403 or empty array 200, which are all fine (it means credentials worked).
-    // If it's a completely invalid url/key, it will throw network error or 400 or 404 (bad path).
-    return res.status === 200 || res.status === 401 || res.status === 403 || res.status === 406;
-  } catch (err) {
-    return false;
-  }
-}
 
 export async function GET() {
   try {
@@ -30,7 +10,12 @@ export async function GET() {
     }
 
     const db = getDb();
-    const servers = db.prepare('SELECT * FROM guilds ORDER BY created_at DESC').all();
+    const servers = db.prepare(`
+      SELECT g.*, c.supabase_url, c.name as supabase_connection_name
+      FROM guilds g
+      LEFT JOIN supabase_connections c ON g.supabase_connection_id = c.id
+      ORDER BY g.created_at DESC
+    `).all();
     return NextResponse.json(servers);
   } catch (err: any) {
     console.error('[API Servers GET] Error:', err);
@@ -49,125 +34,42 @@ export async function POST(request: Request) {
     const {
       id, // Discord Guild ID snowflake
       guild_name,
-      supabase_url,
-      supabase_anon_key,
-      supabase_login_email,
-      supabase_login_password,
-      supabase_turnstile_site_key,
-      captchaToken,
-      channel_firstblood,
-      channel_scoreboard,
-      channel_announcements,
-      channel_ticket_category,
-      channel_ticket_logs,
-      channel_ticket_panel,
-      ticket_ping_roles,
-      ticket_required_roles,
-      ticket_welcome_message,
+      supabase_connection_id,
       enable_firstblood,
       enable_scoreboard,
-      enable_tickets,
-      enable_realtime,
-      active_event_id,
-      deactivateOthers, // confirmation flag
+      enable_tickets
     } = body;
 
     // Validation
-    if (!id || !guild_name || !supabase_url || !supabase_anon_key) {
-      return NextResponse.json({ error: 'ID, Guild Name, Supabase URL, and Anon Key are required.' }, { status: 400 });
-    }
-
-    // Verify Supabase credentials
-    const isConn = await testSupabaseConnection(supabase_url, supabase_anon_key);
-    if (!isConn) {
-      return NextResponse.json({ error: 'Failed to connect to Supabase. Please verify URL and Anon Key.' }, { status: 400 });
-    }
-
-    let access_token: string | null = null;
-    let refresh_token: string | null = null;
-
-    if (supabase_login_email && supabase_login_password) {
-      try {
-        const client = createClient(supabase_url, supabase_anon_key, {
-          auth: { persistSession: false }
-        });
-        const { data: authData, error: authError } = await client.auth.signInWithPassword({
-          email: supabase_login_email,
-          password: supabase_login_password,
-          options: {
-            ...(captchaToken && { captchaToken })
-          }
-        });
-        if (authError) {
-          return NextResponse.json({ error: `Supabase authentication failed: ${authError.message}` }, { status: 400 });
-        }
-        access_token = authData.session?.access_token || null;
-        refresh_token = authData.session?.refresh_token || null;
-      } catch (err: any) {
-        return NextResponse.json({ error: `Supabase auth error: ${err.message}` }, { status: 400 });
-      }
+    if (!id || !guild_name || !supabase_connection_id) {
+      return NextResponse.json({ error: 'ID, Guild Name, and Supabase Connection are required.' }, { status: 400 });
     }
 
     const db = getDb();
 
-    // Check if configuration with same guild_id already exists
-    const existing = db.prepare('SELECT id, is_active FROM guilds WHERE guild_id = ?').all() as { id: string; is_active: number }[];
-    if (existing.length > 0) {
-      if (!deactivateOthers) {
-        return NextResponse.json({
-          error: 'guild_exists_confirm',
-          message: 'A configuration for this Discord Guild ID already exists. Do you want to deactivate it and activate this new one?'
-        }, { status: 400 });
-      } else {
-        // Deactivate all existing configurations for this guild_id
-        db.prepare('UPDATE guilds SET is_active = 0 WHERE guild_id = ?').run(id);
-        console.log(`[Dashboard API] Deactivated existing configuration(s) for guild ${id}`);
-      }
+    // Check if guild with same ID already exists (as primary key id)
+    const existing = db.prepare('SELECT id FROM guilds WHERE id = ?').get(id);
+    if (existing) {
+      return NextResponse.json({ error: 'A configuration for this Discord Guild ID already exists.' }, { status: 400 });
     }
 
-    // Generate unique configuration record ID
-    const configId = `${id}_${Date.now()}`;
-
+    // Insert server config
     db.prepare(`
       INSERT INTO guilds (
-        id, guild_id, guild_name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
-        supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key,
-        channel_firstblood, channel_scoreboard, channel_announcements, channel_ticket_category, channel_ticket_logs,
-        channel_ticket_panel, ticket_ping_roles, ticket_required_roles, ticket_welcome_message,
-        enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, active_event_id, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        id, guild_id, guild_name, supabase_connection_id,
+        enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)
     `).run(
-      configId,
-      id, // actual Guild ID snowflake
+      id,
+      id,
       guild_name,
-      supabase_url,
-      supabase_anon_key,
-      supabase_login_email || null,
-      supabase_login_password || null,
-      access_token,
-      refresh_token,
-      supabase_turnstile_site_key || null,
-      channel_firstblood || null,
-      channel_scoreboard || null,
-      channel_announcements || null,
-      channel_ticket_category || null,
-      channel_ticket_logs || null,
-      channel_ticket_panel || null,
-      ticket_ping_roles || null,
-      ticket_required_roles || null,
-      ticket_welcome_message || null,
+      supabase_connection_id,
       enable_firstblood ? 1 : 0,
       enable_scoreboard ? 1 : 0,
-      enable_tickets ? 1 : 0,
-      enable_realtime ? 1 : 0,
-      active_event_id || null
+      enable_tickets ? 1 : 0
     );
 
-    // Try to trigger bot reload if bot container is active and exposes an API,
-    // or since they share database, bot will reload when database guild list changes/polls
-    // or when bot handles guildCreate.
-
-    return NextResponse.json({ success: true, message: 'Server added successfully.' });
+    return NextResponse.json({ success: true, message: 'Server registered successfully.' });
   } catch (err: any) {
     console.error('[API Servers POST] Error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });

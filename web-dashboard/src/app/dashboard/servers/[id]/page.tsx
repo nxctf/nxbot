@@ -9,6 +9,7 @@ import Script from 'next/script';
 interface GuildConfig {
   id: string;
   guild_name: string;
+  supabase_connection_id: string | null;
   supabase_url: string;
   supabase_anon_key: string;
   supabase_login_email: string | null;
@@ -74,6 +75,8 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [connections, setConnections] = useState<any[]>([]);
+  const [supabaseConnectionId, setSupabaseConnectionId] = useState('');
   const [chanFirstBlood, setChanFirstBlood] = useState('');
   const [chanScoreboard, setChanScoreboard] = useState('');
   const [chanAnnouncements, setChanAnnouncements] = useState('');
@@ -89,68 +92,27 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
   const [enableRealtime, setEnableRealtime] = useState(true);
   const [activeEventId, setActiveEventId] = useState('');
   const [isActive, setIsActive] = useState(true);
-  const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'supabase' | 'channels' | 'tickets' | 'toggles'>('supabase');
+  const [activeTab, setActiveTab] = useState<'supabase' | 'channels' | 'tickets'>('supabase');
 
   // Test Connection State
   const [testConnLoading, setTestConnLoading] = useState(false);
   const [testConnSuccess, setTestConnSuccess] = useState('');
   const [testConnError, setTestConnError] = useState('');
 
-  // Turnstile widget rendering effect
-  useEffect(() => {
-    if (!turnstileSiteKey) return;
-
-    let checkInterval: NodeJS.Timeout;
-
-    const renderTurnstile = () => {
-      const w = window as any;
-      if (w.turnstile) {
-        try {
-          w.turnstile.render('#turnstile-container', {
-            sitekey: turnstileSiteKey,
-            callback: (token: string) => {
-              setCaptchaToken(token);
-            },
-            'error-callback': () => {
-              console.error('Turnstile captcha failed to load');
-            }
-          });
-        } catch (e) {
-          // ignore duplicate render errors
-        }
-      }
-    };
-
-    if ((window as any).turnstile) {
-      renderTurnstile();
-    } else {
-      checkInterval = setInterval(() => {
-        if ((window as any).turnstile) {
-          renderTurnstile();
-          clearInterval(checkInterval);
-        }
-      }, 500);
-    }
-
-    return () => {
-      if (checkInterval) clearInterval(checkInterval);
-      const w = window as any;
-      if (w.turnstile) {
-        try {
-          w.turnstile.remove('#turnstile-container');
-        } catch (e) { }
-      }
-    };
-  }, [turnstileSiteKey]);
-
   // Fetch Server details & channels
   useEffect(() => {
     async function fetchServer() {
       try {
+        // Fetch saved connections first
+        const connRes = await fetch('/api/databases');
+        let dbConns: any[] = [];
+        if (connRes.ok) {
+          dbConns = await connRes.json();
+          setConnections(dbConns);
+        }
+
         const res = await fetch(`/api/servers/${id}`);
         if (!res.ok) {
           throw new Error('Failed to load server configuration.');
@@ -158,8 +120,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
         const data = await res.json() as GuildConfig;
 
         setGuildName(data.guild_name);
-        setSupabaseUrl(data.supabase_url);
-        setSupabaseAnonKey(data.supabase_anon_key);
+        setSupabaseConnectionId(data.supabase_connection_id || '');
+        setSupabaseUrl(data.supabase_url || '');
+        setSupabaseAnonKey(data.supabase_anon_key || '');
         setLoginEmail(data.supabase_login_email || '');
         setLoginPassword(data.supabase_login_password || '');
         setChanFirstBlood(data.channel_firstblood || '');
@@ -177,10 +140,11 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
         setEnableRealtime(data.enable_realtime === 1);
         setActiveEventId(data.active_event_id || '');
         setIsActive(data.is_active === 1);
-        setTurnstileSiteKey(data.supabase_turnstile_site_key || '');
 
-        // Fetch events list from Supabase
-        fetchEventsList(data.supabase_url, data.supabase_anon_key);
+        // Fetch events list from Supabase using linked credentials
+        if (data.supabase_url && data.supabase_anon_key) {
+          fetchEventsList(data.supabase_url, data.supabase_anon_key);
+        }
         // Fetch channels + roles list from Discord API
         fetchDiscordChannels();
         fetchDiscordRoles();
@@ -281,12 +245,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           guild_name: guildName,
-          supabase_url: supabaseUrl,
-          supabase_anon_key: supabaseAnonKey,
-          supabase_login_email: loginEmail || null,
-          supabase_login_password: loginPassword || null,
-          supabase_turnstile_site_key: turnstileSiteKey || null,
-          captchaToken: captchaToken || null,
+          supabase_connection_id: supabaseConnectionId || null,
           channel_firstblood: chanFirstBlood || null,
           channel_scoreboard: chanScoreboard || null,
           channel_announcements: chanAnnouncements || null,
@@ -312,8 +271,10 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       }
 
       setSuccess('Configuration updated successfully!');
-      // Re-trigger event fetch in case Supabase credentials changed
-      fetchEventsList(supabaseUrl, supabaseAnonKey);
+      // Re-trigger event fetch using current linked connection credentials
+      if (supabaseUrl && supabaseAnonKey) {
+        fetchEventsList(supabaseUrl, supabaseAnonKey);
+      }
     } catch (err: any) {
       setError(err.message || 'Verification or save failed.');
     } finally {
@@ -414,7 +375,6 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           supabase_anon_key: supabaseAnonKey,
           supabase_login_email: loginEmail || null,
           supabase_login_password: loginPassword || null,
-          captchaToken: captchaToken || null,
         }),
       });
       const data = await res.json();
@@ -597,81 +557,68 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               />
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Supabase URL</label>
-                <input
-                  type="url"
-                  className="glass-input"
-                  value={supabaseUrl}
-                  onChange={(e) => setSupabaseUrl(e.target.value)}
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label>Link Supabase Connection</label>
+              {connections.length > 0 ? (
+                <select
+                  className="glass-input glass-select"
+                  value={supabaseConnectionId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSupabaseConnectionId(val);
+                    const conn = connections.find(c => c.id === val);
+                    if (conn) {
+                      setSupabaseUrl(conn.supabase_url);
+                      setSupabaseAnonKey(conn.supabase_anon_key);
+                      setLoginEmail(conn.supabase_login_email || '');
+                      setLoginPassword(conn.supabase_login_password || '');
+                      fetchEventsList(conn.supabase_url, conn.supabase_anon_key);
+                    }
+                  }}
                   required
-                />
-              </div>
-              <div className="form-group">
-                <label>Supabase Anon Key</label>
-                <input
-                  type="password"
-                  className="glass-input"
-                  value={supabaseAnonKey}
-                  onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                  required
-                />
-              </div>
+                >
+                  <option value="">-- Select Connection --</option>
+                  {connections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.supabase_url})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#f87171', borderRadius: '8px', fontSize: '13px' }}>
+                  No Supabase database connections configured. Create one in the sidebar first.
+                </div>
+              )}
             </div>
 
-            <div className="form-row" style={{ marginBottom: 0 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Bypass RLS Email (Optional)</label>
-                <input
-                  type="email"
-                  className="glass-input"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="No authentication"
-                />
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Bypass RLS Password (Optional)</label>
-                <input
-                  type="password"
-                  className="glass-input"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="No authentication"
-                />
-              </div>
-            </div>
-
-            {turnstileSiteKey && (
-              <div style={{ marginTop: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#38bdf8' }}>
-                  Cloudflare Turnstile Verification
-                </label>
-                <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '12px' }}>
-                  This server&apos;s Supabase login is protected by Cloudflare Turnstile. Please verify you are human before saving.
-                </p>
-                <div id="turnstile-container" style={{ minHeight: '65px' }}></div>
-                <Script
-                  src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-                  strategy="afterInteractive"
-                />
+            {supabaseConnectionId && supabaseUrl && (
+              <div style={{
+                background: 'rgba(30, 41, 59, 0.3)',
+                border: '1px solid var(--border-color)',
+                padding: '20px',
+                borderRadius: '8px',
+                marginBottom: '24px',
+                fontSize: '13px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#94a3b8' }}>URL:</span>
+                  <span style={{ color: '#cbd5e1', fontWeight: 500, fontFamily: 'monospace' }}>{supabaseUrl}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#94a3b8' }}>Anon Key:</span>
+                  <span style={{ color: '#cbd5e1', fontWeight: 500, fontFamily: 'monospace' }}>••••••••••••••••••••</span>
+                </div>
+                {loginEmail && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#94a3b8' }}>Bypass account:</span>
+                    <span style={{ color: '#10b981', fontWeight: 500 }}>{loginEmail}</span>
+                  </div>
+                )}
               </div>
             )}
-
-            <div className="form-group" style={{ marginTop: '20px', marginBottom: 0 }}>
-              <label>Cloudflare Turnstile Site Key (Optional)</label>
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px' }}>
-                If this server&apos;s Supabase enforces Cloudflare Turnstile captcha on login, paste the public site key here.
-              </p>
-              <input
-                type="text"
-                className="glass-input"
-                value={turnstileSiteKey}
-                onChange={(e) => setTurnstileSiteKey(e.target.value)}
-                placeholder="e.g. 0x4AAAAAADccgBtUIa17v76i"
-              />
-            </div>
 
             <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
               <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600 }}>Test Connection</label>
@@ -679,7 +626,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
                 <button
                   type="button"
                   onClick={handleTestConnection}
-                  disabled={testConnLoading}
+                  disabled={testConnLoading || !supabaseConnectionId}
                   className="btn btn-secondary"
                   style={{ padding: '8px 16px', fontSize: '13px' }}
                 >

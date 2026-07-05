@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Server, Ticket, Settings, LogOut, Terminal } from 'lucide-react';
+import { LayoutDashboard, Server, Ticket, Settings, LogOut, Terminal, Database } from 'lucide-react';
 
 interface SidebarProps {
   username: string;
@@ -27,6 +27,7 @@ export default function Sidebar({ username }: SidebarProps) {
   const navItems = [
     { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Servers', href: '/dashboard/servers', icon: Server },
+    { name: 'Supabase Configs', href: '/dashboard/databases', icon: Database },
     { name: 'Tickets', href: '/dashboard/tickets', icon: Ticket },
     { name: 'Settings & Logs', href: '/dashboard/settings', icon: Settings },
   ];

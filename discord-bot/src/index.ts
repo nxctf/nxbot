@@ -76,6 +76,58 @@ client.once('ready', async () => {
 
   logEvent(null, 'info', 'startup', `Bot started. ${supabaseManager.connectionCount} Supabase connection(s) active.`);
   console.log(`[Bot] Ready! ${supabaseManager.connectionCount} Supabase connection(s) active.`);
+
+  // Start config sync polling loop every 10 seconds
+  setInterval(async () => {
+    try {
+      const dbGuilds = getActiveGuilds();
+      const activeGuildIds = new Set(dbGuilds.map(g => g.id));
+
+      // 1. Disconnect inactive or deleted guilds
+      for (const connectedId of supabaseManager.getConnectedGuilds()) {
+        if (!activeGuildIds.has(connectedId)) {
+          console.log(`[Bot Sync] Guild ${connectedId} is no longer active. Disconnecting Supabase...`);
+          await supabaseManager.disconnect(connectedId);
+        }
+      }
+
+      // 2. Connect or reload active guilds if configuration/credentials changed
+      for (const dbGuild of dbGuilds) {
+        const connectedId = dbGuild.id;
+        const isConnected = supabaseManager.isConnected(connectedId);
+        const existingConfig = supabaseManager.getConfig(connectedId);
+
+        if (!isConnected) {
+          console.log(`[Bot Sync] New active guild detected: ${dbGuild.guild_name} (${connectedId}). Connecting...`);
+          await supabaseManager.connect(dbGuild);
+          firstBloodService.subscribeGuild(dbGuild);
+          announcementService.subscribeGuild(dbGuild);
+        } else if (existingConfig) {
+          // Check if key configurations or credentials changed
+          const hasChanged = 
+            existingConfig.supabase_url !== dbGuild.supabase_url ||
+            existingConfig.supabase_anon_key !== dbGuild.supabase_anon_key ||
+            existingConfig.supabase_login_email !== dbGuild.supabase_login_email ||
+            existingConfig.supabase_login_password !== dbGuild.supabase_login_password ||
+            existingConfig.supabase_turnstile_site_key !== dbGuild.supabase_turnstile_site_key ||
+            existingConfig.active_event_id !== dbGuild.active_event_id ||
+            existingConfig.enable_firstblood !== dbGuild.enable_firstblood ||
+            existingConfig.channel_firstblood !== dbGuild.channel_firstblood ||
+            existingConfig.channel_announcements !== dbGuild.channel_announcements ||
+            existingConfig.updated_at !== dbGuild.updated_at;
+
+          if (hasChanged) {
+            console.log(`[Bot Sync] Configuration updated for guild: ${dbGuild.guild_name} (${connectedId}). Reloading connection...`);
+            await supabaseManager.reload(dbGuild);
+            firstBloodService.subscribeGuild(dbGuild);
+            announcementService.subscribeGuild(dbGuild);
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.error('[Bot Sync] Error in config sync polling loop:', syncErr);
+    }
+  }, 10000);
 });
 
 // ---- Event: Interaction ----

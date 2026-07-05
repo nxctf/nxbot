@@ -129,6 +129,24 @@ function createInlineSchema(): void {
 
 function runMigrations(): void {
   try {
+    // 1. Create supabase_connections table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS supabase_connections (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        supabase_url TEXT NOT NULL,
+        supabase_anon_key TEXT NOT NULL,
+        supabase_login_email TEXT DEFAULT NULL,
+        supabase_login_password TEXT DEFAULT NULL,
+        supabase_access_token TEXT DEFAULT NULL,
+        supabase_refresh_token TEXT DEFAULT NULL,
+        supabase_turnstile_site_key TEXT DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 2. Add columns to guilds table
     const columns = db.prepare("PRAGMA table_info(guilds)").all() as { name: string }[];
     const colNames = columns.map(c => c.name);
     const migrations = [
@@ -141,6 +159,7 @@ function runMigrations(): void {
       { name: 'supabase_refresh_token', type: 'TEXT DEFAULT NULL' },
       { name: 'supabase_turnstile_site_key', type: 'TEXT DEFAULT NULL' },
       { name: 'guild_id', type: 'TEXT DEFAULT NULL' },
+      { name: 'supabase_connection_id', type: 'TEXT DEFAULT NULL' },
     ];
     for (const m of migrations) {
       if (!colNames.includes(m.name)) {
@@ -148,8 +167,39 @@ function runMigrations(): void {
         console.log(`[DB Migration] Added column ${m.name} to guilds table`);
         if (m.name === 'guild_id') {
           db.exec('UPDATE guilds SET guild_id = id WHERE guild_id IS NULL');
-          console.log('[DB Migration] Populated guild_id values from existing id values');
         }
+      }
+    }
+
+    // 3. Migrate existing guild credentials to supabase_connections table
+    const guilds = db.prepare('SELECT * FROM guilds WHERE supabase_connection_id IS NULL').all() as any[];
+    for (const g of guilds) {
+      if (g.supabase_url && g.supabase_anon_key) {
+        const connId = `conn_${g.id}`;
+        // Insert connection record if not exists
+        const exists = db.prepare('SELECT id FROM supabase_connections WHERE id = ?').get(connId);
+        if (!exists) {
+          db.prepare(`
+            INSERT INTO supabase_connections (
+              id, name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
+              supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            connId,
+            `${g.guild_name} Supabase`,
+            g.supabase_url,
+            g.supabase_anon_key,
+            g.supabase_login_email || null,
+            g.supabase_login_password || null,
+            g.supabase_access_token || null,
+            g.supabase_refresh_token || null,
+            g.supabase_turnstile_site_key || null
+          );
+          console.log(`[DB Migration] Created supabase_connection record ${connId} for guild ${g.guild_name}`);
+        }
+        // Link guild to connection
+        db.prepare('UPDATE guilds SET supabase_connection_id = ? WHERE id = ?').run(connId, g.id);
+        console.log(`[DB Migration] Linked guild ${g.guild_name} to supabase_connection ${connId}`);
       }
     }
   } catch (err) {
@@ -182,6 +232,7 @@ export interface GuildConfig {
   guild_name: string;
   supabase_url: string;
   supabase_anon_key: string;
+  supabase_connection_id: string | null;
   supabase_login_email: string | null;
   supabase_login_password: string | null;
   supabase_access_token: string | null;
@@ -208,15 +259,48 @@ export interface GuildConfig {
 }
 
 export function getActiveGuilds(): GuildConfig[] {
-  return getDb().prepare('SELECT * FROM guilds WHERE is_active = 1').all() as GuildConfig[];
+  return getDb().prepare(`
+    SELECT g.id, g.guild_name, g.channel_firstblood, g.channel_scoreboard, g.channel_announcements, 
+           g.channel_ticket_category, g.channel_ticket_logs, g.channel_ticket_panel, g.ticket_ping_roles, 
+           g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id, g.enable_firstblood, 
+           g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
+           g.created_at, g.updated_at, g.supabase_connection_id, 
+           c.supabase_url, c.supabase_anon_key, c.supabase_login_email, c.supabase_login_password, 
+           c.supabase_access_token, c.supabase_refresh_token, c.supabase_turnstile_site_key
+    FROM guilds g
+    LEFT JOIN supabase_connections c ON g.supabase_connection_id = c.id
+    WHERE g.is_active = 1
+  `).all() as GuildConfig[];
 }
 
 export function getGuild(guildId: string): GuildConfig | null {
-  return (getDb().prepare('SELECT * FROM guilds WHERE guild_id = ? AND is_active = 1').get(guildId) as GuildConfig) ?? null;
+  return (getDb().prepare(`
+    SELECT g.id, g.guild_name, g.channel_firstblood, g.channel_scoreboard, g.channel_announcements, 
+           g.channel_ticket_category, g.channel_ticket_logs, g.channel_ticket_panel, g.ticket_ping_roles, 
+           g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id, g.enable_firstblood, 
+           g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
+           g.created_at, g.updated_at, g.supabase_connection_id, 
+           c.supabase_url, c.supabase_anon_key, c.supabase_login_email, c.supabase_login_password, 
+           c.supabase_access_token, c.supabase_refresh_token, c.supabase_turnstile_site_key
+    FROM guilds g
+    LEFT JOIN supabase_connections c ON g.supabase_connection_id = c.id
+    WHERE g.id = ? AND g.is_active = 1
+  `).get(guildId) as GuildConfig) ?? null;
 }
 
 export function getAllGuilds(): GuildConfig[] {
-  return getDb().prepare('SELECT * FROM guilds ORDER BY created_at DESC').all() as GuildConfig[];
+  return getDb().prepare(`
+    SELECT g.id, g.guild_name, g.channel_firstblood, g.channel_scoreboard, g.channel_announcements, 
+           g.channel_ticket_category, g.channel_ticket_logs, g.channel_ticket_panel, g.ticket_ping_roles, 
+           g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id, g.enable_firstblood, 
+           g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
+           g.created_at, g.updated_at, g.supabase_connection_id, 
+           c.supabase_url, c.supabase_anon_key, c.supabase_login_email, c.supabase_login_password, 
+           c.supabase_access_token, c.supabase_refresh_token, c.supabase_turnstile_site_key
+    FROM guilds g
+    LEFT JOIN supabase_connections c ON g.supabase_connection_id = c.id
+    ORDER BY g.created_at DESC
+  `).all() as GuildConfig[];
 }
 
 export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_name: string; supabase_url: string; supabase_anon_key: string }): void {
@@ -286,7 +370,15 @@ export function updateGuildScoreboardMessageId(guildId: string, messageId: strin
 }
 
 export function updateGuildSupabaseTokens(guildId: string, accessToken: string | null, refreshToken: string | null): void {
-  getDb().prepare('UPDATE guilds SET supabase_access_token = ?, supabase_refresh_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(accessToken, refreshToken, guildId);
+  const row = getDb().prepare('SELECT supabase_connection_id FROM guilds WHERE id = ?').get(guildId) as { supabase_connection_id: string | null } | undefined;
+  if (row?.supabase_connection_id) {
+    getDb().prepare('UPDATE supabase_connections SET supabase_access_token = ?, supabase_refresh_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(accessToken, refreshToken, row.supabase_connection_id);
+    console.log(`[Local DB] Updated Supabase tokens in supabase_connections for ID: ${row.supabase_connection_id}`);
+  } else {
+    getDb().prepare('UPDATE guilds SET supabase_access_token = ?, supabase_refresh_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(accessToken, refreshToken, guildId);
+  }
 }
 
 
