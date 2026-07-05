@@ -63,7 +63,27 @@ export class FirstBloodService {
         },
         async (payload) => {
           try {
-            await this.handleNewSolve(guild, payload.new as SolvePayload);
+            let solve = payload.new as SolvePayload;
+
+            // Supabase Realtime may send empty/partial payloads if REPLICA IDENTITY FULL is not set
+            if (!solve.challenge_id || !solve.user_id) {
+              const supabase = supabaseManager.getClient(guild.id);
+              if (!supabase) return;
+
+              if (solve.id) {
+                // Have ID but missing fields — fetch full row
+                const { data } = await supabase.from('solves').select('*').eq('id', solve.id).single();
+                if (!data) return;
+                solve = data as SolvePayload;
+              } else {
+                // Completely empty payload — fetch latest solve
+                const { data } = await supabase.from('solves').select('*').order('created_at', { ascending: false }).limit(1).single();
+                if (!data) return;
+                solve = data as SolvePayload;
+              }
+            }
+
+            await this.handleNewSolve(guild, solve);
           } catch (err) {
             console.error(`[FirstBlood] Error handling solve for ${guild.guild_name}:`, err);
             logEvent(guild.id, 'error', 'firstblood', `Error handling solve: ${err}`);
