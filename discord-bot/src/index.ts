@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
 import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js';
 import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
@@ -47,6 +49,20 @@ let ticketManager: TicketManager;
 client.once('ready', async () => {
   console.log(`[Bot] Logged in as ${client.user?.tag}`);
   console.log(`[Bot] Serving ${client.guilds.cache.size} guild(s)`);
+
+  // Write online status
+  try {
+    const statusPath = path.join(__dirname, '../../data/bot_status.json');
+    fs.writeFileSync(statusPath, JSON.stringify({
+      status: 'online',
+      error: null,
+      username: client.user?.tag,
+      guilds: client.guilds.cache.size,
+      updatedAt: new Date().toISOString()
+    }, null, 2));
+  } catch (err) {
+    console.error('[Bot Error] Failed to write status file:', err);
+  }
 
   // Initialize database
   getDb();
@@ -263,6 +279,46 @@ async function shutdown(signal: string): Promise<void> {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// ---- Global Error Handling ----
+process.on('uncaughtException', (err) => {
+  console.error('[Bot Uncaught] error:', err);
+  try {
+    const statusPath = path.join(__dirname, '../../data/bot_status.json');
+    let errMsg = err.message || String(err);
+    if (errMsg.includes('Used disallowed intents') || errMsg.includes('disallowed intents')) {
+      errMsg = 'Disallowed intents: Enable "Message Content Intent" in Discord Developer Portal under Bot settings.';
+    }
+    fs.writeFileSync(statusPath, JSON.stringify({
+      status: 'error',
+      error: errMsg,
+      updatedAt: new Date().toISOString()
+    }, null, 2));
+  } catch (writeErr) {
+    console.error('[Bot Uncaught] failed to write status:', writeErr);
+  }
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Bot Unhandled Rejection] reason:', reason);
+  try {
+    const statusPath = path.join(__dirname, '../../data/bot_status.json');
+    const reasonStr = String(reason);
+    let errMsg = reasonStr;
+    if (reasonStr.includes('Used disallowed intents') || reasonStr.includes('disallowed intents')) {
+      errMsg = 'Disallowed intents: Enable "Message Content Intent" in Discord Developer Portal under Bot settings.';
+    }
+    fs.writeFileSync(statusPath, JSON.stringify({
+      status: 'error',
+      error: errMsg,
+      updatedAt: new Date().toISOString()
+    }, null, 2));
+  } catch (writeErr) {
+    console.error('[Bot Unhandled Rejection] failed to write status:', writeErr);
+  }
+  process.exit(1);
+});
 
 // ---- Start ----
 console.log('[Bot] Starting NXBot Discord Bot...');
