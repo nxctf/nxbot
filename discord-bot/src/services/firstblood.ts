@@ -79,6 +79,12 @@ export class FirstBloodService {
    * Handle a new solve event.
    */
   private async handleNewSolve(guild: GuildConfig, solve: SolvePayload): Promise<void> {
+    // Guard: skip if the realtime payload is missing required fields
+    if (!solve.challenge_id || !solve.user_id) {
+      console.warn(`[FirstBlood] Skipping solve event with missing fields for ${guild.guild_name}:`, JSON.stringify(solve));
+      return;
+    }
+
     // Check if we already notified for this challenge (it's not first blood)
     if (hasFirstBlood(guild.id, solve.challenge_id)) {
       return; // Not first blood, already cached
@@ -166,7 +172,7 @@ export class FirstBloodService {
           { name: '📂 Category', value: data.challengeCategory, inline: true },
           { name: '💰 Points', value: `${data.challengePoints}`, inline: true },
         )
-        .setTimestamp(new Date(data.solvedAt))
+        .setTimestamp(data.solvedAt && !isNaN(new Date(data.solvedAt).getTime()) ? new Date(data.solvedAt) : new Date())
         .setFooter({ text: `${guild.guild_name} • NXBot CTF` });
 
       await channel.send({ embeds: [embed] });

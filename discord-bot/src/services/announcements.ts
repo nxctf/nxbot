@@ -95,7 +95,7 @@ export class AnnouncementService {
       .setTitle(title)
       .setDescription(content)
       .setFooter({ text: 'NXCTF Announcements' })
-      .setTimestamp(new Date(notification.created_at));
+      .setTimestamp(notification.created_at && !isNaN(new Date(notification.created_at).getTime()) ? new Date(notification.created_at) : new Date());
 
     await discordChannel.send({ embeds: [embed] });
 
