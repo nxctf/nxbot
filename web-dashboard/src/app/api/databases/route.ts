@@ -28,8 +28,15 @@ export async function GET() {
     }
 
     const db = getDb();
-    const conns = db.prepare('SELECT * FROM supabase_connections ORDER BY created_at DESC').all();
-    return NextResponse.json(conns);
+    const conns = db.prepare('SELECT * FROM supabase_connections ORDER BY created_at DESC').all() as any[];
+    // Sanitize: don't leak raw tokens/passwords to frontend
+    const sanitized = conns.map(c => ({
+      ...c,
+      supabase_login_password: c.supabase_login_password ? '••••••••' : null,
+      supabase_access_token: c.supabase_access_token ? '(active)' : null,
+      supabase_refresh_token: c.supabase_refresh_token ? '(active)' : null,
+    }));
+    return NextResponse.json(sanitized);
   } catch (err: any) {
     console.error('[API Databases GET] Error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });

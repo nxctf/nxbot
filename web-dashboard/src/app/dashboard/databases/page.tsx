@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Database, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, RefreshCw, Save, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Database, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, RefreshCw, Save, ArrowLeft, KeyRound, ShieldAlert, ShieldOff } from 'lucide-react';
 import Script from 'next/script';
 
 interface Connection {
@@ -38,6 +38,12 @@ export default function DatabasesPage() {
   // Connection testing states
   const [testConnLoading, setTestConnLoading] = useState<Record<string, boolean>>({});
   const [testConnStatus, setTestConnStatus] = useState<Record<string, { success?: string; error?: string }>>({});
+
+  // Re-auth states
+  const [reAuthConnId, setReAuthConnId] = useState<string | null>(null);
+  const [reAuthLoading, setReAuthLoading] = useState(false);
+  const [reAuthCaptchaToken, setReAuthCaptchaToken] = useState<string | null>(null);
+  const reAuthTurnstileRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetchConnections();
@@ -238,6 +244,66 @@ export default function DatabasesPage() {
     setShowForm(false);
   };
 
+  // Re-auth modal open handler — render Turnstile widget
+  const openReAuthModal = useCallback((conn: Connection) => {
+    setReAuthConnId(conn.id);
+    setReAuthCaptchaToken(null);
+    setError('');
+    setSuccess('');
+
+    // Render Turnstile widget after DOM is ready
+    setTimeout(() => {
+      const w = window as any;
+      if (w.turnstile && conn.supabase_turnstile_site_key) {
+        try {
+          if (reAuthTurnstileRef.current) {
+            w.turnstile.remove(reAuthTurnstileRef.current);
+          }
+          reAuthTurnstileRef.current = w.turnstile.render('#turnstile-container-reauth', {
+            sitekey: conn.supabase_turnstile_site_key,
+            theme: 'dark',
+            callback: (token: string) => setReAuthCaptchaToken(token),
+          });
+        } catch (e) { /* ignore */ }
+      }
+    }, 300);
+  }, []);
+
+  const closeReAuthModal = () => {
+    setReAuthConnId(null);
+    setReAuthCaptchaToken(null);
+    const w = window as any;
+    if (w.turnstile && reAuthTurnstileRef.current) {
+      try { w.turnstile.remove(reAuthTurnstileRef.current); } catch (e) {}
+      reAuthTurnstileRef.current = null;
+    }
+  };
+
+  const handleReAuth = async () => {
+    if (!reAuthConnId) return;
+    setReAuthLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const res = await fetch(`/api/databases/${reAuthConnId}/re-auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ captchaToken: reAuthCaptchaToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Re-authentication failed.');
+
+      setSuccess(`✅ Re-authenticated as ${data.user_email}. Bot will reload within 10s.`);
+      closeReAuthModal();
+      fetchConnections();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setReAuthLoading(false);
+    }
+  };
+
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
       {/* Script for Cloudflare Turnstile inside form */}
@@ -430,7 +496,24 @@ export default function DatabasesPage() {
                         {conn.supabase_login_email && (
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '20px', marginTop: '6px' }}>
                             <ShieldCheck size={10} />
-                            <span>Bypass Enabled: {conn.supabase_login_email}</span>
+                            <span>Auth User: {conn.supabase_login_email}</span>
+                          </div>
+                        )}
+                        {/* Session Token Status */}
+                        {conn.supabase_access_token ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#22d3ee', background: 'rgba(34, 211, 238, 0.1)', padding: '2px 8px', borderRadius: '20px', marginTop: '6px', marginLeft: '6px' }}>
+                            <KeyRound size={10} />
+                            <span>Session Token Active</span>
+                          </div>
+                        ) : conn.supabase_login_email ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 8px', borderRadius: '20px', marginTop: '6px', marginLeft: '6px' }}>
+                            <ShieldAlert size={10} />
+                            <span>No Session Token — Re-auth Required</span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#64748b', background: 'rgba(100, 116, 139, 0.1)', padding: '2px 8px', borderRadius: '20px', marginTop: '6px', marginLeft: '6px' }}>
+                            <ShieldOff size={10} />
+                            <span>Anonymous Mode</span>
                           </div>
                         )}
                       </div>
@@ -451,6 +534,19 @@ export default function DatabasesPage() {
                           {isTesting ? 'Testing...' : 'Test Connection'}
                         </button>
                       </div>
+
+                      {/* Re-Authenticate Button */}
+                      {conn.supabase_login_email && (
+                        <button
+                          onClick={() => openReAuthModal(conn)}
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 12px', fontSize: '12px', height: 'auto', borderColor: 'rgba(34, 211, 238, 0.3)', color: '#22d3ee' }}
+                          title="Re-authenticate to get fresh session tokens"
+                        >
+                          <KeyRound size={12} style={{ marginRight: '4px' }} />
+                          Re-auth
+                        </button>
+                      )}
 
                       <button
                         onClick={() => handleEdit(conn)}
@@ -477,6 +573,53 @@ export default function DatabasesPage() {
           )}
         </>
       )}
+
+      {/* Re-Auth Modal */}
+      {reAuthConnId && (() => {
+        const conn = conns.find(c => c.id === reAuthConnId);
+        if (!conn) return null;
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={closeReAuthModal}>
+            <div className="glass-panel" style={{ padding: '32px', maxWidth: '480px', width: '90%' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#22d3ee', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <KeyRound size={20} />
+                Re-authenticate: {conn.name}
+              </h3>
+              <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '20px' }}>
+                This will log in as <strong style={{ color: '#f8fafc' }}>{conn.supabase_login_email}</strong> to get fresh session tokens for the bot.
+              </p>
+
+              {conn.supabase_turnstile_site_key ? (
+                <div style={{ marginBottom: '20px', background: 'rgba(30, 41, 59, 0.3)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 600, color: '#38bdf8' }}>
+                    Solve Captcha to Continue
+                  </label>
+                  <div id="turnstile-container-reauth" style={{ minHeight: '65px' }}></div>
+                </div>
+              ) : (
+                <div style={{ marginBottom: '20px', padding: '12px 16px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '8px', fontSize: '13px', color: '#f59e0b' }}>
+                  ⚠️ No Turnstile Site Key configured. If Supabase requires captcha, this will fail. Edit the connection to add the key first.
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button onClick={closeReAuthModal} className="btn btn-secondary" style={{ fontSize: '13px' }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReAuth}
+                  disabled={reAuthLoading || (!!conn.supabase_turnstile_site_key && !reAuthCaptchaToken)}
+                  className="btn btn-primary"
+                  style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {reAuthLoading ? <RefreshCw className="animate-spin" size={14} /> : <KeyRound size={14} />}
+                  {reAuthLoading ? 'Authenticating...' : 'Login & Save Tokens'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
