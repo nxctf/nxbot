@@ -12,10 +12,11 @@ export async function GET() {
     const db = getDb();
     const settings = db.prepare("SELECT key, updated_at FROM system_settings WHERE key != 'admin_password_hash' AND key != 'jwt_secret'").all();
     
-    // Check logs count, servers count, tickets count
+    // Check logs count, servers count, tickets count, databases count
     const serversCount = db.prepare('SELECT count(*) as count FROM guilds').get() as { count: number };
     const ticketsCount = db.prepare('SELECT count(*) as count FROM tickets').get() as { count: number };
     const logsCount = db.prepare('SELECT count(*) as count FROM bot_logs').get() as { count: number };
+    const databasesCount = db.prepare('SELECT count(*) as count FROM supabase_connections').get() as { count: number };
 
     return NextResponse.json({
       settings,
@@ -23,6 +24,7 @@ export async function GET() {
         servers: serversCount?.count || 0,
         tickets: ticketsCount?.count || 0,
         logs: logsCount?.count || 0,
+        databases: databasesCount?.count || 0,
       }
     });
   } catch (err: any) {

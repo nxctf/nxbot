@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Server, Ticket, ClipboardList, ShieldAlert, Cpu, RefreshCw, Clock } from 'lucide-react';
+import { Server, Ticket, ClipboardList, ShieldAlert, Cpu, RefreshCw, Clock, Database } from 'lucide-react';
 import Link from 'next/link';
 
 interface Log {
@@ -18,11 +18,12 @@ interface Stats {
   servers: number;
   tickets: number;
   logs: number;
+  databases?: number;
 }
 
 export default function OverviewPage() {
   const [logs, setLogs] = useState<Log[]>([]);
-  const [stats, setStats] = useState<Stats>({ servers: 0, tickets: 0, logs: 0 });
+  const [stats, setStats] = useState<Stats>({ servers: 0, tickets: 0, logs: 0, databases: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -98,6 +99,16 @@ export default function OverviewPage() {
           <div>
             <span style={{ color: '#94a3b8', fontSize: '14px', fontWeight: 500 }}>Active CTF Servers</span>
             <h3 style={{ fontSize: '32px', fontWeight: 800, marginTop: '4px' }}>{stats.servers}</h3>
+          </div>
+        </div>
+
+        <div className="glass-panel glass-card" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
+            <Database size={28} />
+          </div>
+          <div>
+            <span style={{ color: '#94a3b8', fontSize: '14px', fontWeight: 500 }}>Saved DB Connections</span>
+            <h3 style={{ fontSize: '32px', fontWeight: 800, marginTop: '4px' }}>{stats.databases || 0}</h3>
           </div>
         </div>
 
