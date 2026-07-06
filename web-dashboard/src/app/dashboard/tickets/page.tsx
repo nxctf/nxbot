@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download, Send, Bot, ArrowLeft } from 'lucide-react';
+import PageContainer from '@/components/PageContainer';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 interface TicketData {
@@ -228,13 +229,12 @@ function TicketsContent() {
   }
 
   return (
-    <div className="animate-fade-in" style={{ position: 'relative', minHeight: '80vh' }}>
+    <>
       {!selectedTicket && (
-        <div>
-          <div style={{ marginBottom: '32px' }}>
-            <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Support Tickets</h1>
-            <p style={{ color: '#94a3b8' }}>Monitor and view chat transcripts for ticket channels created by CTF participants</p>
-          </div>
+        <PageContainer
+          title="Support Tickets"
+          subtitle="Monitor and view chat transcripts for ticket channels created by CTF participants"
+        >
 
       {/* Filter Bar */}
       <div className="glass-panel" style={{ padding: '20px', marginBottom: '32px', display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
@@ -433,7 +433,7 @@ function TicketsContent() {
           </table>
         </div>
       )}
-        </div>
+        </PageContainer>
       )}
 
       {/* Transcript Details Workspace */}
@@ -939,7 +939,7 @@ function TicketsContent() {
           `}</style>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

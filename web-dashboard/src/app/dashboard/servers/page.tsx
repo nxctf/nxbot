@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Server, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, HelpCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import Script from 'next/script';
+import PageContainer from '@/components/PageContainer';
 
 interface Guild {
   id: string;
@@ -152,12 +153,10 @@ export default function ServersPage() {
   };
 
   return (
-    <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <div>
-          <h1 style={{ fontSize: '32px', fontWeight: 800 }}>CTF Servers</h1>
-          <p style={{ color: '#94a3b8' }}>Connect and manage multiple Discord servers</p>
-        </div>
+    <PageContainer
+      title="CTF Servers"
+      subtitle="Connect and manage multiple Discord servers"
+      extra={
         <button
           onClick={() => { setShowAddForm(!showAddForm); setError(''); setSuccess(''); }}
           className="btn btn-primary"
@@ -166,7 +165,8 @@ export default function ServersPage() {
           <Plus size={18} />
           {showAddForm ? 'Cancel' : 'Add Server'}
         </button>
-      </div>
+      }
+    >
 
       {error && (
         <div style={{
@@ -408,6 +408,6 @@ export default function ServersPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

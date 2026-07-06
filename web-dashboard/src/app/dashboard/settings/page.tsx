@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Settings, KeyRound, Database, Terminal, ShieldAlert, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
+import PageContainer from '@/components/PageContainer';
 
 interface Log {
   id: number;
@@ -129,11 +130,10 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '1080px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Settings & Database</h1>
-        <p style={{ color: '#94a3b8' }}>Manage admin credentials, logs, and first blood caches</p>
-      </div>
+    <PageContainer
+      title="Settings & Database"
+      subtitle="Manage admin credentials, logs, and first blood caches"
+    >
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
         
@@ -282,6 +282,6 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-    </div>
+      </PageContainer>
   );
 }

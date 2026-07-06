@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Server, Ticket, ClipboardList, ShieldAlert, Cpu, RefreshCw, Clock, Database } from 'lucide-react';
+import { Server, Ticket, ClipboardList, Cpu, RefreshCw, Clock, Database, Activity } from 'lucide-react';
 import Link from 'next/link';
+import PageContainer from '@/components/PageContainer';
+import StatCard from '@/components/StatCard';
 
 interface Log {
   id: number;
@@ -64,72 +66,34 @@ export default function OverviewPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <RefreshCw className="animate-spin" size={32} style={{ color: '#38bdf8' }} />
-      </div>
-    );
-  }
-
   return (
-    <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <div>
-          <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Dashboard Overview</h1>
-          <p style={{ color: '#94a3b8' }}>Realtime status and metrics of your NXBot instance</p>
-        </div>
-        <button 
-          onClick={handleRefresh} 
-          className="btn btn-secondary" 
-          disabled={refreshing}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
+    <PageContainer
+      title="Dashboard Overview"
+      subtitle="Realtime status and metrics of your NXBot instance"
+      loading={loading}
+      extra={
+        <button onClick={handleRefresh} className="btn btn-secondary" disabled={refreshing} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <RefreshCw className={refreshing ? 'animate-spin' : ''} size={16} />
           Refresh
         </button>
-      </div>
-
-      {/* Stats Cards */}
+      }
+    >
       <div className="dashboard-grid">
-        <div className="glass-panel glass-card" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
-            <Server size={28} />
+        <StatCard icon={<Server size={24} />} title="Active CTF Servers" value={stats.servers} color="#38bdf8" link="/dashboard/servers" />
+        <StatCard icon={<Database size={24} />} title="Saved DB Connections" value={stats.databases || 0} color="#38bdf8" link="/dashboard/databases" />
+        <StatCard icon={<Ticket size={24} />} title="Total Support Tickets" value={stats.tickets} color="#a855f7" link="/dashboard/tickets" />
+        <div className="glass-panel glass-card stat-card">
+          <div className="stat-card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+            <Cpu size={24} />
           </div>
-          <div>
-            <span style={{ color: '#94a3b8', fontSize: '14px', fontWeight: 500 }}>Active CTF Servers</span>
-            <h3 style={{ fontSize: '32px', fontWeight: 800, marginTop: '4px' }}>{stats.servers}</h3>
-          </div>
-        </div>
-
-        <div className="glass-panel glass-card" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
-            <Database size={28} />
-          </div>
-          <div>
-            <span style={{ color: '#94a3b8', fontSize: '14px', fontWeight: 500 }}>Saved DB Connections</span>
-            <h3 style={{ fontSize: '32px', fontWeight: 800, marginTop: '4px' }}>{stats.databases || 0}</h3>
-          </div>
-        </div>
-
-        <div className="glass-panel glass-card" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
-            <Ticket size={28} />
-          </div>
-          <div>
-            <span style={{ color: '#94a3b8', fontSize: '14px', fontWeight: 500 }}>Total Support Tickets</span>
-            <h3 style={{ fontSize: '32px', fontWeight: 800, marginTop: '4px' }}>{stats.tickets}</h3>
-          </div>
-        </div>
-
-        <div className="glass-panel glass-card" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
-            <Cpu size={28} />
-          </div>
-          <div>
-            <span style={{ color: '#94a3b8', fontSize: '14px', fontWeight: 500 }}>Bot Engine Status</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+          <div className="stat-card-info">
+            <span className="stat-card-label">Bot Engine Status</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
               <span className="badge badge-success">Online</span>
+              <span style={{ color: '#64748b', fontSize: '13px' }}>
+                <Activity size={13} style={{ marginRight: '4px', display: 'inline' }} />
+                Running
+              </span>
             </div>
           </div>
         </div>
@@ -205,6 +169,6 @@ export default function OverviewPage() {
           )}
         </div>
       </div>
-    </div>
+      </PageContainer>
   );
 }

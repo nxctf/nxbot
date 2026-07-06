@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 import { Database, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, RefreshCw, Save, ArrowLeft, KeyRound, ShieldAlert, ShieldOff } from 'lucide-react';
 import Script from 'next/script';
 import { useRouter, useSearchParams } from 'next/navigation';
+import PageContainer from '@/components/PageContainer';
 
 interface Connection {
   id: string;
@@ -332,30 +333,23 @@ function DatabasesContent() {
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+    <>
       {/* Script for Cloudflare Turnstile inside form */}
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
         strategy="afterInteractive"
       />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.5px', marginBottom: '8px', color: '#f8fafc' }}>
-            Supabase DB Connections
-          </h1>
-          <p style={{ color: '#94a3b8', fontSize: '14px' }}>
-            Configure and verify saved Supabase database credentials to map to your Discord CTF servers.
-          </p>
-        </div>
-
-        {!showForm && (
+      <PageContainer
+        title="Supabase DB Connections"
+        subtitle="Configure and verify saved Supabase database credentials to map to your Discord CTF servers."
+        extra={!showForm && (
           <button onClick={() => router.push('/dashboard/databases?tab=add')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={18} />
             Add Connection
           </button>
         )}
-      </div>
+      >
 
       {error && (
         <div className="alert alert-error" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -661,7 +655,8 @@ function DatabasesContent() {
           </div>
         );
       })()}
-    </div>
+      </PageContainer>
+    </>
   );
 }
 
