@@ -69,7 +69,7 @@ cmd_start() {
     echo -e "$PREFIX_INFO Starting all NXBot services..."
     compose up -d
     echo -e "$PREFIX_INFO All services started."
-    echo -e "$PREFIX_INFO Web Dashboard: ${CYAN}http://localhost:3000${NC}"
+    echo -e "$PREFIX_INFO Web Dashboard: ${CYAN}http://localhost:${PORT:-7000}${NC}"
     cmd_status
 }
 
@@ -90,7 +90,7 @@ cmd_web() {
     echo -e "$PREFIX_INFO Starting web dashboard only (bot disabled)..."
     compose stop discord-bot 2>/dev/null || true
     compose up -d web-dashboard
-    echo -e "$PREFIX_INFO Web Dashboard: ${CYAN}http://localhost:3000${NC}"
+    echo -e "$PREFIX_INFO Web Dashboard: ${CYAN}http://localhost:${PORT:-7000}${NC}"
     echo -e "$PREFIX_WARN Discord bot is stopped (maintenance mode)."
 }
 
@@ -178,7 +178,7 @@ cmd_setup() {
     echo -e "$PREFIX_INFO Setup complete! Next steps:"
     echo -e "  1. Edit ${CYAN}.env${NC} with your DISCORD_BOT_TOKEN and JWT_SECRET"
     echo -e "  2. Run ${CYAN}./nxbot start${NC}"
-    echo -e "  3. Open ${CYAN}http://localhost:3000${NC} to complete web setup"
+    echo -e "  3. Open ${CYAN}http://localhost:${PORT:-7000}${NC} to complete web setup"
     echo ""
 }
 

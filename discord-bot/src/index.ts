@@ -70,7 +70,7 @@ client.once('ready', async () => {
   // Check setup state
   if (!isSetup()) {
     console.log('[Bot] System not set up yet. Bot is in sleep mode.');
-    console.log('[Bot] Complete setup via web dashboard at http://localhost:3000');
+    console.log(`[Bot] Complete setup via web dashboard at http://localhost:${process.env.PORT || '7000'}`);
     logEvent(null, 'info', 'startup', 'Bot started in sleep mode (setup not complete)');
     return;
   }

@@ -38,10 +38,10 @@ COPY --from=builder /app/start.js /app/start.js
 RUN mkdir -p /app/data
 
 # Expose Next.js Web port
-EXPOSE 3000
+EXPOSE 7000
 
 # Environment variables defaults
-ENV PORT=3000
+ENV PORT=7000
 ENV NODE_ENV=production
 ENV DATABASE_PATH=/app/data/nxbot.db
 
