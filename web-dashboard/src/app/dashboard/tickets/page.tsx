@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download, Send } from 'lucide-react';
+import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download, Send, Bot } from 'lucide-react';
 
 interface TicketData {
   id: number;
@@ -705,33 +705,55 @@ export default function TicketsPage() {
                           }}
                         >
                           {/* Avatar */}
-                          {msg.avatar_url ? (
-                            <img 
-                              src={msg.avatar_url} 
-                              alt={msg.username}
-                              style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '50%',
-                              backgroundColor: isUser ? '#1e293b' : '#312e81',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 700,
-                              fontSize: '13px',
-                              color: '#f8fafc',
-                              border: '1px solid rgba(255,255,255,0.1)',
-                              flexShrink: 0,
-                            }}>
-                              {msg.username.substring(0, 2).toUpperCase()}
-                            </div>
-                          )}
+                          {(() => {
+                            const isBot = msg.user_id === 'bot' || msg.user_id === 'system_bot' || msg.username.includes('NXBot');
+                            if (msg.avatar_url) {
+                              return (
+                                <img 
+                                  src={msg.avatar_url} 
+                                  alt={msg.username}
+                                  style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}
+                                />
+                              );
+                            } else if (isBot) {
+                              return (
+                                <div style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '50%',
+                                  backgroundColor: 'rgba(88, 101, 242, 0.15)',
+                                  border: '1px solid rgba(88, 101, 242, 0.3)',
+                                  color: '#5865F2',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  boxShadow: '0 0 10px rgba(88, 101, 242, 0.2)'
+                                }}>
+                                  <Bot size={18} />
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '50%',
+                                  backgroundColor: isUser ? 'rgba(56, 189, 248, 0.1)' : 'rgba(168, 85, 247, 0.1)',
+                                  border: `1px solid ${isUser ? 'rgba(56, 189, 248, 0.2)' : 'rgba(168, 85, 247, 0.2)'}`,
+                                  color: isUser ? '#38bdf8' : '#a855f7',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 700,
+                                  fontSize: '13px',
+                                  flexShrink: 0,
+                                }}>
+                                  {msg.username.substring(0, 2).toUpperCase()}
+                                </div>
+                              );
+                            }
+                          })()}
 
                           {/* Content */}
                           <div style={{ flex: 1 }}>
