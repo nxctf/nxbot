@@ -136,19 +136,25 @@ export class TicketManager {
         );
       }
 
-      // Send initial embed with close button
+      // Send initial embed with close and claim buttons
       const embed = new EmbedBuilder()
         .setColor(0x5865F2) // Discord blurple
         .setTitle(`🎫 Ticket #${String(ticketNumber).padStart(4, '0')}`)
-        .setDescription(`**Subject:** ${subject}${description ? `\n\n**Description:**\n${description}` : ''}`)
         .addFields(
+          { name: 'Subject', value: subject, inline: false },
+          { name: 'Description', value: description || 'No description provided.', inline: false },
           { name: 'Opened by', value: `<@${userId}>`, inline: true },
           { name: 'Status', value: '🟢 Open', inline: true },
         )
         .setTimestamp()
         .setFooter({ text: 'NXBot Ticketing System' });
 
-      const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`ticket_claim_${ticketId}`)
+          .setLabel('Claim Ticket')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('🙋‍♂️'),
         new ButtonBuilder()
           .setCustomId(`ticket_close_${ticketId}`)
           .setLabel('Close Ticket')
@@ -156,25 +162,25 @@ export class TicketManager {
           .setEmoji('🔒'),
       );
 
-      await channel.send({ embeds: [embed], components: [closeButton] });
-
       // Send custom welcome message or default
       const defaultWelcome = `<@${userId}> Your ticket has been created. Please describe your issue here.`;
       let welcomeMsg = defaultWelcome;
       if (guildConfig.ticket_welcome_message) {
         welcomeMsg = guildConfig.ticket_welcome_message.replace(/\{\{user\}\}/g, `<@${userId}>`);
       }
-      await channel.send(welcomeMsg);
 
-      if (description) {
-        await channel.send(`📝 **Initial Description:**\n${description}`);
-      }
-
-      // Ping staff roles if configured
+      const contentParts: string[] = [welcomeMsg];
       if (pingRoleIds.length > 0) {
         const roleMentions = pingRoleIds.map(id => `<@&${id}>`).join(' ');
-        await channel.send({ content: `📢 ${roleMentions}`, allowedMentions: { roles: pingRoleIds } });
+        contentParts.push(`📢 ${roleMentions}`);
       }
+
+      await channel.send({
+        content: contentParts.join('\n'),
+        embeds: [embed],
+        components: [actionRow],
+        allowedMentions: { roles: pingRoleIds, users: [userId] }
+      });
 
       // Log to ticket logs channel
       if (guildConfig.channel_ticket_logs) {
@@ -328,6 +334,38 @@ export class TicketManager {
       assignTicket(ticket.id, staffUserId);
     }
 
+    return { success: true };
+  }
+
+  /**
+   * Claim a ticket by staff.
+   */
+  async claimTicket(channelId: string, staffUserId: string, staffUsername: string): Promise<{ success: boolean; error?: string }> {
+    const ticket = getTicketByChannel(channelId);
+    if (!ticket) {
+      return { success: false, error: 'No ticket found for this channel.' };
+    }
+
+    if (ticket.status !== 'open') {
+      return { success: false, error: `This ticket is already ${ticket.status}.` };
+    }
+
+    // Update status in local DB to in_progress and assign to staff
+    assignTicket(ticket.id, staffUserId);
+
+    // Send log to logs channel if configured
+    const guildConfig = getGuild(ticket.guild_id);
+    if (guildConfig?.channel_ticket_logs) {
+      await this.sendTicketLog(guildConfig.channel_ticket_logs, 'assigned', {
+        ticketNumber: ticket.id,
+        userId: ticket.user_id,
+        username: ticket.username || 'Unknown',
+        subject: ticket.subject,
+        assignedTo: staffUserId,
+      });
+    }
+
+    logEvent(ticket.guild_id, 'info', 'ticket', `Ticket #${ticket.id} claimed by ${staffUsername} (${staffUserId})`);
     return { success: true };
   }
 

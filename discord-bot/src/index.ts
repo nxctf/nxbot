@@ -222,6 +222,65 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
+    // Ticket claim button
+    if (interaction.customId.startsWith('ticket_claim_')) {
+      const ticketId = parseInt(interaction.customId.replace('ticket_claim_', ''));
+      if (!ticketManager) return;
+
+      const ticket = getTicketByChannel(interaction.channelId);
+      if (ticket && interaction.user.id === ticket.user_id) {
+        await interaction.reply({ content: '❌ You cannot claim your own ticket.', ephemeral: true });
+        return;
+      }
+
+      const result = await ticketManager.claimTicket(interaction.channelId, interaction.user.id, interaction.user.username);
+      if (!result.success) {
+        await interaction.reply({ content: `❌ ${result.error}`, ephemeral: true });
+        return;
+      }
+
+      // Update the embed and components
+      const originalEmbed = interaction.message.embeds[0];
+      if (!originalEmbed) {
+        await interaction.reply({ content: '❌ Original embed not found.', ephemeral: true });
+        return;
+      }
+
+      // Build a new Embed with the updated status
+      const updatedEmbed = EmbedBuilder.from(originalEmbed)
+        .spliceFields(
+          originalEmbed.fields.findIndex(f => f.name === 'Status'),
+          1,
+          { name: 'Status', value: `🟡 In Progress (Claimed by <@${interaction.user.id}>)`, inline: true }
+        );
+
+      // Build updated ActionRow
+      const updatedRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`ticket_claimed_${ticketId}`)
+          .setLabel(`Claimed by ${interaction.user.username}`)
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(true)
+          .setEmoji('🙋‍♂️'),
+        new ButtonBuilder()
+          .setCustomId(`ticket_close_${ticketId}`)
+          .setLabel('Close Ticket')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🔒')
+      );
+
+      await interaction.update({
+        embeds: [updatedEmbed],
+        components: [updatedRow]
+      });
+
+      // Post a system message in the channel announcing the claim
+      await interaction.followUp({
+        content: `🙋‍♂️ <@${interaction.user.id}> has claimed this ticket and will assist you shortly.`
+      });
+      return;
+    }
+
     // Ticket open panel button -> Show Modal
     if (interaction.customId === 'ticket_open_panel') {
       if (!ticketManager) return;
