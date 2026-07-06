@@ -7,7 +7,7 @@ services:
     ports:
       - "${PORT:-7000}:${PORT:-7000}"
     volumes:
-      - nxbot-data:/app/data
+      - ./data:/app/data
     environment:
       - PORT=${PORT:-7000}
       - DATABASE_PATH=/app/data/nxbot.db
@@ -21,6 +21,4 @@ services:
       retries: 3
       start_period: 20s
 
-volumes:
-  nxbot-data:
-    driver: local
+

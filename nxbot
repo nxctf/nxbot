@@ -190,7 +190,7 @@ cmd_reset_password() {
         exit 1
     fi
 
-    echo "$password" | node "$SCRIPT"
+    echo "$password" | compose run --rm -T nxbot node scripts/reset-password.js
     echo -e "$PREFIX_INFO Password updated successfully."
 }
 
@@ -364,7 +364,7 @@ cmd_setup() {
     fi
 
     # Pass username and password via stdin
-    echo -e "${username}\n${password}" | node "$SETUP_SCRIPT"
+    echo -e "${username}\n${password}" | compose run --rm -T nxbot node scripts/setup-credentials.js
 
     echo ""
     echo -e "$PREFIX_INFO Setup complete! Next steps:"

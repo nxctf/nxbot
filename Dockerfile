@@ -11,6 +11,7 @@ COPY discord-bot ./discord-bot
 COPY web-dashboard ./web-dashboard
 COPY db ./db
 COPY start.js ./start.js
+COPY scripts ./scripts
 
 # Build Discord Bot
 WORKDIR /app/discord-bot
@@ -33,6 +34,7 @@ COPY --from=builder /app/discord-bot /app/discord-bot
 COPY --from=builder /app/web-dashboard /app/web-dashboard
 COPY --from=builder /app/db /app/db
 COPY --from=builder /app/start.js /app/start.js
+COPY --from=builder /app/scripts /app/scripts
 
 # Create persistent storage folder for SQLite
 RUN mkdir -p /app/data
