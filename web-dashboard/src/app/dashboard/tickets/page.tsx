@@ -219,12 +219,26 @@ export default function TicketsPage() {
 
       {/* Ticket List */}
       {tickets.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-          <div style={{ marginBottom: '16px' }}>
-            <HelpCircle size={48} style={{ opacity: 0.4, color: '#64748b' }} />
+        <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            background: 'rgba(168, 85, 247, 0.1)',
+            border: '1px solid rgba(168, 85, 247, 0.2)',
+            color: '#a855f7',
+            marginBottom: '24px',
+            boxShadow: '0 0 20px rgba(168, 85, 247, 0.15)'
+          }}>
+            <Ticket size={36} />
           </div>
-          <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px' }}>No Tickets Found</h2>
-          <p style={{ fontSize: '14px' }}>Support requests opened on Discord servers will list here in real time.</p>
+          <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px', fontWeight: 700 }}>No Tickets Found</h2>
+          <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto', lineHeight: '1.6' }}>
+            Support requests opened on Discord servers will list here in real time.
+          </p>
         </div>
       ) : (
         <div className="table-container">
@@ -416,11 +430,24 @@ export default function TicketsPage() {
                   <span>Loading ticket transcript...</span>
                 </div>
               ) : messages.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px', color: '#64748b', textAlign: 'center', padding: '48px' }}>
-                  <MessageSquare size={36} style={{ opacity: 0.3, color: '#64748b' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', color: '#64748b', textAlign: 'center', padding: '48px' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: 'rgba(56, 189, 248, 0.06)',
+                    border: '1px solid rgba(56, 189, 248, 0.15)',
+                    color: '#38bdf8',
+                    boxShadow: '0 0 15px rgba(56, 189, 248, 0.08)'
+                  }}>
+                    <MessageSquare size={28} />
+                  </div>
                   <div>
-                    <span style={{ fontWeight: 600, color: '#94a3b8', display: 'block', marginBottom: '4px', fontSize: '14px' }}>No messages logged</span>
-                    <span style={{ fontSize: '13px' }}>Messages sent inside this ticket channel on Discord will appear here.</span>
+                    <span style={{ fontWeight: 700, color: '#f8fafc', display: 'block', marginBottom: '6px', fontSize: '15px' }}>No messages logged</span>
+                    <span style={{ fontSize: '13px', color: '#94a3b8', maxWidth: '320px', display: 'block', margin: '0 auto', lineHeight: '1.5' }}>Messages sent inside this ticket channel on Discord will appear here.</span>
                   </div>
                 </div>
               ) : (

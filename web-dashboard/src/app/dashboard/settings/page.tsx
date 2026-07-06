@@ -236,10 +236,24 @@ export default function SettingsPage() {
             <p>Querying SQLite DB...</p>
           </div>
         ) : logs.length === 0 ? (
-          <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-            <Terminal size={40} style={{ margin: '0 auto 16px', opacity: 0.4, color: '#64748b' }} />
-            <h3 style={{ fontSize: '18px', color: '#f8fafc', marginBottom: '8px' }}>Console Log is Empty</h3>
-            <p style={{ fontSize: '14px', maxWidth: '400px', margin: '0 auto' }}>
+          <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              background: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.2)',
+              color: '#38bdf8',
+              marginBottom: '24px',
+              boxShadow: '0 0 20px rgba(56, 189, 248, 0.15)'
+            }}>
+              <Terminal size={36} />
+            </div>
+            <h3 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px', fontWeight: 700 }}>Console Log is Empty</h3>
+            <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto', lineHeight: '1.6' }}>
               Bot and dashboard activity logs will appear here once services are running.
             </p>
           </div>

@@ -459,12 +459,24 @@ export default function DatabasesPage() {
               <p>Fetching saved database connections...</p>
             </div>
           ) : conns.length === 0 ? (
-            <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-              <div style={{ marginBottom: '16px' }}>
-                <Database size={48} style={{ opacity: 0.4, color: '#64748b' }} />
+            <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.2)',
+                color: '#38bdf8',
+                marginBottom: '24px',
+                boxShadow: '0 0 20px rgba(56, 189, 248, 0.15)'
+              }}>
+                <Database size={36} />
               </div>
-              <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px' }}>No Database Connections Configured</h2>
-              <p style={{ fontSize: '14px', maxWidth: '450px', margin: '0 auto 24px' }}>
+              <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px', fontWeight: 700 }}>No Database Connections Configured</h2>
+              <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto 24px', lineHeight: '1.6' }}>
                 Create a database connection first so you can link it to your Discord servers.
               </p>
               <button onClick={() => setShowForm(true)} className="btn btn-primary">
