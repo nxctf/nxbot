@@ -38,18 +38,26 @@ export class TicketManager {
       return { error: 'Bot is not in this server.' };
     }
 
+    // Fetch member and resolve avatar URL
+    let userAvatar: string | null = null;
+    let member: any = null;
+    try {
+      member = await discordGuild.members.fetch(userId);
+      userAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 128 }) || null;
+    } catch (err) {
+      console.warn('[Ticket] Could not fetch member or avatar:', err);
+    }
+
     // Check required roles (if configured)
     if (guildConfig.ticket_required_roles) {
       const requiredRoleIds = guildConfig.ticket_required_roles.split(',').filter(Boolean);
       if (requiredRoleIds.length > 0) {
-        try {
-          const member = await discordGuild.members.fetch(userId);
-          const hasRole = requiredRoleIds.some(roleId => member.roles.cache.has(roleId));
-          if (!hasRole) {
-            return { error: 'You do not have the required role to open a ticket.' };
-          }
-        } catch {
+        if (!member) {
           return { error: 'Could not verify your roles. Please try again.' };
+        }
+        const hasRole = requiredRoleIds.some(roleId => member.roles.cache.has(roleId));
+        if (!hasRole) {
+          return { error: 'You do not have the required role to open a ticket.' };
         }
       }
     }
@@ -131,7 +139,7 @@ export class TicketManager {
           ticketId,
           userId,
           username,
-          null,
+          userAvatar,
           `📝 **Initial Description:**\n${description}`
         );
       }

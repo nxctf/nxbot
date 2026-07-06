@@ -366,6 +366,15 @@ setInterval(async () => {
               setTimeout(() => channel.delete('Closed via dashboard').catch(() => null), 10_000);
             }
           }
+        } else if (action.action_type === 'send_message') {
+          const payload = JSON.parse(action.payload) as { channel_id: string; message_content: string };
+          const channel = await client.channels.fetch(payload.channel_id).catch(() => null);
+          if (channel && 'send' in channel) {
+            const { TextChannel } = await import('discord.js');
+            if (channel instanceof TextChannel) {
+              await channel.send({ content: payload.message_content });
+            }
+          }
         }
         completeBotAction(action.id, true);
       } catch (actionErr) {

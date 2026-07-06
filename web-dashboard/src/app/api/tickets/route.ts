@@ -16,7 +16,8 @@ export async function GET(request: Request) {
     const db = getDb();
     
     let query = `
-      SELECT t.*, g.guild_name 
+      SELECT t.*, g.guild_name,
+             (SELECT avatar_url FROM ticket_messages WHERE ticket_id = t.id AND user_id = t.user_id AND avatar_url IS NOT NULL LIMIT 1) AS user_avatar
       FROM tickets t 
       JOIN guilds g ON t.guild_id = g.id
     `;

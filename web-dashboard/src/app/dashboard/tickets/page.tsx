@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download } from 'lucide-react';
+import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download, Send } from 'lucide-react';
 
 interface TicketData {
   id: number;
@@ -18,6 +18,7 @@ interface TicketData {
   closed_by_avatar: string | null;
   closed_at: string | null;
   created_at: string;
+  user_avatar: string | null;
 }
 
 interface GuildItem {
@@ -56,6 +57,36 @@ export default function TicketsPage() {
   const openerAvatar = selectedTicket 
     ? messages.find(m => m.user_id === selectedTicket.user_id && m.avatar_url)?.avatar_url 
     : null;
+
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !selectedTicket) return;
+    setSendingReply(true);
+    try {
+      const res = await fetch(`/api/tickets/${selectedTicket.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: replyText }),
+      });
+      if (res.ok) {
+        setReplyText('');
+        // Refresh messages list to show the newly sent message
+        await fetchMessages(selectedTicket.id);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(`Failed to send message: ${errData.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Error sending reply:', err);
+      alert('Error sending message. Please try again.');
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   const fetchTickets = async () => {
     try {
@@ -275,8 +306,33 @@ export default function TicketsPage() {
                     </span>
                   </td>
                   <td>
-                    <span style={{ color: '#cbd5e1' }}>@{t.username || 'unknown'}</span>
-                    <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>ID: {t.user_id}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {t.user_avatar ? (
+                        <img 
+                          src={t.user_avatar} 
+                          alt="" 
+                          style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.05)' }} 
+                        />
+                      ) : (
+                        <div style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                          border: '1px solid rgba(168, 85, 247, 0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#a855f7'
+                        }}>
+                          <User size={12} />
+                        </div>
+                      )}
+                      <div>
+                        <span style={{ color: '#cbd5e1', fontWeight: 600 }}>@{t.username || 'unknown'}</span>
+                        <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>ID: {t.user_id}</div>
+                      </div>
+                    </div>
                   </td>
                   <td style={{ color: '#f8fafc', fontWeight: 500, maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {t.subject}
@@ -748,6 +804,62 @@ export default function TicketsPage() {
                         </div>
                       );
                     })
+                  )}
+                </div>
+
+                {/* Chat Input Bar */}
+                <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', background: 'rgba(13, 17, 28, 0.4)', display: 'flex', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
+                  {selectedTicket.status !== 'closed' ? (
+                    <>
+                      <input 
+                        type="text"
+                        placeholder="Type a response to send to Discord..."
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSendReply();
+                        }}
+                        style={{
+                          flex: 1,
+                          height: '42px',
+                          background: '#090d16',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          padding: '0 16px',
+                          color: '#f8fafc',
+                          fontSize: '14px',
+                          outline: 'none',
+                        }}
+                        disabled={sendingReply}
+                      />
+                      <button
+                        onClick={handleSendReply}
+                        className="btn btn-primary"
+                        style={{
+                          height: '42px',
+                          padding: '0 20px',
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontWeight: 600,
+                        }}
+                        disabled={sendingReply || !replyText.trim()}
+                      >
+                        {sendingReply ? (
+                          <RefreshCw className="animate-spin" size={16} />
+                        ) : (
+                          <>
+                            <span>Send</span>
+                            <Send size={16} />
+                          </>
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', width: '100%', fontStyle: 'italic' }}>
+                      This ticket is closed. Sending messages is disabled.
+                    </div>
                   )}
                 </div>
               </div>
