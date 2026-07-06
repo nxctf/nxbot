@@ -45,6 +45,7 @@ usage() {
     echo -e "${BOLD}Usage:${NC} ./nxbot <command>"
     echo ""
     echo -e "${BOLD}Commands:${NC}"
+    echo -e "  ${CYAN}install${NC}         Install nxbot system-wide command + dependencies"
     echo -e "  ${CYAN}start${NC}           Start all services (web + bot)"
     echo -e "  ${CYAN}stop${NC}            Stop all services"
     echo -e "  ${CYAN}restart${NC}         Restart all services"
@@ -56,14 +57,61 @@ usage() {
     echo -e "  ${CYAN}setup${NC}           Initialize database and first-time setup"
     echo ""
     echo -e "${BOLD}Examples:${NC}"
-    echo "  ./nxbot start          # Start everything"
-    echo "  ./nxbot web            # Dashboard only (maintenance mode)"
-    echo "  ./nxbot logs bot       # Tail bot logs"
-    echo "  ./nxbot status         # Check container health"
+    echo "  ./nxbot install       # Install nxbot command system-wide"
+    echo "  ./nxbot start         # Start everything"
+    echo "  ./nxbot web           # Dashboard only (maintenance mode)"
+    echo "  ./nxbot logs bot      # Tail bot logs"
+    echo "  ./nxbot status        # Check container health"
     echo ""
 }
 
 # ---- Commands ----
+
+cmd_install() {
+    print_banner
+    echo -e "$PREFIX_INFO Installing NXBot..."
+
+    # Make self executable
+    chmod +x "$SCRIPT_DIR/nxbot"
+    echo -e "$PREFIX_INFO Made nxbot executable"
+
+    # Check dependencies
+    if ! command -v docker &>/dev/null; then
+        echo -e "$PREFIX_ERROR Docker is required. Install it first."
+        exit 1
+    fi
+    echo -e "$PREFIX_INFO Docker found"
+
+    if ! docker compose version &>/dev/null; then
+        echo -e "$PREFIX_ERROR Docker Compose is required. Install it first."
+        exit 1
+    fi
+    echo -e "$PREFIX_INFO Docker Compose found"
+
+    # Install nxbot command system-wide
+    local BIN_DIR="/usr/local/bin"
+    if [ -w "$BIN_DIR" ]; then
+        ln -sf "$SCRIPT_DIR/nxbot" "$BIN_DIR/nxbot"
+        echo -e "$PREFIX_INFO Installed ${CYAN}nxbot${NC} to $BIN_DIR"
+    else
+        echo -e "$PREFIX_INFO Installing to $BIN_DIR (requires sudo)..."
+        sudo ln -sf "$SCRIPT_DIR/nxbot" "$BIN_DIR/nxbot"
+        echo -e "$PREFIX_INFO Installed ${CYAN}nxbot${NC} to $BIN_DIR"
+    fi
+
+    # Create data directory
+    mkdir -p "$SCRIPT_DIR/data"
+
+    # Run setup (init DB + .env)
+    cmd_setup
+
+    echo ""
+    echo -e "$PREFIX_INFO ${GREEN}Installation complete!${NC}"
+    echo -e "  Restart your shell or run: ${YELLOW}source ~/.bashrc${NC}"
+    echo -e "  Then use: ${CYAN}nxbot start${NC} from anywhere"
+    echo -e "  Or use:   ${CYAN}./nxbot start${NC} from the project directory"
+    echo ""
+}
 
 cmd_start() {
     echo -e "$PREFIX_INFO Starting all NXBot services..."
@@ -188,6 +236,7 @@ main() {
     local cmd="${1:-}"
 
     case "$cmd" in
+        install)  cmd_install ;;
         start)    cmd_start ;;
         stop)     cmd_stop ;;
         restart)  cmd_restart ;;
