@@ -6,7 +6,11 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SCRIPT_SOURCE" ]; do
+    SCRIPT_SOURCE="$(readlink "$SCRIPT_SOURCE")"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
 PROJECT_NAME="nxbot"
 
@@ -42,27 +46,25 @@ print_banner() {
 
 usage() {
     print_banner
-    echo -e "${BOLD}Usage:${NC} ./nxbot <command>"
+    echo -e "${BOLD}Usage:${NC} nxbot <command>"
     echo ""
     echo -e "${BOLD}Commands:${NC}"
-    echo -e "  ${CYAN}install${NC}         Install nxbot system-wide command + dependencies"
-    echo -e "  ${CYAN}start${NC}           Start all services (web + bot)"
+    echo -e "  ${CYAN}install${NC}         Install nxbot system-wide + dependencies"
+    echo -e "  ${CYAN}setup${NC}           Initialize database and first-time setup"
+    echo -e "  ${CYAN}build${NC}           Build/rebuild Docker containers"
+    echo -e "  ${CYAN}start${NC}           Start all services"
     echo -e "  ${CYAN}stop${NC}            Stop all services"
     echo -e "  ${CYAN}restart${NC}         Restart all services"
-    echo -e "  ${CYAN}web${NC}             Start web dashboard only (bot off)"
-    echo -e "  ${CYAN}bot${NC}             Start bot only (web off)"
     echo -e "  ${CYAN}status${NC}          Show service status"
     echo -e "  ${CYAN}logs${NC} [service]  Tail logs (web-dashboard | discord-bot)"
-    echo -e "  ${CYAN}build${NC}           Build/rebuild containers"
-    echo -e "  ${CYAN}setup${NC}           Initialize database and first-time setup"
-    echo -e "  ${CYAN}credentials${NC}     Show admin login credentials"
-    echo -e "  ${CYAN}reset-password${NC}  Reset admin password via CLI"
+    echo -e "  ${CYAN}credentials${NC}     Show admin login info"
+    echo -e "  ${CYAN}reset-password${NC}  Change admin password via CLI"
     echo ""
     echo -e "${BOLD}Examples:${NC}"
-    echo "  ./nxbot install        # Install nxbot command system-wide"
-    echo "  ./nxbot start          # Start everything"
-    echo "  ./nxbot credentials    # Show admin username"
-    echo "  ./nxbot reset-password # Change admin password"
+    echo "  nxbot install        # One-time setup after clone"
+    echo "  nxbot start          # Start everything"
+    echo "  nxbot credentials    # Show admin username"
+    echo "  nxbot reset-password # Change password if forgotten"
     echo ""
 }
 
@@ -224,33 +226,6 @@ cmd_restart() {
     cmd_status
 }
 
-cmd_web() {
-    echo -e "$PREFIX_INFO Starting web dashboard only (bot disabled)..."
-    compose stop discord-bot 2>/dev/null || true
-    compose up -d web-dashboard
-    echo -e "$PREFIX_INFO Web Dashboard: ${CYAN}http://localhost:${PORT:-7000}${NC}"
-
-    local DB_PATH="$SCRIPT_DIR/data/nxbot.db"
-    if [ -f "$DB_PATH" ]; then
-        local username
-        username=$(sqlite3 "$DB_PATH" "SELECT value FROM system_settings WHERE key = 'admin_username'" 2>/dev/null)
-        if [ -n "$username" ]; then
-            echo -e "$PREFIX_INFO Login: ${GREEN}$username${NC}"
-            echo -e "$PREFIX_INFO Forgot password? Run: ${CYAN}./nxbot reset-password${NC}"
-        fi
-    fi
-
-    echo -e "$PREFIX_WARN Discord bot is stopped (maintenance mode)."
-}
-
-cmd_bot() {
-    echo -e "$PREFIX_INFO Starting discord bot only (web off)..."
-    compose stop web-dashboard 2>/dev/null || true
-    compose up -d discord-bot
-    echo -e "$PREFIX_INFO Discord bot started."
-    echo -e "$PREFIX_WARN Web dashboard is stopped."
-}
-
 cmd_status() {
     echo -e "${BOLD}NXBot Service Status${NC}"
     echo "─────────────────────────────────────"
@@ -260,19 +235,11 @@ cmd_status() {
 cmd_logs() {
     local service="${1:-}"
     case "$service" in
-        web|web-dashboard|dashboard)
-            compose logs -f web-dashboard
-            ;;
-        bot|discord-bot)
-            compose logs -f discord-bot
-            ;;
         "")
             compose logs -f
             ;;
         *)
-            echo -e "$PREFIX_ERROR Unknown service: $service"
-            echo "Available: web-dashboard, discord-bot"
-            exit 1
+            compose logs -f "$service"
             ;;
     esac
 }
@@ -346,8 +313,6 @@ main() {
         start)           cmd_start ;;
         stop)            cmd_stop ;;
         restart)         cmd_restart ;;
-        web)             cmd_web ;;
-        bot)             cmd_bot ;;
         status)          cmd_status ;;
         logs)            shift; cmd_logs "$@" ;;
         build)           cmd_build ;;
