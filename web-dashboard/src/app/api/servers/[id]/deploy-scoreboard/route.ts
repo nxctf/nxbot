@@ -22,7 +22,12 @@ export async function POST(
     }
 
     const db = getDb();
-    const guild = db.prepare('SELECT * FROM guilds WHERE id = ?').get(guildId) as any;
+    const guild = db.prepare(`
+      SELECT g.*, c.supabase_url, c.supabase_anon_key
+      FROM guilds g
+      LEFT JOIN supabase_connections c ON g.supabase_connection_id = c.id
+      WHERE g.id = ?
+    `).get(guildId) as any;
 
     if (!guild) {
       return NextResponse.json({ error: 'Server configuration not found.' }, { status: 404 });
@@ -30,6 +35,10 @@ export async function POST(
 
     if (!guild.channel_scoreboard) {
       return NextResponse.json({ error: 'Please configure and save the Live Scoreboard Channel ID first.' }, { status: 400 });
+    }
+
+    if (!guild.supabase_url || !guild.supabase_anon_key) {
+      return NextResponse.json({ error: 'Please link a valid Supabase Database Connection to this server first.' }, { status: 400 });
     }
 
     // 1. Fetch Leaderboard Data from Supabase RPC Function
