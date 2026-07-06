@@ -1,5 +1,5 @@
 import { Client, EmbedBuilder, TextChannel, ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { createTicket, getTicketByChannel, getTicketsByGuild, getTicketsByUser, updateTicketStatus, assignTicket, Ticket, getGuild, logEvent, saveTicketMessage } from '../db/local';
+import { createTicket, getTicketByChannel, getTicketsByGuild, getTicketsByUser, updateTicketStatus, assignTicket, Ticket, getGuild, logEvent, saveTicketMessage, upsertDiscordUser } from '../db/local';
 
 /**
  * Ticket Manager Service
@@ -44,8 +44,10 @@ export class TicketManager {
     try {
       member = await discordGuild.members.fetch(userId);
       userAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 128 }) || null;
+      upsertDiscordUser(userId, username, userAvatar);
     } catch (err) {
       console.warn('[Ticket] Could not fetch member or avatar:', err);
+      upsertDiscordUser(userId, username, null);
     }
 
     // Check required roles (if configured)
@@ -281,9 +283,10 @@ export class TicketManager {
       const guild = await this.client.guilds.fetch(ticket.guild_id);
       const member = await guild.members.fetch(closedByUserId);
       closerUsername = member.user.username;
-      closerAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 64 });
+      closerAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 64 }) || null;
+      upsertDiscordUser(closedByUserId, closerUsername, closerAvatar);
     } catch {
-      // Non-fatal — just won't show avatar
+      upsertDiscordUser(closedByUserId, closedByUserId, null);
     }
 
     // Update status in DB
@@ -356,6 +359,17 @@ export class TicketManager {
 
     if (ticket.status !== 'open') {
       return { success: false, error: `This ticket is already ${ticket.status}.` };
+    }
+
+    // Fetch staff avatar and upsert user cache
+    let staffAvatar: string | null = null;
+    try {
+      const guild = await this.client.guilds.fetch(ticket.guild_id);
+      const member = await guild.members.fetch(staffUserId);
+      staffAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 64 }) || null;
+      upsertDiscordUser(staffUserId, staffUsername, staffAvatar);
+    } catch {
+      upsertDiscordUser(staffUserId, staffUsername, null);
     }
 
     // Update status in local DB to in_progress and assign to staff

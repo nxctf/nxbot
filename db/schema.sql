@@ -142,6 +142,17 @@ CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket ON ticket_messages(ticket_
 CREATE INDEX IF NOT EXISTS idx_ticket_messages_created ON ticket_messages(created_at);
 
 -- =============================================
+-- Table: discord_users
+-- Cache for Discord users, usernames, and avatars
+-- =============================================
+CREATE TABLE IF NOT EXISTS discord_users (
+    user_id TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    avatar_url TEXT DEFAULT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================
 -- Table: bot_actions
 -- Actions queued by web dashboard to be executed by the bot
 -- =============================================

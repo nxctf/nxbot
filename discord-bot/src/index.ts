@@ -2,7 +2,7 @@ import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import { Client, GatewayIntentBits, Collection, REST, Routes, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage, getPendingBotActions, completeBotAction } from './db/local';
+import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage, getPendingBotActions, completeBotAction, upsertDiscordUser } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
 import { FirstBloodService } from './services/firstblood';
 import { AnnouncementService } from './services/announcements';
@@ -396,6 +396,7 @@ client.on('messageCreate', async (message) => {
     if (!ticket || ticket.status === 'closed') return;
 
     const avatarUrl = message.author.displayAvatarURL({ forceStatic: false }) || null;
+    upsertDiscordUser(message.author.id, message.author.username, avatarUrl);
     const content = message.content || null;
 
     // Handle attachments (images + files, max 10MB each)

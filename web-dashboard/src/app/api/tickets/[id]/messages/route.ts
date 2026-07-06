@@ -28,11 +28,15 @@ export async function GET(
 
     // 2. Fetch all messages in order
     const messages = db.prepare(`
-      SELECT id, ticket_id, user_id, username, avatar_url, message_content,
-             attachment_filename, attachment_original_name, attachment_size, created_at
-      FROM ticket_messages
-      WHERE ticket_id = ?
-      ORDER BY created_at ASC
+      SELECT tm.id, tm.ticket_id, tm.user_id, 
+             COALESCE(u.username, tm.username) AS username,
+             COALESCE(u.avatar_url, tm.avatar_url) AS avatar_url,
+             tm.message_content, tm.attachment_filename,
+             tm.attachment_original_name, tm.attachment_size, tm.created_at
+      FROM ticket_messages tm
+      LEFT JOIN discord_users u ON tm.user_id = u.user_id
+      WHERE tm.ticket_id = ?
+      ORDER BY tm.created_at ASC
     `).all(ticketId);
 
     return NextResponse.json(messages);

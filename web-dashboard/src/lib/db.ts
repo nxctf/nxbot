@@ -131,6 +131,12 @@ function initSchema(database: Database.Database): void {
           attachment_size INTEGER DEFAULT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS discord_users (
+          user_id TEXT PRIMARY KEY,
+          username TEXT NOT NULL,
+          avatar_url TEXT DEFAULT NULL,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS bot_actions (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           action_type TEXT NOT NULL,

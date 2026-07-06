@@ -151,6 +151,13 @@ function createInlineSchema(): void {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS discord_users (
+      user_id TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      avatar_url TEXT DEFAULT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS bot_actions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       action_type TEXT NOT NULL,
@@ -647,4 +654,15 @@ export function completeBotAction(id: number, success = true): void {
   getDb().prepare(`
     UPDATE bot_actions SET status = ? WHERE id = ?
   `).run(success ? 'done' : 'failed', id);
+}
+
+export function upsertDiscordUser(userId: string, username: string, avatarUrl: string | null): void {
+  getDb().prepare(`
+    INSERT INTO discord_users (user_id, username, avatar_url, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(user_id) DO UPDATE SET
+      username = excluded.username,
+      avatar_url = COALESCE(excluded.avatar_url, avatar_url),
+      updated_at = CURRENT_TIMESTAMP
+  `).run(userId, username, avatarUrl);
 }
