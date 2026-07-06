@@ -117,25 +117,39 @@ export class TicketManager {
       });
     }
 
+    // Create the private channel
+    let channel;
     try {
-      // Create the private channel
-      const channel = await discordGuild.channels.create({
+      channel = await discordGuild.channels.create({
         name: channelName,
         type: ChannelType.GuildText,
         parent: guildConfig.channel_ticket_category || undefined,
         permissionOverwrites,
       });
+    } catch (err: any) {
+      console.error('[Ticket] Channel creation failed:', err?.message || err, err?.code || '');
+      logEvent(guildId, 'error', 'ticket', `Channel create error: ${err?.message || err}`);
+      return { error: `Failed to create channel: ${err?.message || 'Discord API error'}` };
+    }
 
-      // Insert ticket into local DB
-      const ticketId = createTicket({
+    // Insert ticket into local DB
+    let ticketId: number;
+    try {
+      ticketId = createTicket({
         guild_id: guildId,
         channel_id: channel.id,
         user_id: userId,
         username,
         subject,
       });
+    } catch (err: any) {
+      console.error('[Ticket] DB insert failed:', err?.message || err);
+      logEvent(guildId, 'error', 'ticket', `DB createTicket error: ${err?.message || err}`);
+      return { error: 'Internal database error creating ticket.' };
+    }
 
-      // Save initial description to ticket_messages DB if provided
+    // Save initial description to ticket_messages DB if provided
+    try {
       if (description) {
         saveTicketMessage(
           ticketId,
@@ -145,10 +159,15 @@ export class TicketManager {
           `📝 **Initial Description:**\n${description}`
         );
       }
+    } catch (err: any) {
+      console.error('[Ticket] Failed to save initial message:', err?.message || err);
+      logEvent(guildId, 'error', 'ticket', `saveTicketMessage error: ${err?.message || err}`);
+    }
 
-      // Send initial embed with close and claim buttons
+    // Send initial embed with close and claim buttons
+    try {
       const embed = new EmbedBuilder()
-        .setColor(0x5865F2) // Discord blurple
+        .setColor(0x5865F2)
         .setTitle(`🎫 Ticket #${String(ticketNumber).padStart(4, '0')}`)
         .addFields(
           { name: 'Subject', value: subject, inline: false },
@@ -172,7 +191,6 @@ export class TicketManager {
           .setEmoji('🔒'),
       );
 
-      // Send custom welcome message or default
       const defaultWelcome = `<@${userId}> Your ticket has been created. Please describe your issue here.`;
       let welcomeMsg = defaultWelcome;
       if (guildConfig.ticket_welcome_message) {
@@ -191,8 +209,13 @@ export class TicketManager {
         components: [actionRow],
         allowedMentions: { roles: pingRoleIds, users: [userId] }
       });
+    } catch (err: any) {
+      console.error('[Ticket] Failed to send welcome message:', err?.message || err);
+      logEvent(guildId, 'warn', 'ticket', `Welcome message send error: ${err?.message || err}`);
+    }
 
-      // Log to ticket logs channel
+    // Log to ticket logs channel
+    try {
       if (guildConfig.channel_ticket_logs) {
         await this.sendTicketLog(guildConfig.channel_ticket_logs, 'created', {
           ticketNumber,
@@ -202,15 +225,14 @@ export class TicketManager {
           channelId: channel.id,
         });
       }
-
-      logEvent(guildId, 'info', 'ticket', `Ticket #${ticketNumber} created by ${username}: ${subject}`);
-
-      const ticket = getTicketByChannel(channel.id)!;
-      return { ticket, channelId: channel.id };
-    } catch (err) {
-      console.error('[Ticket] Failed to create ticket channel:', err);
-      return { error: 'Failed to create ticket channel. Check bot permissions.' };
+    } catch (err: any) {
+      console.error('[Ticket] Failed to send ticket log:', err?.message || err);
     }
+
+    logEvent(guildId, 'info', 'ticket', `Ticket #${ticketNumber} created by ${username}: ${subject}`);
+
+    const ticket = getTicketByChannel(channel.id)!;
+    return { ticket, channelId: channel.id };
   }
 
   /**
