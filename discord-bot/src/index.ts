@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, Collection, REST, Routes, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage, getPendingBotActions, completeBotAction } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
 import { FirstBloodService } from './services/firstblood';
@@ -193,17 +193,88 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    // Ticket open panel button
+    // Initial Ticket close request click (from the close button inside ticket channel)
+    if (interaction.customId.startsWith('ticket_close_')) {
+      const ticketId = interaction.customId.replace('ticket_close_', '');
+      
+      const confirmEmbed = new EmbedBuilder()
+        .setColor(0xF59E0B) // Warning Yellow
+        .setTitle('🔒 Close Ticket Confirmation')
+        .setDescription('Are you sure you want to close this ticket? This channel will be permanently deleted.');
+        
+      const confirmRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`ticket_close_confirm_${ticketId}`)
+          .setLabel('Yes, Close It')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🗑️'),
+        new ButtonBuilder()
+          .setCustomId(`ticket_close_cancel_${ticketId}`)
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary)
+      );
+      
+      await interaction.reply({
+        embeds: [confirmEmbed],
+        components: [confirmRow],
+        ephemeral: false
+      });
+      return;
+    }
+
+    // Ticket open panel button -> Show Modal
     if (interaction.customId === 'ticket_open_panel') {
       if (!ticketManager) return;
       if (!interaction.guildId) return;
+      
+      const modal = new ModalBuilder()
+        .setCustomId('ticket_open_modal')
+        .setTitle('Open a Support Ticket');
+
+      const subjectInput = new TextInputBuilder()
+        .setCustomId('ticket_subject')
+        .setLabel('Subject / Short Summary')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('e.g., Database connection issue')
+        .setRequired(true)
+        .setMaxLength(100);
+
+      const descInput = new TextInputBuilder()
+        .setCustomId('ticket_description')
+        .setLabel('Describe your problem')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Provide details to help staff assist you...')
+        .setRequired(true)
+        .setMaxLength(1000);
+
+      const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(subjectInput);
+      const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(descInput);
+
+      modal.addComponents(firstRow, secondRow);
+
+      await interaction.showModal(modal);
+    }
+  }
+
+  // Handle modal submissions
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId === 'ticket_open_modal') {
+      if (!ticketManager) return;
+      if (!interaction.guildId) return;
+      
+      const subject = interaction.fields.getTextInputValue('ticket_subject');
+      const description = interaction.fields.getTextInputValue('ticket_description');
+      
       await interaction.deferReply({ ephemeral: true });
+      
       const result = await ticketManager.createTicketChannel(
         interaction.guildId,
         interaction.user.id,
         interaction.user.username,
-        'Support Request (via panel)',
+        subject,
+        description
       );
+      
       if ('error' in result) {
         await interaction.editReply(`❌ ${result.error}`);
       } else {

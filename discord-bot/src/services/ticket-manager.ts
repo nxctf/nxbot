@@ -1,5 +1,5 @@
 import { Client, EmbedBuilder, TextChannel, ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { createTicket, getTicketByChannel, getTicketsByGuild, getTicketsByUser, updateTicketStatus, assignTicket, Ticket, getGuild, logEvent } from '../db/local';
+import { createTicket, getTicketByChannel, getTicketsByGuild, getTicketsByUser, updateTicketStatus, assignTicket, Ticket, getGuild, logEvent, saveTicketMessage } from '../db/local';
 
 /**
  * Ticket Manager Service
@@ -25,7 +25,8 @@ export class TicketManager {
     guildId: string,
     userId: string,
     username: string,
-    subject: string
+    subject: string,
+    description?: string
   ): Promise<{ ticket: Ticket; channelId: string } | { error: string }> {
     const guildConfig = getGuild(guildId);
     if (!guildConfig || !guildConfig.enable_tickets) {
@@ -124,11 +125,22 @@ export class TicketManager {
         subject,
       });
 
+      // Save initial description to ticket_messages DB if provided
+      if (description) {
+        saveTicketMessage(
+          ticketId,
+          userId,
+          username,
+          null,
+          `📝 **Initial Description:**\n${description}`
+        );
+      }
+
       // Send initial embed with close button
       const embed = new EmbedBuilder()
         .setColor(0x5865F2) // Discord blurple
         .setTitle(`🎫 Ticket #${String(ticketNumber).padStart(4, '0')}`)
-        .setDescription(`**Subject:** ${subject}`)
+        .setDescription(`**Subject:** ${subject}${description ? `\n\n**Description:**\n${description}` : ''}`)
         .addFields(
           { name: 'Opened by', value: `<@${userId}>`, inline: true },
           { name: 'Status', value: '🟢 Open', inline: true },
@@ -153,6 +165,10 @@ export class TicketManager {
         welcomeMsg = guildConfig.ticket_welcome_message.replace(/\{\{user\}\}/g, `<@${userId}>`);
       }
       await channel.send(welcomeMsg);
+
+      if (description) {
+        await channel.send(`📝 **Initial Description:**\n${description}`);
+      }
 
       // Ping staff roles if configured
       if (pingRoleIds.length > 0) {
