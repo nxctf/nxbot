@@ -53,31 +53,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'A configuration for this Discord Guild ID already exists.' }, { status: 400 });
     }
 
-    // Resolve supabase_url and supabase_anon_key if connection is linked
-    let resolvedUrl = '';
-    let resolvedAnonKey = '';
-    if (supabase_connection_id) {
-      const conn = db.prepare('SELECT supabase_url, supabase_anon_key FROM supabase_connections WHERE id = ?').get(supabase_connection_id) as any;
-      if (conn) {
-        resolvedUrl = conn.supabase_url || '';
-        resolvedAnonKey = conn.supabase_anon_key || '';
-      }
-    }
-
     // Insert server config
     db.prepare(`
       INSERT INTO guilds (
         id, guild_id, guild_name, supabase_connection_id,
-        supabase_url, supabase_anon_key,
         enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)
     `).run(
       id,
       id,
       guild_name,
       supabase_connection_id || null,
-      resolvedUrl,
-      resolvedAnonKey,
       enable_firstblood ? 1 : 0,
       enable_scoreboard ? 1 : 0,
       enable_tickets ? 1 : 0

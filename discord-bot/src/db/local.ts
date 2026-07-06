@@ -390,20 +390,14 @@ export function getAllGuilds(): GuildConfig[] {
   `).all() as GuildConfig[];
 }
 
-export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_name: string; supabase_url: string; supabase_anon_key: string }): void {
+export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_name: string }): void {
   const existing = getDb().prepare('SELECT * FROM guilds WHERE id = ?').get(guild.id);
   if (existing) {
     getDb().prepare(`
       UPDATE guilds SET
         guild_id = COALESCE(?, guild_id),
         guild_name = COALESCE(?, guild_name),
-        supabase_url = COALESCE(?, supabase_url),
-        supabase_anon_key = COALESCE(?, supabase_anon_key),
-        supabase_login_email = COALESCE(?, supabase_login_email),
-        supabase_login_password = COALESCE(?, supabase_login_password),
-        supabase_access_token = COALESCE(?, supabase_access_token),
-        supabase_refresh_token = COALESCE(?, supabase_refresh_token),
-        supabase_turnstile_site_key = COALESCE(?, supabase_turnstile_site_key),
+        supabase_connection_id = COALESCE(?, supabase_connection_id),
         channel_firstblood = COALESCE(?, channel_firstblood),
         channel_scoreboard = COALESCE(?, channel_scoreboard),
         channel_announcements = COALESCE(?, channel_announcements),
@@ -418,10 +412,7 @@ export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_na
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(
-      guild.guild_id ?? null, guild.guild_name, guild.supabase_url, guild.supabase_anon_key,
-      guild.supabase_login_email ?? null, guild.supabase_login_password ?? null,
-      guild.supabase_access_token ?? null, guild.supabase_refresh_token ?? null,
-      guild.supabase_turnstile_site_key ?? null,
+      guild.guild_id ?? null, guild.guild_name, guild.supabase_connection_id ?? null,
       guild.channel_firstblood ?? null, guild.channel_scoreboard ?? null,
       guild.channel_announcements ?? null, guild.channel_ticket_category ?? null,
       guild.channel_ticket_logs ?? null,
@@ -432,16 +423,12 @@ export function upsertGuild(guild: Partial<GuildConfig> & { id: string; guild_na
     );
   } else {
     getDb().prepare(`
-      INSERT INTO guilds (id, guild_id, guild_name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
-        supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key,
+      INSERT INTO guilds (id, guild_id, guild_name, supabase_connection_id,
         channel_firstblood, channel_scoreboard, channel_announcements, channel_ticket_category, channel_ticket_logs,
         enable_firstblood, enable_scoreboard, enable_tickets, enable_realtime, active_event_id, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      guild.id, guild.guild_id || guild.id, guild.guild_name, guild.supabase_url, guild.supabase_anon_key,
-      guild.supabase_login_email ?? null, guild.supabase_login_password ?? null,
-      guild.supabase_access_token ?? null, guild.supabase_refresh_token ?? null,
-      guild.supabase_turnstile_site_key ?? null,
+      guild.id, guild.guild_id || guild.id, guild.guild_name, guild.supabase_connection_id ?? null,
       guild.channel_firstblood ?? null, guild.channel_scoreboard ?? null,
       guild.channel_announcements ?? null, guild.channel_ticket_category ?? null,
       guild.channel_ticket_logs ?? null,
