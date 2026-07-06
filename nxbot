@@ -55,13 +55,14 @@ usage() {
     echo -e "  ${CYAN}logs${NC} [service]  Tail logs (web-dashboard | discord-bot)"
     echo -e "  ${CYAN}build${NC}           Build/rebuild containers"
     echo -e "  ${CYAN}setup${NC}           Initialize database and first-time setup"
+    echo -e "  ${CYAN}credentials${NC}     Show admin login credentials"
+    echo -e "  ${CYAN}reset-password${NC}  Reset admin password via CLI"
     echo ""
     echo -e "${BOLD}Examples:${NC}"
-    echo "  ./nxbot install       # Install nxbot command system-wide"
-    echo "  ./nxbot start         # Start everything"
-    echo "  ./nxbot web           # Dashboard only (maintenance mode)"
-    echo "  ./nxbot logs bot      # Tail bot logs"
-    echo "  ./nxbot status        # Check container health"
+    echo "  ./nxbot install        # Install nxbot command system-wide"
+    echo "  ./nxbot start          # Start everything"
+    echo "  ./nxbot credentials    # Show admin username"
+    echo "  ./nxbot reset-password # Change admin password"
     echo ""
 }
 
@@ -113,11 +114,100 @@ cmd_install() {
     echo ""
 }
 
+cmd_credentials() {
+    local DB_PATH="$SCRIPT_DIR/data/nxbot.db"
+
+    if [ ! -f "$DB_PATH" ]; then
+        echo -e "$PREFIX_ERROR No database found. Run ${CYAN}./nxbot setup${NC} first."
+        exit 1
+    fi
+
+    if ! command -v sqlite3 &>/dev/null; then
+        echo -e "$PREFIX_ERROR sqlite3 is required. Install it first."
+        exit 1
+    fi
+
+    local is_setup
+    is_setup=$(sqlite3 "$DB_PATH" "SELECT value FROM system_settings WHERE key = 'is_setup'" 2>/dev/null)
+
+    if [ "$is_setup" != "true" ]; then
+        echo -e "$PREFIX_WARN Setup not completed yet."
+        echo -e "  Open ${CYAN}http://localhost:${PORT:-7000}${NC} to complete setup"
+        exit 1
+    fi
+
+    local username
+    username=$(sqlite3 "$DB_PATH" "SELECT value FROM system_settings WHERE key = 'admin_username'")
+
+    echo ""
+    echo -e "  ${BOLD}Admin Credentials${NC}"
+    echo "  ─────────────────────────"
+    echo -e "  Dashboard: ${CYAN}http://localhost:${PORT:-7000}${NC}"
+    echo -e "  Username:  ${GREEN}$username${NC}"
+    echo -e "  Password:  ${YELLOW}(hidden — use ./nxbot reset-password to change)${NC}"
+    echo ""
+}
+
+cmd_reset_password() {
+    local DB_PATH="$SCRIPT_DIR/data/nxbot.db"
+
+    if [ ! -f "$DB_PATH" ]; then
+        echo -e "$PREFIX_ERROR No database found. Run ${CYAN}./nxbot setup${NC} first."
+        exit 1
+    fi
+
+    local is_setup
+    is_setup=$(sqlite3 "$DB_PATH" "SELECT value FROM system_settings WHERE key = 'is_setup'" 2>/dev/null)
+
+    if [ "$is_setup" != "true" ]; then
+        echo -e "$PREFIX_ERROR Setup not completed yet. Complete web setup first."
+        exit 1
+    fi
+
+    echo -e "$PREFIX_INFO Resetting admin password..."
+
+    read -s -p "  Enter new password (min 6 chars): " password
+    echo
+    read -s -p "  Confirm new password: " password2
+    echo
+
+    if [ "$password" != "$password2" ]; then
+        echo -e "$PREFIX_ERROR Passwords do not match."
+        exit 1
+    fi
+
+    if [ ${#password} -lt 6 ]; then
+        echo -e "$PREFIX_ERROR Password must be at least 6 characters."
+        exit 1
+    fi
+
+    local SCRIPT="$SCRIPT_DIR/scripts/reset-password.js"
+    if [ ! -f "$SCRIPT" ]; then
+        echo -e "$PREFIX_ERROR reset-password.js not found."
+        exit 1
+    fi
+
+    echo "$password" | node "$SCRIPT"
+    echo -e "$PREFIX_INFO Password updated successfully."
+}
+
 cmd_start() {
     echo -e "$PREFIX_INFO Starting all NXBot services..."
     compose up -d
     echo -e "$PREFIX_INFO All services started."
     echo -e "$PREFIX_INFO Web Dashboard: ${CYAN}http://localhost:${PORT:-7000}${NC}"
+
+    # Show credential hint if setup done
+    local DB_PATH="$SCRIPT_DIR/data/nxbot.db"
+    if [ -f "$DB_PATH" ]; then
+        local username
+        username=$(sqlite3 "$DB_PATH" "SELECT value FROM system_settings WHERE key = 'admin_username'" 2>/dev/null)
+        if [ -n "$username" ]; then
+            echo -e "$PREFIX_INFO Login: ${GREEN}$username${NC}"
+            echo -e "$PREFIX_INFO Forgot password? Run: ${CYAN}./nxbot reset-password${NC}"
+        fi
+    fi
+
     cmd_status
 }
 
@@ -139,6 +229,17 @@ cmd_web() {
     compose stop discord-bot 2>/dev/null || true
     compose up -d web-dashboard
     echo -e "$PREFIX_INFO Web Dashboard: ${CYAN}http://localhost:${PORT:-7000}${NC}"
+
+    local DB_PATH="$SCRIPT_DIR/data/nxbot.db"
+    if [ -f "$DB_PATH" ]; then
+        local username
+        username=$(sqlite3 "$DB_PATH" "SELECT value FROM system_settings WHERE key = 'admin_username'" 2>/dev/null)
+        if [ -n "$username" ]; then
+            echo -e "$PREFIX_INFO Login: ${GREEN}$username${NC}"
+            echo -e "$PREFIX_INFO Forgot password? Run: ${CYAN}./nxbot reset-password${NC}"
+        fi
+    fi
+
     echo -e "$PREFIX_WARN Discord bot is stopped (maintenance mode)."
 }
 
@@ -227,6 +328,9 @@ cmd_setup() {
     echo -e "  1. Edit ${CYAN}.env${NC} with your DISCORD_BOT_TOKEN and JWT_SECRET"
     echo -e "  2. Run ${CYAN}./nxbot start${NC}"
     echo -e "  3. Open ${CYAN}http://localhost:${PORT:-7000}${NC} to complete web setup"
+    echo -e ""
+    echo -e "  ${YELLOW}After web setup, run ${CYAN}./nxbot credentials${NC} ${YELLOW}to see your login info${NC}"
+    echo -e "  ${YELLOW}Forgot password? Run ${CYAN}./nxbot reset-password${NC}"
     echo ""
 }
 
@@ -236,16 +340,18 @@ main() {
     local cmd="${1:-}"
 
     case "$cmd" in
-        install)  cmd_install ;;
-        start)    cmd_start ;;
-        stop)     cmd_stop ;;
-        restart)  cmd_restart ;;
-        web)      cmd_web ;;
-        bot)      cmd_bot ;;
-        status)   cmd_status ;;
-        logs)     shift; cmd_logs "$@" ;;
-        build)    cmd_build ;;
-        setup)    cmd_setup ;;
+        install)        cmd_install ;;
+        credentials)     cmd_credentials ;;
+        reset-password)  cmd_reset_password ;;
+        start)           cmd_start ;;
+        stop)            cmd_stop ;;
+        restart)         cmd_restart ;;
+        web)             cmd_web ;;
+        bot)             cmd_bot ;;
+        status)          cmd_status ;;
+        logs)            shift; cmd_logs "$@" ;;
+        build)           cmd_build ;;
+        setup)           cmd_setup ;;
         help|--help|-h|"")
             usage
             ;;
