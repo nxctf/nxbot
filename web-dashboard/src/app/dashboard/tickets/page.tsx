@@ -325,8 +325,16 @@ export default function TicketsPage() {
                           </button>
                         )
                       ) : (
-                        <span style={{ color: '#64748b', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Lock size={12} /> Closed by @{t.closed_by || 'system'}
+                        <span style={{ color: '#64748b', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <Lock size={12} style={{ color: '#ef4444' }} />
+                          {t.closed_by_avatar && (
+                            <img 
+                              src={t.closed_by_avatar} 
+                              alt="" 
+                              style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} 
+                            />
+                          )}
+                          <span>Closed by @{t.closed_by_username || t.closed_by || 'system'}</span>
                         </span>
                       )}
                     </div>
@@ -401,25 +409,81 @@ export default function TicketsPage() {
             </div>
             
             {/* Ticket Info Section */}
-            <div style={{ padding: '16px 24px', background: 'rgba(13, 17, 28, 0.4)', borderBottom: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px', fontSize: '13px' }}>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Opened By</span>
-                <span style={{ fontWeight: 600, color: '#cbd5e1' }}>@{selectedTicket.username || 'unknown'}</span>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>ID: {selectedTicket.user_id}</span>
+            <div style={{ padding: '20px 24px', background: 'rgba(13, 17, 28, 0.4)', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Opened By</span>
+                  <span style={{ fontWeight: 600, color: '#cbd5e1' }}>@{selectedTicket.username || 'unknown'}</span>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>ID: {selectedTicket.user_id}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Server / Guild</span>
+                  <span style={{ fontWeight: 600, color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Server size={12} style={{ color: '#94a3b8' }} />
+                    {selectedTicket.guild_name}
+                  </span>
+                </div>
               </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Server / Guild</span>
-                <span style={{ fontWeight: 600, color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <Server size={12} style={{ color: '#94a3b8' }} />
-                  {selectedTicket.guild_name}
-                </span>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '12px' }}>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Opened Date</span>
+                  <span style={{ fontWeight: 600, color: '#cbd5e1' }}>
+                    {new Date(selectedTicket.created_at).toLocaleString()}
+                  </span>
+                </div>
+                {selectedTicket.assigned_to && (
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Claimed By Staff</span>
+                    <span style={{ fontWeight: 600, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+                      @{selectedTicket.assigned_to}
+                    </span>
+                  </div>
+                )}
+                {selectedTicket.status === 'closed' && (
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Closed By</span>
+                    <span style={{ fontWeight: 600, color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      {selectedTicket.closed_by_avatar && (
+                        <img 
+                          src={selectedTicket.closed_by_avatar} 
+                          alt="" 
+                          style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} 
+                        />
+                      )}
+                      @{selectedTicket.closed_by_username || selectedTicket.closed_by || 'system'}
+                    </span>
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* Subject & Description Section */}
+            <div style={{ padding: '16px 24px', background: 'rgba(30, 41, 59, 0.2)', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Opened Date</span>
-                <span style={{ fontWeight: 600, color: '#cbd5e1' }}>
-                  {new Date(selectedTicket.created_at).toLocaleString()}
-                </span>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Subject</span>
+                <span style={{ color: '#f8fafc', fontWeight: 600, fontSize: '14px' }}>{selectedTicket.subject}</span>
               </div>
+              {/* Try to parse initial description from transcript messages */}
+              {(() => {
+                const descMsg = messages.find(m => m.message_content && m.message_content.includes('Initial Description:'));
+                if (descMsg) {
+                  const cleanedDesc = descMsg.message_content
+                    .replace('📝 **Initial Description:**\n', '')
+                    .replace('[Initial Description] ', '')
+                    .replace('📝 **Initial Description:**', '');
+                  return (
+                    <div style={{ marginTop: '4px' }}>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Description</span>
+                      <div style={{ color: '#cbd5e1', fontSize: '13px', lineHeight: '1.5', background: '#090d16', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)', whiteSpace: 'pre-wrap' }}>
+                        {cleanedDesc}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             {/* Transcript Messages Area */}
