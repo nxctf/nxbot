@@ -29,8 +29,8 @@ export async function GET(
     // 2. Fetch all messages in order
     const messages = db.prepare(`
       SELECT tm.id, tm.ticket_id, tm.user_id, 
-             COALESCE(u.username, tm.username) AS username,
-             COALESCE(u.avatar_url, tm.avatar_url) AS avatar_url,
+             COALESCE(u.username, tm.user_id) AS username,
+             u.avatar_url AS avatar_url,
              tm.message_content, tm.attachment_filename,
              tm.attachment_original_name, tm.attachment_size, tm.created_at
       FROM ticket_messages tm
@@ -81,9 +81,18 @@ export async function POST(
 
     // 2. Insert message into ticket_messages for immediate display in dashboard transcript
     db.prepare(`
-      INSERT INTO ticket_messages (ticket_id, user_id, username, avatar_url, message_content)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(ticketId, 'bot', `NXBot (via ${user.username})`, null, message);
+      INSERT INTO ticket_messages (ticket_id, user_id, message_content)
+      VALUES (?, ?, ?)
+    `).run(ticketId, 'bot', message);
+
+    // 3. Upsert bot user cache
+    db.prepare(`
+      INSERT INTO discord_users (user_id, username, avatar_url, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET
+        username = excluded.username,
+        updated_at = CURRENT_TIMESTAMP
+    `).run('bot', `NXBot (via ${user.username})`, null);
 
     // 3. Enqueue bot action to send message to Discord
     db.prepare(`

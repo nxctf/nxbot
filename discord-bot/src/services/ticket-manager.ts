@@ -1,5 +1,5 @@
 import { Client, EmbedBuilder, TextChannel, ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { createTicket, getTicketByChannel, getTicketsByGuild, getTicketsByUser, updateTicketStatus, assignTicket, Ticket, getGuild, logEvent, saveTicketMessage, upsertDiscordUser } from '../db/local';
+import { createTicket, getTicketByChannel, getTicketsByGuild, getTicketsByUser, updateTicketStatus, assignTicket, Ticket, getGuild, logEvent, saveTicketMessage, upsertDiscordUser, getDb } from '../db/local';
 
 /**
  * Ticket Manager Service
@@ -290,7 +290,7 @@ export class TicketManager {
     }
 
     // Update status in DB
-    updateTicketStatus(ticket.id, 'closed', closedByUserId, closerUsername, closerAvatar);
+    updateTicketStatus(ticket.id, 'closed', closedByUserId);
 
     // Send closing message
     try {
@@ -307,10 +307,11 @@ export class TicketManager {
 
         // Log to ticket logs channel
         if (guildConfig?.channel_ticket_logs) {
+          const creator = getDb().prepare('SELECT username FROM discord_users WHERE user_id = ?').get(ticket.user_id) as { username: string } | undefined;
           await this.sendTicketLog(guildConfig.channel_ticket_logs, 'closed', {
             ticketNumber: ticket.id,
             userId: ticket.user_id,
-            username: ticket.username || 'Unknown',
+            username: creator?.username || 'Unknown',
             subject: ticket.subject,
             closedBy: closedByUserId,
           });
@@ -378,10 +379,11 @@ export class TicketManager {
     // Send log to logs channel if configured
     const guildConfig = getGuild(ticket.guild_id);
     if (guildConfig?.channel_ticket_logs) {
+      const creator = getDb().prepare('SELECT username FROM discord_users WHERE user_id = ?').get(ticket.user_id) as { username: string } | undefined;
       await this.sendTicketLog(guildConfig.channel_ticket_logs, 'assigned', {
         ticketNumber: ticket.id,
         userId: ticket.user_id,
-        username: ticket.username || 'Unknown',
+        username: creator?.username || 'Unknown',
         subject: ticket.subject,
         assignedTo: staffUserId,
       });

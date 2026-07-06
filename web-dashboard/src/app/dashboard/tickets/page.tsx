@@ -20,6 +20,8 @@ interface TicketData {
   closed_at: string | null;
   created_at: string;
   user_avatar: string | null;
+  assigned_to_username?: string | null;
+  assigned_to_avatar?: string | null;
 }
 
 interface GuildItem {
@@ -562,8 +564,16 @@ function TicketsContent() {
                     <div>
                       <span style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Claimed By Staff</span>
                       <span style={{ fontWeight: 600, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
-                        @{selectedTicket.assigned_to}
+                        {selectedTicket.assigned_to_avatar ? (
+                          <img 
+                            src={selectedTicket.assigned_to_avatar} 
+                            alt="" 
+                            style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} 
+                          />
+                        ) : (
+                          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+                        )}
+                        @{selectedTicket.assigned_to_username || selectedTicket.assigned_to}
                       </span>
                     </div>
                   )}

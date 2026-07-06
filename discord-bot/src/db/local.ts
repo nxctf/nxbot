@@ -32,7 +32,6 @@ export function getDb(): Database.Database {
 function initSchema(): void {
   const schemaPath = path.join(__dirname, '../../../db/schema.sql');
 
-  // Check if system_settings table exists (indicator of initialized DB)
   const tableExists = db.prepare(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'"
   ).get();
@@ -43,263 +42,13 @@ function initSchema(): void {
       db.exec(schema);
       console.log('[DB] Schema initialized from schema.sql');
     } else {
-      // Inline fallback schema for containerized environment
-      console.warn('[DB] schema.sql not found, using inline schema');
-      createInlineSchema();
+      console.error('[DB] schema.sql not found at', schemaPath);
+      throw new Error('schema.sql not found - database cannot be initialized');
     }
   }
-  // Always run migrations
-  runMigrations();
 }
 
-function createInlineSchema(): void {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS system_settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    INSERT OR IGNORE INTO system_settings (key, value) VALUES ('is_setup', 'false');
 
-    CREATE TABLE IF NOT EXISTS supabase_connections (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      supabase_url TEXT NOT NULL,
-      supabase_anon_key TEXT NOT NULL,
-      supabase_login_email TEXT DEFAULT NULL,
-      supabase_login_password TEXT DEFAULT NULL,
-      supabase_access_token TEXT DEFAULT NULL,
-      supabase_refresh_token TEXT DEFAULT NULL,
-      supabase_turnstile_site_key TEXT DEFAULT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS guilds (
-      id TEXT PRIMARY KEY,
-      guild_name TEXT NOT NULL,
-      supabase_connection_id TEXT REFERENCES supabase_connections(id) ON DELETE SET NULL,
-      channel_firstblood TEXT DEFAULT NULL,
-      channel_scoreboard TEXT DEFAULT NULL,
-      channel_announcements TEXT DEFAULT NULL,
-      channel_ticket_category TEXT DEFAULT NULL,
-      channel_ticket_logs TEXT DEFAULT NULL,
-      channel_ticket_panel TEXT DEFAULT NULL,
-      ticket_ping_roles TEXT DEFAULT NULL,
-      ticket_required_roles TEXT DEFAULT NULL,
-      ticket_welcome_message TEXT DEFAULT NULL,
-      scoreboard_message_id TEXT DEFAULT NULL,
-      enable_firstblood INTEGER DEFAULT 1,
-      enable_scoreboard INTEGER DEFAULT 1,
-      enable_tickets INTEGER DEFAULT 1,
-      enable_realtime INTEGER DEFAULT 1,
-      active_event_id TEXT DEFAULT NULL,
-      is_active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS tickets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
-      channel_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      username TEXT DEFAULT NULL,
-      subject TEXT NOT NULL,
-      status TEXT DEFAULT 'open' CHECK(status IN ('open', 'in_progress', 'closed')),
-      assigned_to TEXT DEFAULT NULL,
-      closed_by TEXT DEFAULT NULL,
-      closed_by_username TEXT DEFAULT NULL,
-      closed_by_avatar TEXT DEFAULT NULL,
-      closed_at DATETIME DEFAULT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS firstblood_cache (
-      guild_id TEXT NOT NULL,
-      challenge_id TEXT NOT NULL,
-      solver_user_id TEXT DEFAULT NULL,
-      solver_username TEXT DEFAULT NULL,
-      challenge_title TEXT DEFAULT NULL,
-      challenge_category TEXT DEFAULT NULL,
-      challenge_points INTEGER DEFAULT NULL,
-      notified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (guild_id, challenge_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS bot_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT DEFAULT NULL,
-      level TEXT DEFAULT 'info',
-      event_type TEXT NOT NULL,
-      message TEXT NOT NULL,
-      metadata TEXT DEFAULT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS ticket_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL,
-      username TEXT NOT NULL,
-      avatar_url TEXT DEFAULT NULL,
-      message_content TEXT DEFAULT NULL,
-      attachment_filename TEXT DEFAULT NULL,
-      attachment_original_name TEXT DEFAULT NULL,
-      attachment_size INTEGER DEFAULT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS discord_users (
-      user_id TEXT PRIMARY KEY,
-      username TEXT NOT NULL,
-      avatar_url TEXT DEFAULT NULL,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS bot_actions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      action_type TEXT NOT NULL,
-      payload TEXT NOT NULL,
-      status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'done', 'failed')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-}
-
-function runMigrations(): void {
-  try {
-    // 1. Create supabase_connections table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS supabase_connections (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        supabase_url TEXT NOT NULL,
-        supabase_anon_key TEXT NOT NULL,
-        supabase_login_email TEXT DEFAULT NULL,
-        supabase_login_password TEXT DEFAULT NULL,
-        supabase_access_token TEXT DEFAULT NULL,
-        supabase_refresh_token TEXT DEFAULT NULL,
-        supabase_turnstile_site_key TEXT DEFAULT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // 2. Create ticket_messages table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS ticket_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-        user_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        avatar_url TEXT DEFAULT NULL,
-        message_content TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // 2. Add columns to guilds table
-    const columns = db.prepare("PRAGMA table_info(guilds)").all() as { name: string }[];
-    const colNames = columns.map(c => c.name);
-    const migrations = [
-      { name: 'channel_ticket_panel', type: 'TEXT DEFAULT NULL' },
-      { name: 'ticket_ping_roles', type: 'TEXT DEFAULT NULL' },
-      { name: 'ticket_required_roles', type: 'TEXT DEFAULT NULL' },
-      { name: 'ticket_welcome_message', type: 'TEXT DEFAULT NULL' },
-      { name: 'scoreboard_message_id', type: 'TEXT DEFAULT NULL' },
-      { name: 'supabase_access_token', type: 'TEXT DEFAULT NULL' },
-      { name: 'supabase_refresh_token', type: 'TEXT DEFAULT NULL' },
-      { name: 'supabase_turnstile_site_key', type: 'TEXT DEFAULT NULL' },
-      { name: 'guild_id', type: 'TEXT DEFAULT NULL' },
-      { name: 'supabase_connection_id', type: 'TEXT DEFAULT NULL' },
-    ];
-    for (const m of migrations) {
-      if (!colNames.includes(m.name)) {
-        db.exec(`ALTER TABLE guilds ADD COLUMN ${m.name} ${m.type}`);
-        console.log(`[DB Migration] Added column ${m.name} to guilds table`);
-        if (m.name === 'guild_id') {
-          db.exec('UPDATE guilds SET guild_id = id WHERE guild_id IS NULL');
-        }
-      }
-    }
-
-    // 2b. Migrate ticket_messages table columns
-    const tmCols = db.prepare("PRAGMA table_info(ticket_messages)").all() as { name: string }[];
-    const tmColNames = tmCols.map(c => c.name);
-    const tmMigrations = [
-      { name: 'attachment_filename', type: 'TEXT DEFAULT NULL' },
-      { name: 'attachment_original_name', type: 'TEXT DEFAULT NULL' },
-      { name: 'attachment_size', type: 'INTEGER DEFAULT NULL' },
-    ];
-    for (const m of tmMigrations) {
-      if (!tmColNames.includes(m.name)) {
-        db.exec(`ALTER TABLE ticket_messages ADD COLUMN ${m.name} ${m.type}`);
-        console.log(`[DB Migration] Added column ${m.name} to ticket_messages table`);
-      }
-    }
-
-    // 2c. Migrate tickets table columns
-    const tCols = db.prepare("PRAGMA table_info(tickets)").all() as { name: string }[];
-    const tColNames = tCols.map(c => c.name);
-    const ticketMigrations = [
-      { name: 'closed_by_username', type: 'TEXT DEFAULT NULL' },
-      { name: 'closed_by_avatar', type: 'TEXT DEFAULT NULL' },
-    ];
-    for (const m of ticketMigrations) {
-      if (!tColNames.includes(m.name)) {
-        db.exec(`ALTER TABLE tickets ADD COLUMN ${m.name} ${m.type}`);
-        console.log(`[DB Migration] Added column ${m.name} to tickets table`);
-      }
-    }
-
-    // 2d. Create bot_actions table if not exists
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS bot_actions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        action_type TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'done', 'failed')),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // 3. Migrate existing guild credentials to supabase_connections table
-    const guilds = db.prepare('SELECT * FROM guilds WHERE supabase_connection_id IS NULL').all() as any[];
-    for (const g of guilds) {
-      if (g.supabase_url && g.supabase_anon_key) {
-        const connId = `conn_${g.id}`;
-        // Insert connection record if not exists
-        const exists = db.prepare('SELECT id FROM supabase_connections WHERE id = ?').get(connId);
-        if (!exists) {
-          db.prepare(`
-            INSERT INTO supabase_connections (
-              id, name, supabase_url, supabase_anon_key, supabase_login_email, supabase_login_password,
-              supabase_access_token, supabase_refresh_token, supabase_turnstile_site_key
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(
-            connId,
-            `${g.guild_name} Supabase`,
-            g.supabase_url,
-            g.supabase_anon_key,
-            g.supabase_login_email || null,
-            g.supabase_login_password || null,
-            g.supabase_access_token || null,
-            g.supabase_refresh_token || null,
-            g.supabase_turnstile_site_key || null
-          );
-          console.log(`[DB Migration] Created supabase_connection record ${connId} for guild ${g.guild_name}`);
-        }
-        // Link guild to connection
-        db.prepare('UPDATE guilds SET supabase_connection_id = ? WHERE id = ?').run(connId, g.id);
-        console.log(`[DB Migration] Linked guild ${g.guild_name} to supabase_connection ${connId}`);
-      }
-    }
-  } catch (err) {
-    console.error('[DB Migration] Error:', err);
-  }
-}
 
 // ---- System Settings ----
 
@@ -515,23 +264,23 @@ export interface Ticket {
   guild_id: string;
   channel_id: string;
   user_id: string;
-  username: string | null;
   subject: string;
   status: 'open' | 'in_progress' | 'closed';
   assigned_to: string | null;
   closed_by: string | null;
-  closed_by_username: string | null;
-  closed_by_avatar: string | null;
   closed_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export function createTicket(data: { guild_id: string; channel_id: string; user_id: string; username?: string; subject: string }): number {
+  if (data.username) {
+    upsertDiscordUser(data.user_id, data.username, null);
+  }
   const result = getDb().prepare(`
-    INSERT INTO tickets (guild_id, channel_id, user_id, username, subject)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(data.guild_id, data.channel_id, data.user_id, data.username ?? null, data.subject);
+    INSERT INTO tickets (guild_id, channel_id, user_id, subject)
+    VALUES (?, ?, ?, ?)
+  `).run(data.guild_id, data.channel_id, data.user_id, data.subject);
   return result.lastInsertRowid as number;
 }
 
@@ -560,16 +309,13 @@ export function updateTicketStatus(
   ticketId: number,
   status: string,
   closedBy?: string,
-  closedByUsername?: string | null,
-  closedByAvatar?: string | null,
 ): void {
   if (status === 'closed') {
     getDb().prepare(`
       UPDATE tickets
-      SET status = ?, closed_by = ?, closed_by_username = ?, closed_by_avatar = ?,
-          closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      SET status = ?, closed_by = ?, closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(status, closedBy ?? null, closedByUsername ?? null, closedByAvatar ?? null, ticketId);
+    `).run(status, closedBy ?? null, ticketId);
   } else {
     getDb().prepare(`
       UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
@@ -587,8 +333,6 @@ export interface TicketMessage {
   id: number;
   ticket_id: number;
   user_id: string;
-  username: string;
-  avatar_url: string | null;
   message_content: string | null;
   attachment_filename: string | null;
   attachment_original_name: string | null;
@@ -606,10 +350,14 @@ export function saveTicketMessage(
   attachmentOriginalName?: string | null,
   attachmentSize?: number | null,
 ): void {
+  // Upsert user cache
+  upsertDiscordUser(userId, username, avatarUrl);
+
+  // Insert actual chat message metadata/content
   getDb().prepare(`
-    INSERT INTO ticket_messages (ticket_id, user_id, username, avatar_url, message_content, attachment_filename, attachment_original_name, attachment_size)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(ticketId, userId, username, avatarUrl, content ?? '', attachmentFilename ?? null, attachmentOriginalName ?? null, attachmentSize ?? null);
+    INSERT INTO ticket_messages (ticket_id, user_id, message_content, attachment_filename, attachment_original_name, attachment_size)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(ticketId, userId, content ?? '', attachmentFilename ?? null, attachmentOriginalName ?? null, attachmentSize ?? null);
 }
 
 // ---- Logging ----

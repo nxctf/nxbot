@@ -16,10 +16,16 @@ export async function GET(request: Request) {
     const db = getDb();
     
     let query = `
-      SELECT t.*, g.guild_name, u.avatar_url AS user_avatar, COALESCE(u.username, t.username) AS username
+      SELECT t.id, t.guild_id, t.channel_id, t.user_id, t.subject, t.status, t.assigned_to, t.closed_by, t.closed_at, t.created_at, t.updated_at,
+             g.guild_name, 
+             uo.avatar_url AS user_avatar, COALESCE(uo.username, t.user_id) AS username,
+             uc.username AS closed_by_username, uc.avatar_url AS closed_by_avatar,
+             ua.username AS assigned_to_username, ua.avatar_url AS assigned_to_avatar
       FROM tickets t 
       JOIN guilds g ON t.guild_id = g.id
-      LEFT JOIN discord_users u ON t.user_id = u.user_id
+      LEFT JOIN discord_users uo ON t.user_id = uo.user_id
+      LEFT JOIN discord_users uc ON t.closed_by = uc.user_id
+      LEFT JOIN discord_users ua ON t.assigned_to = ua.user_id
     `;
     const params: any[] = [];
     const conditions: string[] = [];
