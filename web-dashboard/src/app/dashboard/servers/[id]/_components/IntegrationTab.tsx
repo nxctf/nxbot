@@ -153,154 +153,157 @@ export function IntegrationTab({
       </div>
 
       {/* Discord Channels Integration Card */}
-      <div className={`bg-slate-900/40 backdrop-blur-md border border-border-color rounded-2xl p-6 shadow-xl space-y-6 transition-all duration-300 ${isEnabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-        <h2 className="text-lg font-bold text-primary flex items-center gap-2 mb-4">
-          <Radio size={18} /> Supabase Discord Channels
-        </h2>
+      <div className="bg-slate-900/40 backdrop-blur-md border border-border-color rounded-2xl shadow-xl">
+        <div className={`p-6 space-y-6 transition-all duration-300 ${isEnabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+          <h2 className="text-lg font-bold text-primary flex items-center gap-2">
+            <Radio size={18} /> Supabase Discord Channels
+          </h2>
 
-        {/* Event Selector */}
-        <div className="space-y-2 pb-6 border-b border-border-color">
-          <label className="block text-sm font-semibold text-slate-300">Select Active Event</label>
-          {eventsLoading ? (
-            <div className="text-sm text-slate-400">Querying Supabase events...</div>
-          ) : events.length > 0 ? (
-            <GlassSelect
-              value={formState.active_event_id || ''}
-              onChange={(e) => updateField('active_event_id', e.target.value || null)}
-              disabled={!isEnabled}
-            >
-              <option value="">-- Direct Raw String / No specific Event --</option>
-              {events.map((e) => (
-                <option key={e.id} value={e.id}>{e.name} ({e.id})</option>
-              ))}
-            </GlassSelect>
-          ) : (
-            <div className="space-y-2">
-              <div className="p-3.5 bg-slate-800/20 border border-border-color rounded-lg text-sm text-slate-400 flex items-center gap-2">
-                <Radio size={16} className="shrink-0" />
-                <span>No events found from Supabase. You can paste an Event UUID directly below.</span>
-              </div>
-              <input
-                type="text"
-                className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none focus:border-primary focus:shadow-primary/10"
+          {/* Event Selector */}
+          <div className="space-y-2 pb-6 border-b border-border-color">
+            <label className="block text-sm font-semibold text-slate-300">Select Active Event</label>
+            {eventsLoading ? (
+              <div className="text-sm text-slate-400">Querying Supabase events...</div>
+            ) : events.length > 0 ? (
+              <GlassSelect
                 value={formState.active_event_id || ''}
                 onChange={(e) => updateField('active_event_id', e.target.value || null)}
-                placeholder="Paste Event UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
                 disabled={!isEnabled}
+              >
+                <option value="">-- Direct Raw String / No specific Event --</option>
+                {events.map((e) => (
+                  <option key={e.id} value={e.id}>{e.name} ({e.id})</option>
+                ))}
+              </GlassSelect>
+            ) : (
+              <div className="space-y-2">
+                <div className="p-3.5 bg-slate-800/20 border border-border-color rounded-lg text-sm text-slate-400 flex items-center gap-2">
+                  <Radio size={16} className="shrink-0" />
+                  <span>No events found from Supabase. You can paste an Event UUID directly below.</span>
+                </div>
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none focus:border-primary focus:shadow-primary/10"
+                  value={formState.active_event_id || ''}
+                  onChange={(e) => updateField('active_event_id', e.target.value || null)}
+                  placeholder="Paste Event UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
+                  disabled={!isEnabled}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Channels Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 1. First Blood alerts */}
+            <div className="space-y-4">
+              <Toggle
+                checked={formState.enable_firstblood === 1}
+                onChange={(checked) => updateField('enable_firstblood', checked ? 1 : 0)}
+                disabled={!isEnabled}
+                label="Enable First Blood Alerts"
+                description="Notify when challenges are solved first."
               />
+              <div className={`space-y-3 transition-opacity ${formState.enable_firstblood === 1 ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">First Blood Channel</label>
+                {botConnected ? (
+                  <GlassSelect
+                    value={formState.channel_firstblood || ''}
+                    onChange={(e) => updateField('channel_firstblood', e.target.value || null)}
+                    disabled={!isEnabled || formState.enable_firstblood === 0}
+                  >
+                    <option value="">-- Select Channel --</option>
+                    {textChannels.map(c => (
+                      <option key={c.id} value={c.id}>#{c.name}</option>
+                    ))}
+                  </GlassSelect>
+                ) : (
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
+                    value={formState.channel_firstblood || ''}
+                    onChange={(e) => updateField('channel_firstblood', e.target.value || null)}
+                    placeholder="e.g. 112233445566778899"
+                    disabled={!isEnabled || formState.enable_firstblood === 0}
+                  />
+                )}
+
+                {formState.channel_firstblood && formState.enable_firstblood === 1 && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={onTestFirstBlood}
+                      loading={testFbLoading}
+                      disabled={!isEnabled}
+                    >
+                      <Trophy size={14} className="mr-1.5" />
+                      Test
+                    </Button>
+                    {testFbSuccess && <span className="text-xs text-accent-green font-semibold">✓ {testFbSuccess}</span>}
+                    {testFbError && <span className="text-xs text-accent-red font-semibold">✗ {testFbError}</span>}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* 1. First Blood alerts */}
-        <div className="space-y-4 pb-6 border-b border-border-color">
-          <Toggle
-            checked={formState.enable_firstblood === 1}
-            onChange={(checked) => updateField('enable_firstblood', checked ? 1 : 0)}
-            disabled={!isEnabled}
-            label="Enable First Blood Alerts"
-            description="Notify Discord server immediately when challenges are solved the first time."
-          />
-          <div className={`space-y-3 transition-opacity ${formState.enable_firstblood === 1 ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">First Blood Channel</label>
-            {botConnected ? (
-              <GlassSelect
-                value={formState.channel_firstblood || ''}
-                onChange={(e) => updateField('channel_firstblood', e.target.value || null)}
-                disabled={!isEnabled || formState.enable_firstblood === 0}
-              >
-                <option value="">-- Select Channel --</option>
-                {textChannels.map(c => (
-                  <option key={c.id} value={c.id}>#{c.name}</option>
-                ))}
-              </GlassSelect>
-            ) : (
-              <input
-                type="text"
-                className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
-                value={formState.channel_firstblood || ''}
-                onChange={(e) => updateField('channel_firstblood', e.target.value || null)}
-                placeholder="e.g. 112233445566778899"
-                disabled={!isEnabled || formState.enable_firstblood === 0}
+            {/* 2. Live Scoreboard */}
+            <div className="space-y-4">
+              <Toggle
+                checked={formState.enable_scoreboard === 1}
+                onChange={(checked) => updateField('enable_scoreboard', checked ? 1 : 0)}
+                disabled={!isEnabled}
+                label="Enable Live Scoreboard"
+                description="Auto scoreboard embeds in channel."
               />
-            )}
+              <div className={`space-y-3 transition-opacity ${formState.enable_scoreboard === 1 ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Scoreboard Channel</label>
+                {botConnected ? (
+                  <GlassSelect
+                    value={formState.channel_scoreboard || ''}
+                    onChange={(e) => updateField('channel_scoreboard', e.target.value || null)}
+                    disabled={!isEnabled || formState.enable_scoreboard === 0}
+                  >
+                    <option value="">-- Select Channel --</option>
+                    {textChannels.map(c => (
+                      <option key={c.id} value={c.id}>#{c.name}</option>
+                    ))}
+                  </GlassSelect>
+                ) : (
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
+                    value={formState.channel_scoreboard || ''}
+                    onChange={(e) => updateField('channel_scoreboard', e.target.value || null)}
+                    placeholder="e.g. 112233445566778899"
+                    disabled={!isEnabled || formState.enable_scoreboard === 0}
+                  />
+                )}
 
-            {formState.channel_firstblood && formState.enable_firstblood === 1 && (
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={onTestFirstBlood}
-                  loading={testFbLoading}
-                  disabled={!isEnabled}
-                >
-                  <Trophy size={14} className="mr-1.5" />
-                  Test First Blood
-                </Button>
-                {testFbSuccess && <span className="text-xs text-accent-green font-semibold">✓ {testFbSuccess}</span>}
-                {testFbError && <span className="text-xs text-accent-red font-semibold">✗ {testFbError}</span>}
+                {formState.channel_scoreboard && formState.enable_scoreboard === 1 && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={onDeployScoreboard}
+                      loading={scoreLoading}
+                      disabled={!isEnabled}
+                      className="border-accent-yellow/20 text-accent-yellow hover:bg-accent-yellow/10"
+                    >
+                      Deploy
+                    </Button>
+                    {scoreSuccess && <span className="text-xs text-accent-green font-semibold">✓ {scoreSuccess}</span>}
+                    {scoreError && <span className="text-xs text-accent-red font-semibold">✗ {scoreError}</span>}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
-        </div>
 
-        {/* 2. Live Scoreboard */}
-        <div className="space-y-4 pb-6 border-b border-border-color">
-          <Toggle
-            checked={formState.enable_scoreboard === 1}
-            onChange={(checked) => updateField('enable_scoreboard', checked ? 1 : 0)}
-            disabled={!isEnabled}
-            label="Enable Live Scoreboard"
-            description="Allows automatic scoreboard embeds inside the designated channel."
-          />
-          <div className={`space-y-3 transition-opacity ${formState.enable_scoreboard === 1 ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Scoreboard Channel</label>
-            {botConnected ? (
-              <GlassSelect
-                value={formState.channel_scoreboard || ''}
-                onChange={(e) => updateField('channel_scoreboard', e.target.value || null)}
-                disabled={!isEnabled || formState.enable_scoreboard === 0}
-              >
-                <option value="">-- Select Channel --</option>
-                {textChannels.map(c => (
-                  <option key={c.id} value={c.id}>#{c.name}</option>
-                ))}
-              </GlassSelect>
-            ) : (
-              <input
-                type="text"
-                className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
-                value={formState.channel_scoreboard || ''}
-                onChange={(e) => updateField('channel_scoreboard', e.target.value || null)}
-                placeholder="e.g. 112233445566778899"
-                disabled={!isEnabled || formState.enable_scoreboard === 0}
-              />
-            )}
-
-            {formState.channel_scoreboard && formState.enable_scoreboard === 1 && (
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={onDeployScoreboard}
-                  loading={scoreLoading}
-                  disabled={!isEnabled}
-                  className="border-accent-yellow/20 text-accent-yellow hover:bg-accent-yellow/10"
-                >
-                  Deploy Scoreboard
-                </Button>
-                {scoreSuccess && <span className="text-xs text-accent-green font-semibold">✓ {scoreSuccess}</span>}
-                {scoreError && <span className="text-xs text-accent-red font-semibold">✗ {scoreError}</span>}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 3. Announcements */}
-        <div className="space-y-4">
-          <div className="space-y-3">
+          {/* 3. Announcements */}
+          <div className="space-y-3 pt-4 border-t border-border-color">
             <label className="block text-sm font-semibold text-slate-300">CTF Announcements Channel</label>
             {botConnected ? (
               <GlassSelect
@@ -325,7 +328,7 @@ export function IntegrationTab({
             )}
 
             {formState.channel_announcements && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <Button
                   type="button"
                   variant="secondary"
