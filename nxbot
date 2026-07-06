@@ -163,7 +163,7 @@ cmd_reset_password() {
     is_setup=$(sqlite3 "$DB_PATH" "SELECT value FROM system_settings WHERE key = 'is_setup'" 2>/dev/null)
 
     if [ "$is_setup" != "true" ]; then
-        echo -e "$PREFIX_ERROR Setup not completed yet. Complete web setup first."
+        echo -e "$PREFIX_ERROR Setup not completed yet. Complete CLI setup first."
         exit 1
     fi
 
@@ -329,14 +329,51 @@ cmd_setup() {
         echo -e "$PREFIX_INFO .env file already exists."
     fi
 
+    # Prompts for admin credentials
+    echo ""
+    echo -e "$PREFIX_INFO Configure Administrator Credentials"
+    echo "  ──────────────────────────────────────────"
+    
+    local username=""
+    while [ -z "$username" ] || [ ${#username} -lt 3 ]; do
+        read -p "  Enter admin username (min 3 chars): " username
+        if [ ${#username} -lt 3 ]; then
+            echo -e "  $PREFIX_ERROR Username is too short."
+        fi
+    done
+
+    local password=""
+    local password_confirm=""
+    while [ -z "$password" ] || [ ${#password} -lt 6 ] || [ "$password" != "$password_confirm" ]; do
+        read -s -p "  Enter admin password (min 6 chars): " password
+        echo
+        read -s -p "  Confirm admin password: " password_confirm
+        echo
+        if [ ${#password} -lt 6 ]; then
+            echo -e "  $PREFIX_ERROR Password must be at least 6 characters."
+        elif [ "$password" != "$password_confirm" ]; then
+            echo -e "  $PREFIX_ERROR Passwords do not match."
+        fi
+    done
+
+    # Run setup-credentials node script
+    local SETUP_SCRIPT="$SCRIPT_DIR/scripts/setup-credentials.js"
+    if [ ! -f "$SETUP_SCRIPT" ]; then
+        echo -e "$PREFIX_ERROR setup-credentials.js not found."
+        exit 1
+    fi
+
+    # Pass username and password via stdin
+    echo -e "${username}\n${password}" | node "$SETUP_SCRIPT"
+
     echo ""
     echo -e "$PREFIX_INFO Setup complete! Next steps:"
     echo -e "  1. Edit ${CYAN}.env${NC} with your DISCORD_BOT_TOKEN and JWT_SECRET"
     echo -e "  2. Run ${CYAN}./nxbot start${NC}"
-    echo -e "  3. Open ${CYAN}http://localhost:${PORT:-7000}${NC} to complete web setup"
+    echo -e "  3. Open ${CYAN}http://localhost:${PORT:-7000}${NC} and log in with your credentials"
     echo -e ""
-    echo -e "  ${YELLOW}After web setup, run ${CYAN}./nxbot credentials${NC} ${YELLOW}to see your login info${NC}"
-    echo -e "  ${YELLOW}Forgot password? Run ${CYAN}./nxbot reset-password${NC}"
+    echo -e "  To see admin username, run: ${CYAN}./nxbot credentials${NC}"
+    echo -e "  To reset password, run: ${CYAN}./nxbot reset-password${NC}"
     echo ""
 }
 

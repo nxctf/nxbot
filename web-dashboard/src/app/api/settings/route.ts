@@ -44,24 +44,7 @@ export async function POST(request: Request) {
     const db = getDb();
 
     if (action === 'change_password') {
-      if (!currentPassword || !newPassword || newPassword.length < 6) {
-        return NextResponse.json({ error: 'Current password and new password (min 6 characters) are required.' }, { status: 400 });
-      }
-
-      const passHashRow = db.prepare("SELECT value FROM system_settings WHERE key = 'admin_password_hash'").get() as { value: string } | undefined;
-      if (!passHashRow) {
-        return NextResponse.json({ error: 'Admin settings not found.' }, { status: 500 });
-      }
-
-      const isMatch = verifyPassword(currentPassword, passHashRow.value);
-      if (!isMatch) {
-        return NextResponse.json({ error: 'Current password is incorrect.' }, { status: 400 });
-      }
-
-      const hashedNew = hashPassword(newPassword);
-      db.prepare("UPDATE system_settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = 'admin_password_hash'").run(hashedNew);
-
-      return NextResponse.json({ success: true, message: 'Password updated successfully.' });
+      return NextResponse.json({ error: 'Password changes are disabled on the web dashboard. Please use the CLI: nxbot reset-password' }, { status: 400 });
     }
 
     if (action === 'clear_cache') {

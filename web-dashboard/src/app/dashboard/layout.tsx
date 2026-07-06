@@ -14,7 +14,7 @@ export default async function DashboardLayout({
 }) {
   // 1. Force setup if platform is not setup
   if (!isPlatformSetup()) {
-    redirect('/setup');
+    redirect('/login');
   }
 
   // 2. Protect dashboard path with auth session

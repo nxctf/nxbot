@@ -10,8 +10,7 @@ import { TicketManager } from './services/ticket-manager';
 import { setTicketManager } from './commands/ticket';
 
 // Import commands
-import * as pingCmd from './commands/ping';
-import * as ticketCmd from './commands/ticket';
+import { commandsList } from './commands';
 
 // ---- Configuration ----
 const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -38,7 +37,9 @@ interface Command {
 }
 
 const commands = new Collection<string, Command>();
-commands.set(pingCmd.data.name, pingCmd);
+for (const cmd of commandsList) {
+  commands.set(cmd.data.name, cmd as Command);
+}
 
 // ---- Services ----
 let firstBloodService: FirstBloodService;
@@ -343,21 +344,21 @@ async function registerCommands(): Promise<void> {
 
     console.log('[Bot] Global slash commands registered.');
 
-    // Instant registration for all currently connected guilds (bypasses 1-hour cache delay)
+    // Clean up guild-specific slash commands for all currently connected guilds to prevent duplication
     const guildIds = client.guilds.cache.map(g => g.id);
     if (guildIds.length > 0) {
-      console.log(`[Bot] Syncing slash commands instantly for ${guildIds.length} guild(s)...`);
+      console.log(`[Bot] Cleaning up guild-specific commands for ${guildIds.length} guild(s)...`);
       for (const guildId of guildIds) {
         try {
           await rest.put(
             Routes.applicationGuildCommands(client.user!.id, guildId),
-            { body: commandData },
+            { body: [] },
           );
         } catch (guildErr) {
-          console.warn(`[Bot] Could not register commands for guild ${guildId}:`, guildErr);
+          console.warn(`[Bot] Could not clean up guild commands for guild ${guildId}:`, guildErr);
         }
       }
-      console.log('[Bot] Slash commands synced instantly.');
+      console.log('[Bot] Guild-specific commands cleaned up.');
     }
   } catch (err) {
     console.error('[Bot] Failed to register commands:', err);

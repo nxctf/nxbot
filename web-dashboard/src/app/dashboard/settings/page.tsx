@@ -137,62 +137,30 @@ export default function SettingsPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
         
-        {/* Change Admin Password */}
-        <div className="glass-panel" style={{ padding: '32px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#38bdf8' }}>
-            <KeyRound size={20} /> Update Password
+        {/* CLI Password Change Note */}
+        <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+          <div style={{
+            display: 'inline-flex',
+            padding: '12px',
+            borderRadius: '12px',
+            background: 'rgba(56, 189, 248, 0.1)',
+            color: '#38bdf8',
+            marginBottom: '16px'
+          }}>
+            <KeyRound size={32} />
+          </div>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: '#38bdf8' }}>
+            Update Password
           </h2>
-
-          {errorPass && (
-            <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', color: '#f43f5e', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px' }}>
-              {errorPass}
-            </div>
-          )}
-
-          {successPass && (
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle size={18} style={{ color: '#10b981' }} /> {successPass}
-            </div>
-          )}
-
-          <form onSubmit={handleChangePassword}>
-            <div className="form-group">
-              <label>Current Password</label>
-              <input 
-                type="password" 
-                className="glass-input" 
-                value={currPassword}
-                onChange={(e) => setCurrPassword(e.target.value)}
-                required
-                disabled={btnLoading}
-              />
-            </div>
-            <div className="form-group">
-              <label>New Password</label>
-              <input 
-                type="password" 
-                className="glass-input" 
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                disabled={btnLoading}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label>Confirm New Password</label>
-              <input 
-                type="password" 
-                className="glass-input" 
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                disabled={btnLoading}
-              />
-            </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={btnLoading}>
-              Update Password
-            </button>
-          </form>
+          <p style={{ color: '#94a3b8', fontSize: '15px', lineHeight: '1.6', maxWidth: '340px' }}>
+            For security, admin password changes are restricted to the Command Line Interface.
+          </p>
+          <p style={{ color: '#e2e8f0', fontSize: '15px', fontWeight: 500, marginTop: '16px', background: 'rgba(255, 255, 255, 0.05)', padding: '10px 20px', borderRadius: '6px', fontFamily: 'monospace' }}>
+            nxbot reset-password
+          </p>
+          <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '12px' }}>
+            Run this command on your host server to update credentials.
+          </p>
         </div>
 
         {/* Database Utilities */}
