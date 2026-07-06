@@ -286,7 +286,7 @@ export class TicketManager {
   /**
    * Close a ticket.
    */
-  async closeTicket(channelId: string, closedByUserId: string): Promise<{ success: boolean; error?: string }> {
+  async closeTicket(channelId: string, closedByUserId: string, reason?: string): Promise<{ success: boolean; error?: string }> {
     const ticket = getTicketByChannel(channelId);
     if (!ticket) {
       return { success: false, error: 'No ticket found for this channel.' };
@@ -319,9 +319,12 @@ export class TicketManager {
       const channel = await this.client.channels.fetch(channelId);
       if (channel && channel instanceof TextChannel) {
         const embed = new EmbedBuilder()
-          .setColor(0xEF4444) // Red
+          .setColor(0xEF4444)
           .setTitle('🔒 Ticket Closed')
-          .setDescription(`This ticket has been closed by <@${closedByUserId}>.`)
+          .setDescription(
+            `This ticket has been closed by <@${closedByUserId}>.` +
+            (reason ? `\n\n**Reason:** ${reason}` : '')
+          )
           .setTimestamp()
           .setFooter({ text: 'This channel will be deleted in 10 seconds.' });
 
@@ -336,6 +339,7 @@ export class TicketManager {
             username: creator?.username || 'Unknown',
             subject: ticket.subject,
             closedBy: closedByUserId,
+            reason: reason || undefined,
           });
         }
 
@@ -352,7 +356,7 @@ export class TicketManager {
       console.error('[Ticket] Failed to close ticket channel:', err);
     }
 
-    logEvent(ticket.guild_id, 'info', 'ticket', `Ticket #${ticket.id} closed by ${closedByUserId}`);
+    logEvent(ticket.guild_id, 'info', 'ticket', `Ticket #${ticket.id} closed by ${closedByUserId}` + (reason ? ` (reason: ${reason})` : ''));
     return { success: true };
   }
 
@@ -429,6 +433,7 @@ export class TicketManager {
       channelId?: string;
       closedBy?: string;
       assignedTo?: string;
+      reason?: string;
     }
   ): Promise<void> {
     try {
@@ -462,6 +467,9 @@ export class TicketManager {
       }
       if (action === 'closed' && data.closedBy) {
         embed.addFields({ name: 'Closed by', value: `<@${data.closedBy}>`, inline: true });
+      }
+      if (action === 'closed' && data.reason) {
+        embed.addFields({ name: 'Reason', value: data.reason, inline: false });
       }
       if (action === 'assigned' && data.assignedTo) {
         embed.addFields({ name: 'Assigned to', value: `<@${data.assignedTo}>`, inline: true });

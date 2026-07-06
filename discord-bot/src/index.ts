@@ -171,54 +171,27 @@ client.on('interactionCreate', async (interaction) => {
 
   // Handle button interactions
   if (interaction.isButton()) {
-    // Ticket close confirmation — Yes
-    if (interaction.customId.startsWith('ticket_close_confirm_')) {
-      if (!ticketManager) return;
-      await interaction.deferUpdate();
-      const result = await ticketManager.closeTicket(interaction.channelId, interaction.user.id);
-      if (!result.success) {
-        await interaction.followUp({ content: `❌ ${result.error}`, ephemeral: true });
-      }
-      // Channel will be deleted by closeTicket — no further reply needed
-      return;
-    }
-
-    // Ticket close confirmation — Cancel
-    if (interaction.customId.startsWith('ticket_close_cancel_')) {
-      await interaction.update({
-        embeds: [],
-        components: [],
-        content: '✅ Ticket close cancelled.',
-      });
-      return;
-    }
-
-    // Initial Ticket close request click (from the close button inside ticket channel)
+    // Ticket close → show Modal with reason input
     if (interaction.customId.startsWith('ticket_close_')) {
-      const ticketId = interaction.customId.replace('ticket_close_', '');
-      
-      const confirmEmbed = new EmbedBuilder()
-        .setColor(0xF59E0B) // Warning Yellow
-        .setTitle('🔒 Close Ticket Confirmation')
-        .setDescription('Are you sure you want to close this ticket? This channel will be permanently deleted.');
-        
-      const confirmRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`ticket_close_confirm_${ticketId}`)
-          .setLabel('Yes, Close It')
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('🗑️'),
-        new ButtonBuilder()
-          .setCustomId(`ticket_close_cancel_${ticketId}`)
-          .setLabel('Cancel')
-          .setStyle(ButtonStyle.Secondary)
-      );
-      
-      await interaction.reply({
-        embeds: [confirmEmbed],
-        components: [confirmRow],
-        ephemeral: false
-      });
+      if (!ticketManager) return;
+      if (!interaction.guildId) return;
+
+      const modal = new ModalBuilder()
+        .setCustomId('ticket_close_modal')
+        .setTitle('🔒 Close Ticket');
+
+      const reasonInput = new TextInputBuilder()
+        .setCustomId('ticket_close_reason')
+        .setLabel('Reason for closing (optional)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('e.g., Issue resolved, duplicate ticket...')
+        .setRequired(false)
+        .setMaxLength(200);
+
+      const actionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(reasonInput);
+      modal.addComponents(actionRow);
+
+      await interaction.showModal(modal);
       return;
     }
 
@@ -339,6 +312,26 @@ client.on('interactionCreate', async (interaction) => {
       } else {
         await interaction.editReply(`✅ Ticket created! Go to <#${result.channelId}>`);
       }
+      return;
+    }
+
+    // Ticket close modal with reason
+    if (interaction.customId === 'ticket_close_modal') {
+      if (!ticketManager) return;
+      if (!interaction.channelId) return;
+
+      const reason = interaction.fields.getTextInputValue('ticket_close_reason');
+      await interaction.deferReply({ ephemeral: true });
+
+      const result = await ticketManager.closeTicket(interaction.channelId, interaction.user.id, reason);
+
+      if (!result.success) {
+        await interaction.editReply(`❌ ${result.error}`);
+        return;
+      }
+
+      await interaction.editReply('🔒 Ticket closed.');
+      // Channel will be deleted by closeTicket after 10 seconds
     }
   }
 });
