@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import { getActiveGuilds, GuildConfig } from '../db/local';
+import { getActiveGuilds, GuildConfig, updateGuildSupabaseTokens } from '../db/local';
 
 /**
  * Manages multiple Supabase client connections — one per guild.
@@ -10,6 +10,7 @@ interface GuildSupabaseConnection {
   client: SupabaseClient;
   channels: RealtimeChannel[];
   config: GuildConfig;
+  unsubscribeAuthListener?: () => void;
 }
 
 class SupabaseManager {
@@ -52,8 +53,33 @@ class SupabaseManager {
       },
     });
 
-    // If login credentials are provided, authenticate for elevated access
-    if (guild.supabase_login_email && guild.supabase_login_password) {
+    // Authenticate for elevated access
+    if (guild.supabase_access_token && guild.supabase_refresh_token) {
+      try {
+        const { error } = await client.auth.setSession({
+          access_token: guild.supabase_access_token,
+          refresh_token: guild.supabase_refresh_token,
+        });
+        if (error) {
+          console.warn(`[Supabase] Failed to restore session from saved tokens for ${guild.guild_name}: ${error.message}. Trying password fallback...`);
+          if (guild.supabase_login_email && guild.supabase_login_password) {
+            const { error: fallbackError } = await client.auth.signInWithPassword({
+              email: guild.supabase_login_email,
+              password: guild.supabase_login_password,
+            });
+            if (fallbackError) {
+              console.warn(`[Supabase] Password fallback failed for ${guild.guild_name}: ${fallbackError.message} (falling back to anon)`);
+            } else {
+              console.log(`[Supabase] Authenticated via password fallback for ${guild.guild_name}`);
+            }
+          }
+        } else {
+          console.log(`[Supabase] Authenticated via saved session tokens for ${guild.guild_name}`);
+        }
+      } catch (err) {
+        console.warn(`[Supabase] Session restore error for ${guild.guild_name}:`, err);
+      }
+    } else if (guild.supabase_login_email && guild.supabase_login_password) {
       try {
         const { error } = await client.auth.signInWithPassword({
           email: guild.supabase_login_email,
@@ -62,17 +88,28 @@ class SupabaseManager {
         if (error) {
           console.warn(`[Supabase] Auth failed for guild ${guild.guild_name}: ${error.message} (falling back to anon)`);
         } else {
-          console.log(`[Supabase] Authenticated for guild ${guild.guild_name}`);
+          console.log(`[Supabase] Authenticated via password for ${guild.guild_name}`);
         }
       } catch (err) {
         console.warn(`[Supabase] Auth error for guild ${guild.guild_name}:`, err);
       }
     }
 
+    // Set up auth state change listener to auto-refresh session tokens in SQLite DB
+    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
+      if (session?.access_token && session?.refresh_token) {
+        console.log(`[Supabase] Auth event "${event}" for ${guild.guild_name} - updating session tokens in DB.`);
+        updateGuildSupabaseTokens(guild.id, session.access_token, session.refresh_token);
+      }
+    });
+
     this.connections.set(guild.id, {
       client,
       channels: [],
       config: guild,
+      unsubscribeAuthListener: () => {
+        authListener.subscription.unsubscribe();
+      }
     });
 
     console.log(`[Supabase] Connected: ${guild.guild_name} (${guild.id})`);
@@ -130,6 +167,14 @@ class SupabaseManager {
       try {
         await conn.client.removeChannel(channel);
       } catch {
+        // ignore cleanup errors
+      }
+    }
+
+    if (conn.unsubscribeAuthListener) {
+      try {
+        conn.unsubscribeAuthListener();
+      } catch (err) {
         // ignore cleanup errors
       }
     }

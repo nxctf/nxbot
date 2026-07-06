@@ -1,6 +1,8 @@
 import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
 import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js';
-import { getDb, isSetup, getActiveGuilds, logEvent, closeDb } from './db/local';
+import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage, getPendingBotActions, completeBotAction } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
 import { FirstBloodService } from './services/firstblood';
 import { AnnouncementService } from './services/announcements';
@@ -23,6 +25,8 @@ if (!DISCORD_TOKEN) {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -35,7 +39,6 @@ interface Command {
 
 const commands = new Collection<string, Command>();
 commands.set(pingCmd.data.name, pingCmd);
-commands.set(ticketCmd.data.name, ticketCmd);
 
 // ---- Services ----
 let firstBloodService: FirstBloodService;
@@ -47,13 +50,27 @@ client.once('ready', async () => {
   console.log(`[Bot] Logged in as ${client.user?.tag}`);
   console.log(`[Bot] Serving ${client.guilds.cache.size} guild(s)`);
 
+  // Write online status
+  try {
+    const statusPath = path.join(__dirname, '../../data/bot_status.json');
+    fs.writeFileSync(statusPath, JSON.stringify({
+      status: 'online',
+      error: null,
+      username: client.user?.tag,
+      guilds: client.guilds.cache.size,
+      updatedAt: new Date().toISOString()
+    }, null, 2));
+  } catch (err) {
+    console.error('[Bot Error] Failed to write status file:', err);
+  }
+
   // Initialize database
   getDb();
 
   // Check setup state
   if (!isSetup()) {
     console.log('[Bot] System not set up yet. Bot is in sleep mode.');
-    console.log('[Bot] Complete setup via web dashboard at http://localhost:3000');
+    console.log(`[Bot] Complete setup via web dashboard at http://localhost:${process.env.PORT || '7000'}`);
     logEvent(null, 'info', 'startup', 'Bot started in sleep mode (setup not complete)');
     return;
   }
@@ -77,6 +94,58 @@ client.once('ready', async () => {
 
   logEvent(null, 'info', 'startup', `Bot started. ${supabaseManager.connectionCount} Supabase connection(s) active.`);
   console.log(`[Bot] Ready! ${supabaseManager.connectionCount} Supabase connection(s) active.`);
+
+  // Start config sync polling loop every 10 seconds
+  setInterval(async () => {
+    try {
+      const dbGuilds = getActiveGuilds();
+      const activeGuildIds = new Set(dbGuilds.map(g => g.id));
+
+      // 1. Disconnect inactive or deleted guilds
+      for (const connectedId of supabaseManager.getConnectedGuilds()) {
+        if (!activeGuildIds.has(connectedId)) {
+          console.log(`[Bot Sync] Guild ${connectedId} is no longer active. Disconnecting Supabase...`);
+          await supabaseManager.disconnect(connectedId);
+        }
+      }
+
+      // 2. Connect or reload active guilds if configuration/credentials changed
+      for (const dbGuild of dbGuilds) {
+        const connectedId = dbGuild.id;
+        const isConnected = supabaseManager.isConnected(connectedId);
+        const existingConfig = supabaseManager.getConfig(connectedId);
+
+        if (!isConnected) {
+          console.log(`[Bot Sync] New active guild detected: ${dbGuild.guild_name} (${connectedId}). Connecting...`);
+          await supabaseManager.connect(dbGuild);
+          firstBloodService.subscribeGuild(dbGuild);
+          announcementService.subscribeGuild(dbGuild);
+        } else if (existingConfig) {
+          // Check if key configurations or credentials changed
+          const hasChanged = 
+            existingConfig.supabase_url !== dbGuild.supabase_url ||
+            existingConfig.supabase_anon_key !== dbGuild.supabase_anon_key ||
+            existingConfig.supabase_login_email !== dbGuild.supabase_login_email ||
+            existingConfig.supabase_login_password !== dbGuild.supabase_login_password ||
+            existingConfig.supabase_turnstile_site_key !== dbGuild.supabase_turnstile_site_key ||
+            existingConfig.active_event_id !== dbGuild.active_event_id ||
+            existingConfig.enable_firstblood !== dbGuild.enable_firstblood ||
+            existingConfig.channel_firstblood !== dbGuild.channel_firstblood ||
+            existingConfig.channel_announcements !== dbGuild.channel_announcements ||
+            existingConfig.updated_at !== dbGuild.updated_at;
+
+          if (hasChanged) {
+            console.log(`[Bot Sync] Configuration updated for guild: ${dbGuild.guild_name} (${connectedId}). Reloading connection...`);
+            await supabaseManager.reload(dbGuild);
+            firstBloodService.subscribeGuild(dbGuild);
+            announcementService.subscribeGuild(dbGuild);
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.error('[Bot Sync] Error in config sync polling loop:', syncErr);
+    }
+  }, 10000);
 });
 
 // ---- Event: Interaction ----
@@ -99,12 +168,31 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // Handle button interactions (ticket close & open panel buttons)
+  // Handle button interactions
   if (interaction.isButton()) {
-    if (interaction.customId.startsWith('ticket_close_')) {
+    // Ticket close confirmation — Yes
+    if (interaction.customId.startsWith('ticket_close_confirm_')) {
       if (!ticketManager) return;
-      await ticketManager.closeTicket(interaction.channelId, interaction.user.id);
+      await interaction.deferUpdate();
+      const result = await ticketManager.closeTicket(interaction.channelId, interaction.user.id);
+      if (!result.success) {
+        await interaction.followUp({ content: `❌ ${result.error}`, ephemeral: true });
+      }
+      // Channel will be deleted by closeTicket — no further reply needed
+      return;
     }
+
+    // Ticket close confirmation — Cancel
+    if (interaction.customId.startsWith('ticket_close_cancel_')) {
+      await interaction.update({
+        embeds: [],
+        components: [],
+        content: '✅ Ticket close cancelled.',
+      });
+      return;
+    }
+
+    // Ticket open panel button
     if (interaction.customId === 'ticket_open_panel') {
       if (!ticketManager) return;
       if (!interaction.guildId) return;
@@ -121,6 +209,107 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply(`✅ Ticket created! Go to <#${result.channelId}>`);
       }
     }
+  }
+});
+
+// ---- Bot Actions Poller (dashboard → bot channel deletion) ----
+setInterval(async () => {
+  try {
+    const actions = getPendingBotActions();
+    for (const action of actions) {
+      try {
+        if (action.action_type === 'close_channel') {
+          const payload = JSON.parse(action.payload) as { channel_id: string; ticket_id: number; closed_by_user_id?: string };
+          const channel = await client.channels.fetch(payload.channel_id).catch(() => null);
+          if (channel && 'delete' in channel) {
+            const { TextChannel } = await import('discord.js');
+            if (channel instanceof TextChannel) {
+              const { EmbedBuilder } = await import('discord.js');
+              const embed = new EmbedBuilder()
+                .setColor(0xEF4444)
+                .setTitle('🔒 Ticket Closed')
+                .setDescription('This ticket has been closed by an administrator via the dashboard.')
+                .setFooter({ text: 'This channel will be deleted in 10 seconds.' })
+                .setTimestamp();
+              await channel.send({ embeds: [embed] }).catch(() => null);
+              setTimeout(() => channel.delete('Closed via dashboard').catch(() => null), 10_000);
+            }
+          }
+        }
+        completeBotAction(action.id, true);
+      } catch (actionErr) {
+        console.error(`[Bot Actions] Failed action ${action.id}:`, actionErr);
+        completeBotAction(action.id, false);
+      }
+    }
+  } catch (pollErr) {
+    console.error('[Bot Actions] Poller error:', pollErr);
+  }
+}, 5000);
+
+// ---- Event: Message Create (log ticket chats + attachments) ----
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  try {
+    const ticket = getTicketByChannel(message.channelId);
+    if (!ticket || ticket.status === 'closed') return;
+
+    const avatarUrl = message.author.displayAvatarURL({ forceStatic: false }) || null;
+    const content = message.content || null;
+
+    // Handle attachments (images + files, max 10MB each)
+    if (message.attachments.size > 0) {
+      const attachment = message.attachments.first()!;
+      const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+      if (attachment.size <= MAX_SIZE) {
+        try {
+          const https = require('https');
+          const http = require('http');
+          const fs = require('fs');
+          const path = require('path');
+
+          const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../data/nxbot.db');
+          const attachDir = path.join(path.dirname(dbPath), 'attachments');
+          if (!fs.existsSync(attachDir)) fs.mkdirSync(attachDir, { recursive: true });
+
+          // Unique filename: timestamp_originalname
+          const origName = attachment.name;
+          const uniqueName = `${Date.now()}_${origName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const destPath = path.join(attachDir, uniqueName);
+
+          // Download the file
+          await new Promise<void>((resolve, reject) => {
+            const fileStream = fs.createWriteStream(destPath);
+            const proto = attachment.url.startsWith('https') ? https : http;
+            proto.get(attachment.url, (res: any) => {
+              res.pipe(fileStream);
+              fileStream.on('finish', () => { fileStream.close(); resolve(); });
+              fileStream.on('error', reject);
+            }).on('error', reject);
+          });
+
+          saveTicketMessage(
+            ticket.id, message.author.id, message.author.username,
+            avatarUrl, content, uniqueName, origName, attachment.size,
+          );
+        } catch (dlErr) {
+          console.error('[Bot] Failed to download ticket attachment:', dlErr);
+          // Still save the message text even if attachment download fails
+          saveTicketMessage(ticket.id, message.author.id, message.author.username, avatarUrl, content);
+        }
+      } else {
+        // File too large — log message with note
+        const note = content ? `${content}\n\n⚠️ [Attachment too large to save: ${attachment.name}]` : `⚠️ [Attachment too large to save: ${attachment.name}]`;
+        saveTicketMessage(ticket.id, message.author.id, message.author.username, avatarUrl, note);
+      }
+    } else if (content) {
+      // Text-only message
+      saveTicketMessage(ticket.id, message.author.id, message.author.username, avatarUrl, content);
+    }
+  } catch (err) {
+    console.error('[Bot] Failed to log ticket message:', err);
   }
 });
 
@@ -189,6 +378,46 @@ async function shutdown(signal: string): Promise<void> {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// ---- Global Error Handling ----
+process.on('uncaughtException', (err) => {
+  console.error('[Bot Uncaught] error:', err);
+  try {
+    const statusPath = path.join(__dirname, '../../data/bot_status.json');
+    let errMsg = err.message || String(err);
+    if (errMsg.includes('Used disallowed intents') || errMsg.includes('disallowed intents')) {
+      errMsg = 'Disallowed intents: Enable "Message Content Intent" in Discord Developer Portal under Bot settings.';
+    }
+    fs.writeFileSync(statusPath, JSON.stringify({
+      status: 'error',
+      error: errMsg,
+      updatedAt: new Date().toISOString()
+    }, null, 2));
+  } catch (writeErr) {
+    console.error('[Bot Uncaught] failed to write status:', writeErr);
+  }
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Bot Unhandled Rejection] reason:', reason);
+  try {
+    const statusPath = path.join(__dirname, '../../data/bot_status.json');
+    const reasonStr = String(reason);
+    let errMsg = reasonStr;
+    if (reasonStr.includes('Used disallowed intents') || reasonStr.includes('disallowed intents')) {
+      errMsg = 'Disallowed intents: Enable "Message Content Intent" in Discord Developer Portal under Bot settings.';
+    }
+    fs.writeFileSync(statusPath, JSON.stringify({
+      status: 'error',
+      error: errMsg,
+      updatedAt: new Date().toISOString()
+    }, null, 2));
+  } catch (writeErr) {
+    console.error('[Bot Unhandled Rejection] failed to write status:', writeErr);
+  }
+  process.exit(1);
+});
 
 // ---- Start ----
 console.log('[Bot] Starting NXBot Discord Bot...');

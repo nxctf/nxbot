@@ -25,6 +25,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     return;
   }
 
+  if (!guildConfig.enable_scoreboard) {
+    await interaction.reply({ content: '❌ The scoreboard command is currently disabled on this server.', ephemeral: true });
+    return;
+  }
+
   const supabase = supabaseManager.getClient(interaction.guildId);
   if (!supabase) {
     await interaction.reply({ content: '❌ Supabase connection not available.', ephemeral: true });

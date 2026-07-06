@@ -1,39 +1,25 @@
 services:
-  web-dashboard:
+  nxbot:
     build:
-      context: ./web-dashboard
+      context: .
       dockerfile: Dockerfile
-    container_name: nxbot-web
+    container_name: nxbot-app
     ports:
-      - "3000:3000"
+      - "${PORT:-7000}:${PORT:-7000}"
     volumes:
       - nxbot-data:/app/data
     environment:
+      - PORT=${PORT:-7000}
       - DATABASE_PATH=/app/data/nxbot.db
       - JWT_SECRET=${JWT_SECRET}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:$$PORT/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
-
-  discord-bot:
-    build:
-      context: ./discord-bot
-      dockerfile: Dockerfile
-    container_name: nxbot-bot
-    volumes:
-      - nxbot-data:/app/data
-    environment:
-      - DATABASE_PATH=/app/data/nxbot.db
-      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-    restart: unless-stopped
-    depends_on:
-      web-dashboard:
-        condition: service_healthy
+      start_period: 20s
 
 volumes:
   nxbot-data:

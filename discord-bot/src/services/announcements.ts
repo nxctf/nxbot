@@ -64,7 +64,31 @@ export class AnnouncementService {
         },
         async (payload) => {
           try {
-            await this.handleNewNotification(guild, payload.new as NotificationPayload);
+            let notification = payload.new as NotificationPayload;
+
+            // Supabase Realtime may send empty/partial payloads if REPLICA IDENTITY FULL is not set
+            if (!notification.content && !notification.text && !notification.message && !notification.title) {
+              const supabase = supabaseManager.getClient(guild.id);
+              if (!supabase) return;
+
+              if (notification.id) {
+                const { data, error } = await supabase.from('notifications').select('*').eq('id', notification.id).single();
+                if (error) {
+                  console.error(`[Announcements] Failed to fetch notification details for ID ${notification.id}:`, error.message);
+                }
+                if (!data) return;
+                notification = data as NotificationPayload;
+              } else {
+                const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(1).single();
+                if (error) {
+                  console.error(`[Announcements] Failed to fetch latest notification:`, error.message);
+                }
+                if (!data) return;
+                notification = data as NotificationPayload;
+              }
+            }
+
+            await this.handleNewNotification(guild, notification);
           } catch (err) {
             console.error(`[Announcements] Error handling notification for ${guild.guild_name}:`, err);
             logEvent(guild.id, 'error', 'announcements', `Error handling notification: ${err}`);
@@ -95,7 +119,7 @@ export class AnnouncementService {
       .setTitle(title)
       .setDescription(content)
       .setFooter({ text: 'NXCTF Announcements' })
-      .setTimestamp(new Date(notification.created_at));
+      .setTimestamp(notification.created_at && !isNaN(new Date(notification.created_at).getTime()) ? new Date(notification.created_at) : new Date());
 
     await discordChannel.send({ embeds: [embed] });
 

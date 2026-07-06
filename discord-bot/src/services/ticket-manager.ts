@@ -244,8 +244,20 @@ export class TicketManager {
 
     const guildConfig = getGuild(ticket.guild_id);
 
+    // Fetch closer's Discord profile for display
+    let closerUsername: string | null = null;
+    let closerAvatar: string | null = null;
+    try {
+      const guild = await this.client.guilds.fetch(ticket.guild_id);
+      const member = await guild.members.fetch(closedByUserId);
+      closerUsername = member.user.username;
+      closerAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 64 });
+    } catch {
+      // Non-fatal — just won't show avatar
+    }
+
     // Update status in DB
-    updateTicketStatus(ticket.id, 'closed', closedByUserId);
+    updateTicketStatus(ticket.id, 'closed', closedByUserId, closerUsername, closerAvatar);
 
     // Send closing message
     try {

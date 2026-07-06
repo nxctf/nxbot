@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { TicketManager } from '../services/ticket-manager';
 import { getTicketByChannel, getTicketsByGuild, getTicketsByUser, getGuild, assignTicket } from '../db/local';
 
@@ -118,13 +118,37 @@ async function handleClose(interaction: ChatInputCommandInteraction): Promise<vo
     return;
   }
 
-  await interaction.deferReply();
-
-  const result = await ticketManager.closeTicket(interaction.channelId, interaction.user.id);
-  if (!result.success) {
-    await interaction.editReply(`❌ ${result.error}`);
+  if (ticket.status === 'closed') {
+    await interaction.reply({ content: '🔒 This ticket is already closed.', ephemeral: true });
+    return;
   }
-  // Channel will be deleted, so no need to send more
+
+  const reason = interaction.options.getString('reason');
+
+  const embed = new EmbedBuilder()
+    .setColor(0xF59E0B)
+    .setTitle('⚠️ Close this Ticket?')
+    .setDescription(
+      `Are you sure you want to close ticket **#${String(ticket.id).padStart(4, '0')}**?\n\n` +
+      (reason ? `**Reason:** ${reason}\n\n` : '') +
+      '> This channel will be deleted after closing.'
+    )
+    .setTimestamp();
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`ticket_close_confirm_${ticket.id}`)
+      .setLabel('Yes, Close Ticket')
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji('🔒'),
+    new ButtonBuilder()
+      .setCustomId(`ticket_close_cancel_${ticket.id}`)
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('✖️'),
+  );
+
+  await interaction.reply({ embeds: [embed], components: [row] });
 }
 
 async function handleList(interaction: ChatInputCommandInteraction): Promise<void> {
