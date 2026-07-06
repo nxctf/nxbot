@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Database, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, RefreshCw, Save, ArrowLeft, KeyRound, ShieldAlert, ShieldOff } from 'lucide-react';
 import Script from 'next/script';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface Connection {
   id: string;
@@ -17,7 +18,12 @@ interface Connection {
   created_at: string;
 }
 
-export default function DatabasesPage() {
+function DatabasesContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab');
+  const id = searchParams.get('id');
+
   const [conns, setConns] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -62,6 +68,45 @@ export default function DatabasesPage() {
       setLoading(false);
     }
   };
+
+  // Sync tab & id query params with form state
+  useEffect(() => {
+    if (tab === 'add') {
+      setShowForm(true);
+      setEditingId(null);
+      setName('');
+      setSupabaseUrl('');
+      setSupabaseAnonKey('');
+      setLoginEmail('');
+      setLoginPassword('');
+      setTurnstileSiteKey('');
+      setCaptchaToken(null);
+      setError('');
+      setSuccess('');
+    } else if (tab === 'edit' && id) {
+      const conn = conns.find(c => c.id === id);
+      if (conn) {
+        setEditingId(conn.id);
+        setName(conn.name);
+        setSupabaseUrl(conn.supabase_url);
+        setSupabaseAnonKey(conn.supabase_anon_key);
+        setLoginEmail(conn.supabase_login_email || '');
+        setLoginPassword(conn.supabase_login_password || '');
+        setTurnstileSiteKey(conn.supabase_turnstile_site_key || '');
+        setCaptchaToken(null);
+        setShowForm(true);
+        setError('');
+        setSuccess('');
+      } else {
+        if (conns.length > 0) {
+          router.push('/dashboard/databases');
+        }
+      }
+    } else {
+      setShowForm(false);
+      setEditingId(null);
+    }
+  }, [tab, id, conns, router]);
 
   // Turnstile widget rendering effect for connection creation
   useEffect(() => {
@@ -160,17 +205,7 @@ export default function DatabasesPage() {
   };
 
   const handleEdit = (conn: Connection) => {
-    setEditingId(conn.id);
-    setName(conn.name);
-    setSupabaseUrl(conn.supabase_url);
-    setSupabaseAnonKey(conn.supabase_anon_key);
-    setLoginEmail(conn.supabase_login_email || '');
-    setLoginPassword(conn.supabase_login_password || '');
-    setTurnstileSiteKey(conn.supabase_turnstile_site_key || '');
-    setCaptchaToken(null);
-    setShowForm(true);
-    setError('');
-    setSuccess('');
+    router.push(`/dashboard/databases?tab=edit&id=${conn.id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -233,15 +268,7 @@ export default function DatabasesPage() {
   };
 
   const resetForm = () => {
-    setEditingId(null);
-    setName('');
-    setSupabaseUrl('');
-    setSupabaseAnonKey('');
-    setLoginEmail('');
-    setLoginPassword('');
-    setTurnstileSiteKey('');
-    setCaptchaToken(null);
-    setShowForm(false);
+    router.push('/dashboard/databases');
   };
 
   // Re-auth modal open handler — render Turnstile widget
@@ -323,7 +350,7 @@ export default function DatabasesPage() {
         </div>
 
         {!showForm && (
-          <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={() => router.push('/dashboard/databases?tab=add')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={18} />
             Add Connection
           </button>
@@ -479,7 +506,7 @@ export default function DatabasesPage() {
               <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto 24px', lineHeight: '1.6' }}>
                 Create a database connection first so you can link it to your Discord servers.
               </p>
-              <button onClick={() => setShowForm(true)} className="btn btn-primary">
+              <button onClick={() => router.push('/dashboard/databases?tab=add')} className="btn btn-primary">
                 Add Connection Now
               </button>
             </div>
@@ -635,5 +662,17 @@ export default function DatabasesPage() {
         );
       })()}
     </div>
+  );
+}
+
+export default function DatabasesPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <RefreshCw className="animate-spin" size={32} style={{ color: '#38bdf8' }} />
+      </div>
+    }>
+      <DatabasesContent />
+    </Suspense>
   );
 }

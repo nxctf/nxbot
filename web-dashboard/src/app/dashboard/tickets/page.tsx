@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download, Send, Bot } from 'lucide-react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download, Send, Bot, ArrowLeft } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface TicketData {
   id: number;
@@ -39,7 +40,11 @@ interface TicketMessage {
   created_at: string;
 }
 
-export default function TicketsPage() {
+function TicketsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const ticketIdParam = searchParams.get('id');
+
   const [tickets, setTickets] = useState<TicketData[]>([]);
   const [guilds, setGuilds] = useState<GuildItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +65,27 @@ export default function TicketsPage() {
 
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+
+  // Sync selectedTicket with ?id= query param
+  useEffect(() => {
+    if (ticketIdParam) {
+      const ticketId = parseInt(ticketIdParam, 10);
+      if (!isNaN(ticketId)) {
+        const ticket = tickets.find(t => t.id === ticketId);
+        if (ticket) {
+          setSelectedTicket(ticket);
+          fetchMessages(ticket.id);
+        } else {
+          if (tickets.length > 0) {
+            router.push('/dashboard/tickets');
+          }
+        }
+      }
+    } else {
+      setSelectedTicket(null);
+      setConfirmCloseId(null);
+    }
+  }, [ticketIdParam, tickets, router]);
 
   const handleSendReply = async () => {
     if (!replyText.trim() || !selectedTicket) return;
@@ -188,8 +214,7 @@ export default function TicketsPage() {
   };
 
   const handleRowClick = (ticket: TicketData) => {
-    setSelectedTicket(ticket);
-    fetchMessages(ticket.id);
+    router.push(`/dashboard/tickets?id=${ticket.id}`);
   };
 
   if (loading) {
@@ -202,10 +227,12 @@ export default function TicketsPage() {
 
   return (
     <div className="animate-fade-in" style={{ position: 'relative', minHeight: '80vh' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Support Tickets</h1>
-        <p style={{ color: '#94a3b8' }}>Monitor and view chat transcripts for ticket channels created by CTF participants</p>
-      </div>
+      {!selectedTicket && (
+        <div>
+          <div style={{ marginBottom: '32px' }}>
+            <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Support Tickets</h1>
+            <p style={{ color: '#94a3b8' }}>Monitor and view chat transcripts for ticket channels created by CTF participants</p>
+          </div>
 
       {/* Filter Bar */}
       <div className="glass-panel" style={{ padding: '20px', marginBottom: '32px', display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
@@ -294,7 +321,7 @@ export default function TicketsPage() {
                   key={t.id} 
                   onClick={() => handleRowClick(t)} 
                   style={{ cursor: 'pointer' }}
-                  className={selectedTicket?.id === t.id ? 'active-row' : ''}
+                  className={ticketIdParam === String(t.id) ? 'active-row' : ''}
                 >
                   <td style={{ fontWeight: 700, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
                     #{String(t.id).padStart(4, '0')}
@@ -404,49 +431,59 @@ export default function TicketsPage() {
           </table>
         </div>
       )}
+        </div>
+      )}
 
-      {/* Transcript Drawer Overlay */}
+      {/* Transcript Details Workspace */}
       {selectedTicket && (
-        <>
-          <div 
-            onClick={() => setSelectedTicket(null)}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
-              backdropFilter: 'blur(4px)',
-              zIndex: 900,
-              transition: 'opacity 0.3s ease',
-            }}
-          />
+        <div>
           <div 
             style={{
-              position: 'fixed',
-              top: '4%',
-              bottom: '4%',
-              left: '4%',
-              right: '4%',
-              maxWidth: '1280px',
-              margin: '0 auto',
+              display: 'flex',
+              flexDirection: 'column',
+              height: 'calc(100vh - 180px)',
               backgroundColor: '#0c0f17',
               border: '1px solid var(--border-color)',
               borderRadius: '16px',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
-              zIndex: 1000,
-              display: 'flex',
-              flexDirection: 'column',
               overflow: 'hidden',
-              animation: 'modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             }}
           >
-            {/* Drawer Header */}
-            <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(22, 28, 45, 0.2)', flexShrink: 0 }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 800, color: '#f8fafc' }}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(22, 28, 45, 0.2)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <button 
+                  onClick={() => router.push('/dashboard/tickets')}
+                  style={{ 
+                    background: 'none', 
+                    color: '#94a3b8', 
+                    cursor: 'pointer', 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    fontSize: '14px', 
+                    fontWeight: 600,
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#f8fafc';
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#94a3b8';
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)';
+                  }}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Back to Tickets</span>
+                </button>
+                <div style={{ width: '1px', height: '24px', backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px', fontWeight: 800, color: '#f8fafc' }}>
                     Ticket #{String(selectedTicket.id).padStart(4, '0')}
                   </span>
                   <span className={`badge ${
@@ -457,14 +494,6 @@ export default function TicketsPage() {
                   </span>
                 </div>
               </div>
-              <button 
-                onClick={() => setSelectedTicket(null)}
-                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#f8fafc'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
-              >
-                <X size={24} />
-              </button>
             </div>
 
             {/* Split Layout Body */}
@@ -898,8 +927,20 @@ export default function TicketsPage() {
               background-color: rgba(56, 189, 248, 0.06) !important;
             }
           `}</style>
-        </>
+        </div>
       )}
     </div>
+  );
+}
+
+export default function TicketsPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <RefreshCw className="animate-spin" size={32} style={{ color: '#38bdf8' }} />
+      </div>
+    }>
+      <TicketsContent />
+    </Suspense>
   );
 }
