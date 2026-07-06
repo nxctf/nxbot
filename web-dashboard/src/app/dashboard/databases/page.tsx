@@ -454,14 +454,16 @@ export default function DatabasesPage() {
       ) : (
         <>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '64px 0', color: '#94a3b8' }}>
-              <RefreshCw className="animate-spin" style={{ margin: '0 auto 16px' }} size={32} />
+            <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+              <RefreshCw className="animate-spin" size={32} style={{ margin: '0 auto 16px' }} />
               <p>Fetching saved database connections...</p>
             </div>
           ) : conns.length === 0 ? (
-            <div className="glass-panel" style={{ padding: '64px 32px', textAlign: 'center', color: '#94a3b8' }}>
-              <Database size={48} style={{ margin: '0 auto 16px', color: '#64748b' }} />
-              <h3 style={{ fontSize: '18px', color: '#f8fafc', marginBottom: '8px' }}>No Database Connections Configured</h3>
+            <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <Database size={48} style={{ opacity: 0.4, color: '#64748b' }} />
+              </div>
+              <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px' }}>No Database Connections Configured</h2>
               <p style={{ fontSize: '14px', maxWidth: '450px', margin: '0 auto 24px' }}>
                 Create a database connection first so you can link it to your Discord servers.
               </p>

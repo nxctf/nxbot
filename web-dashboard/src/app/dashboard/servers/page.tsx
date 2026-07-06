@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Server, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Server, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, HelpCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import Script from 'next/script';
 
@@ -324,12 +324,17 @@ export default function ServersPage() {
 
       {/* Connected Servers List */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px' }}>Loading server details...</div>
+        <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+          <RefreshCw className="animate-spin" size={32} style={{ margin: '0 auto 16px' }} />
+          <p>Loading server details...</p>
+        </div>
       ) : servers.length === 0 ? (
         <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-          <HelpCircle size={48} style={{ marginBottom: '16px', opacity: 0.5, color: '#38bdf8' }} />
+          <div style={{ marginBottom: '16px' }}>
+            <HelpCircle size={48} style={{ opacity: 0.4, color: '#64748b' }} />
+          </div>
           <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px' }}>No Connected Discord Servers</h2>
-          <p style={{ maxWidth: '460px', margin: '0 auto 24px' }}>
+          <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto 24px' }}>
             Get started by registering a server. You will need your Discord Server ID and your NXCTF database project details.
           </p>
           <button onClick={() => setShowAddForm(true)} className="btn btn-primary">
