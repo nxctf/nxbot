@@ -175,14 +175,20 @@ export function IntegrationTab({
               ))}
             </GlassSelect>
           ) : (
-            <input
-              type="text"
-              className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none focus:border-primary focus:shadow-primary/10"
-              value={formState.active_event_id || ''}
-              onChange={(e) => updateField('active_event_id', e.target.value || null)}
-              placeholder="Paste Event UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
-              disabled={!isEnabled}
-            />
+            <div className="space-y-2">
+              <div className="p-3.5 bg-slate-800/20 border border-border-color rounded-lg text-sm text-slate-400 flex items-center gap-2">
+                <Radio size={16} className="shrink-0" />
+                <span>No events found from Supabase. You can paste an Event UUID directly below.</span>
+              </div>
+              <input
+                type="text"
+                className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none focus:border-primary focus:shadow-primary/10"
+                value={formState.active_event_id || ''}
+                onChange={(e) => updateField('active_event_id', e.target.value || null)}
+                placeholder="Paste Event UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
+                disabled={!isEnabled}
+              />
+            </div>
           )}
         </div>
 

@@ -139,9 +139,9 @@ export default function OverviewPage() {
           </div>
 
           {logs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-              <Clock size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
-              <p>No activity logs found yet. Active logs will appear here.</p>
+            <div style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>
+              <Clock size={36} style={{ margin: '0 auto 12px', opacity: 0.4, color: '#64748b' }} />
+              <p style={{ fontSize: '14px' }}>No activity logs found yet. Active logs will appear here.</p>
             </div>
           ) : (
             <div className="table-container">

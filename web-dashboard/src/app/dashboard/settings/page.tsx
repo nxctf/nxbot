@@ -231,9 +231,18 @@ export default function SettingsPage() {
         </div>
 
         {loadingLogs && logs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Querying SQLite DB...</div>
+          <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+            <RefreshCw className="animate-spin" size={32} style={{ margin: '0 auto 16px' }} />
+            <p>Querying SQLite DB...</p>
+          </div>
         ) : logs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Console log is empty.</div>
+          <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+            <Terminal size={40} style={{ margin: '0 auto 16px', opacity: 0.4, color: '#64748b' }} />
+            <h3 style={{ fontSize: '18px', color: '#f8fafc', marginBottom: '8px' }}>Console Log is Empty</h3>
+            <p style={{ fontSize: '14px', maxWidth: '400px', margin: '0 auto' }}>
+              Bot and dashboard activity logs will appear here once services are running.
+            </p>
+          </div>
         ) : (
           <div style={{ 
             background: '#030712', 
