@@ -59,12 +59,13 @@ usage() {
     echo -e "  ${CYAN}logs${NC} [service]  Tail logs (web-dashboard | discord-bot)"
     echo -e "  ${CYAN}credentials${NC}     Show admin login info"
     echo -e "  ${CYAN}reset-password${NC}  Change admin password via CLI"
+    echo -e "  ${CYAN}update${NC}          Pull latest code & rebuild containers"
     echo ""
     echo -e "${BOLD}Examples:${NC}"
     echo "  nxbot install        # One-time setup after clone"
     echo "  nxbot start          # Start everything"
+    echo "  nxbot update         # Git pull + rebuild"
     echo "  nxbot credentials    # Show admin username"
-    echo "  nxbot reset-password # Change password if forgotten"
     echo ""
 }
 
@@ -250,6 +251,44 @@ cmd_build() {
     echo -e "$PREFIX_INFO Build complete."
 }
 
+cmd_update() {
+    echo -e "$PREFIX_INFO Updating NXBot from repository..."
+
+    if ! command -v git &>/dev/null; then
+        echo -e "$PREFIX_ERROR git is required for update."
+        exit 1
+    fi
+
+    # Stash any local changes, pull latest
+    git -C "$SCRIPT_DIR" stash --quiet 2>/dev/null || true
+    git -C "$SCRIPT_DIR" pull --rebase
+    echo -e "$PREFIX_INFO Repository updated to latest version"
+
+    # Re-make executable
+    chmod +x "$SCRIPT_DIR/nxbot"
+    echo -e "$PREFIX_INFO Made nxbot executable"
+
+    # Re-install symlink (in case install target changed)
+    local BIN_DIR="/usr/local/bin"
+    if [ -L "$BIN_DIR/nxbot" ]; then
+        if [ -w "$BIN_DIR" ]; then
+            ln -sf "$SCRIPT_DIR/nxbot" "$BIN_DIR/nxbot"
+        else
+            sudo ln -sf "$SCRIPT_DIR/nxbot" "$BIN_DIR/nxbot"
+        fi
+        echo -e "$PREFIX_INFO Symlink refreshed"
+    fi
+
+    # Rebuild containers
+    echo -e "$PREFIX_INFO Rebuilding containers..."
+    compose build
+
+    echo ""
+    echo -e "$PREFIX_INFO ${GREEN}Update complete!${NC}"
+    echo -e "  Run ${CYAN}nxbot start${NC} to restart services with the new code"
+    echo ""
+}
+
 cmd_setup() {
     echo -e "$PREFIX_INFO Running first-time setup..."
 
@@ -317,6 +356,7 @@ main() {
         logs)            shift; cmd_logs "$@" ;;
         build)           cmd_build ;;
         setup)           cmd_setup ;;
+        update)          cmd_update ;;
         help|--help|-h|"")
             usage
             ;;
