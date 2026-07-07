@@ -1,6 +1,6 @@
 import { Client, TextChannel, EmbedBuilder, Colors } from 'discord.js';
 import { supabaseManager } from './supabase-manager';
-import { getActiveGuilds, hasFirstBlood, insertFirstBlood, GuildConfig, logEvent } from '../db/local';
+import { getActiveGuilds, insertFirstBlood, GuildConfig, logEvent } from '../db/local';
 import { ScoreboardService } from './scoreboard';
 
 /**
@@ -133,21 +133,35 @@ export class FirstBloodService {
    * Handle a new solve event.
    */
   private async handleNewSolve(guild: GuildConfig, solve: SolvePayload): Promise<void> {
-    // Guard: skip if the realtime payload is missing required fields
     if (!solve.challenge_id || !solve.user_id) {
       console.warn(`[FirstBlood] Skipping solve event with missing fields for ${guild.guild_name}:`, JSON.stringify(solve));
       return;
     }
 
-    // Check if we already notified for this challenge (it's not first blood)
-    if (hasFirstBlood(guild.id, solve.challenge_id)) {
-      return; // Not first blood, already cached
-    }
-
-    // Fetch challenge details from Supabase
     const supabase = supabaseManager.getClient(guild.id);
     if (!supabase) return;
 
+    // Check if this is the first solve for this challenge by querying Supabase
+    // Uses ORDER BY created_at ASC to handle cases where solves were deleted/readded
+    const { data: firstSolve } = await supabase
+      .from('solves')
+      .select('id')
+      .eq('challenge_id', solve.challenge_id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (!firstSolve) {
+      console.warn(`[FirstBlood] No solves found for challenge ${solve.challenge_id} (race condition?)`);
+      return;
+    }
+
+    // If the earliest solve isn't ours, someone else got first blood first
+    if (firstSolve.id !== solve.id) {
+      return;
+    }
+
+    // Fetch challenge details from Supabase
     const { data: challenge, error: challengeError } = await supabase
       .from('challenges')
       .select('id, title, category, points')
@@ -171,7 +185,7 @@ export class FirstBloodService {
       return;
     }
 
-    // Cache this first blood
+    // Save to local cache (for /firstblood command & duplicate prevention)
     insertFirstBlood({
       guild_id: guild.id,
       challenge_id: solve.challenge_id,
