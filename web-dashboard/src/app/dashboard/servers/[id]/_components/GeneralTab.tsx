@@ -7,9 +7,10 @@ import { GuildConfig } from '../_types';
 interface GeneralTabProps {
   formState: GuildConfig;
   setFormState: React.Dispatch<React.SetStateAction<GuildConfig | null>>;
+  onDeleteClick: () => void;
 }
 
-export function GeneralTab({ formState, setFormState }: GeneralTabProps) {
+export function GeneralTab({ formState, setFormState, onDeleteClick }: GeneralTabProps) {
   const updateField = (field: keyof GuildConfig, value: any) => {
     setFormState(prev => prev ? { ...prev, [field]: value } : null);
   };
@@ -37,6 +38,23 @@ export function GeneralTab({ formState, setFormState }: GeneralTabProps) {
           onChange={(e) => updateField('guild_name', e.target.value)}
           required
         />
+      </div>
+
+      {/* Danger Zone */}
+      <div className="bg-accent-red/5 border border-accent-red/20 rounded-xl p-5 mt-8 space-y-4">
+        <h3 className="text-sm font-bold text-accent-red uppercase tracking-wider">
+          Danger Zone
+        </h3>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Permanently delete this server configuration from the database. The bot will immediately stop responding to CTF events and tickets in this Discord server.
+        </p>
+        <button
+          type="button"
+          onClick={onDeleteClick}
+          className="inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 bg-accent-red text-slate-100 hover:bg-red-600 shadow-lg shadow-red-600/10 px-4 py-2.5 text-xs"
+        >
+          Delete Server Configuration
+        </button>
       </div>
     </div>
   );

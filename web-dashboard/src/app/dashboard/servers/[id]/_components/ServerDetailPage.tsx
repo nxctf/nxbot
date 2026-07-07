@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Save, RefreshCw, Database, MessageSquare, Ticket, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { ArrowLeft, Save, RefreshCw, Database, Ticket, AlertTriangle, CheckCircle } from 'lucide-react';
 import { GuildConfig, DatabaseConnection, EventItem, DiscordChannel, DiscordRole } from '../_types';
 import GeneralTab from './GeneralTab';
 import IntegrationTab from './IntegrationTab';
@@ -80,13 +83,53 @@ export function ServerDetailPage({
   error,
   success,
 }: ServerDetailPageProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'supabase' | 'tickets'>('general');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // URL-driven Tab State (?tab=general|supabase|tickets)
+  const activeTab = (searchParams.get('tab') || 'general') as 'general' | 'supabase' | 'tickets';
+
+  // Delete Server Confirmation states
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [confirmServerName, setConfirmServerName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const handleTabChange = (tab: 'general' | 'supabase' | 'tickets') => {
+    router.replace(`${pathname}?tab=${tab}`, { scroll: false });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (confirmServerName !== config.guild_name) return;
+    setDeleteLoading(true);
+    try {
+      const res = await fetch(`/api/servers/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setDeleteConfirmOpen(false);
+        router.push('/dashboard/servers');
+      } else {
+        alert('Failed to delete server configuration.');
+      }
+    } catch (err) {
+      console.error('Delete server error:', err);
+      alert('An error occurred during deletion.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // Reset confirmation name on modal close
+  useEffect(() => {
+    if (!deleteConfirmOpen) {
+      setConfirmServerName('');
+    }
+  }, [deleteConfirmOpen]);
 
   return (
     <div className="relative pb-16">
       <form onSubmit={onSave}>
-        {/* Sticky Header Bar */}
-        <div className="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-md border-b border-border-color -mx-10 mb-8 px-10 py-4 flex items-center justify-between shadow-lg shadow-black/30">
+        {/* Fixed Header Bar at top-[60px] */}
+        <div className="sticky top-[60px] z-40 bg-bg-dark/95 backdrop-blur-md border-b border-border-color -mx-10 mb-8 px-10 py-4 flex items-center justify-between shadow-lg shadow-black/30">
           <div className="flex items-center gap-4">
             <Link
               href="/dashboard/servers"
@@ -98,11 +141,15 @@ export function ServerDetailPage({
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-xl font-extrabold text-slate-100">{config.guild_name || 'Configure Server'}</h1>
-                <span className="text-[11px] font-mono bg-primary/5 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full select-all">
+                {/* Fixed ID badge - no buggy border */}
+                <span className="text-[10px] font-mono bg-slate-800 text-slate-400 px-2.5 py-1 rounded-md select-all">
                   {id}
                 </span>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${
-                  config.is_active === 1 ? 'bg-accent-green/10 text-accent-green border border-accent-green/20' : 'bg-accent-red/10 text-accent-red border border-accent-red/20'
+                {/* Fixed Active status badge - no buggy border */}
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                  config.is_active === 1 
+                    ? 'bg-accent-green/10 text-accent-green' 
+                    : 'bg-accent-red/10 text-accent-red'
                 }`}>
                   {config.is_active === 1 ? 'Active' : 'Inactive'}
                 </span>
@@ -136,7 +183,7 @@ export function ServerDetailPage({
         <div className="flex gap-2 border-b border-border-color pb-3 mb-8 overflow-x-auto">
           <button
             type="button"
-            onClick={() => setActiveTab('general')}
+            onClick={() => handleTabChange('general')}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all shrink-0 ${
               activeTab === 'general'
                 ? 'bg-primary text-slate-950 border-primary shadow-lg shadow-primary/10'
@@ -148,7 +195,7 @@ export function ServerDetailPage({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('supabase')}
+            onClick={() => handleTabChange('supabase')}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all shrink-0 ${
               activeTab === 'supabase'
                 ? 'bg-primary text-slate-950 border-primary shadow-lg shadow-primary/10'
@@ -160,7 +207,7 @@ export function ServerDetailPage({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('tickets')}
+            onClick={() => handleTabChange('tickets')}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all shrink-0 ${
               activeTab === 'tickets'
                 ? 'bg-primary text-slate-950 border-primary shadow-lg shadow-primary/10'
@@ -174,7 +221,11 @@ export function ServerDetailPage({
 
         {/* Tab Contents */}
         {activeTab === 'general' && (
-          <GeneralTab formState={config} setFormState={setConfig} />
+          <GeneralTab 
+            formState={config} 
+            setFormState={setConfig} 
+            onDeleteClick={() => setDeleteConfirmOpen(true)}
+          />
         )}
 
         {activeTab === 'supabase' && (
@@ -220,6 +271,45 @@ export function ServerDetailPage({
           />
         )}
       </form>
+
+      {/* Name-verification Delete Confirmation Modal */}
+      {deleteConfirmOpen && (
+        <>
+          <div 
+            onClick={() => setDeleteConfirmOpen(false)}
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9990] transition-opacity duration-300"
+          />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-slate-900/95 backdrop-blur-md border border-border-color rounded-2xl shadow-2xl p-6 z-[9999] animate-fade-in">
+            <h3 className="text-lg font-bold text-accent-red mb-3">Delete Server Configuration</h3>
+            <p className="text-sm text-slate-400 leading-relaxed mb-4">
+              Are you sure you want to permanently delete the configuration for <strong className="text-slate-200">{config.guild_name}</strong>? All dashboard settings for this server will be lost. This action is irreversible.
+            </p>
+            <p className="text-xs text-slate-400 mb-3">
+              Please type <strong className="text-slate-100 select-all">{config.guild_name}</strong> to confirm.
+            </p>
+            <input
+              type="text"
+              className="w-full px-4 py-2.5 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 text-sm outline-none mb-6 focus:border-accent-red transition-colors font-semibold"
+              placeholder="Type server name"
+              value={confirmServerName}
+              onChange={(e) => setConfirmServerName(e.target.value)}
+            />
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)} disabled={deleteLoading}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={confirmServerName !== config.guild_name || deleteLoading}
+                onClick={handleDeleteConfirm}
+                loading={deleteLoading}
+              >
+                Permanently Delete
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
