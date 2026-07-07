@@ -164,7 +164,7 @@ function TicketsContent() {
 
   return (
     <div className="page-container">
-      <div className="page-container-content space-y-5 pt-4">
+      <div className="page-container-content space-y-5">
         <FilterToolbar
           actions={
             <>
