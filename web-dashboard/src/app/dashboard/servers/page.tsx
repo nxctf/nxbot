@@ -120,7 +120,7 @@ export default function ServersPage() {
     <div className="page-container">
       <div className="page-container-content space-y-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-sm font-bold text-slate-200">Servers</h1>
+          <h1 className="text-base font-bold text-slate-100">Servers</h1>
           <Button
             onClick={() => { setShowAddForm(!showAddForm); setError(''); setSuccess(''); }}
             variant={showAddForm ? 'secondary' : 'primary'}
