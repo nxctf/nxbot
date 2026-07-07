@@ -796,6 +796,7 @@ body::-webkit-scrollbar-thumb:hover {
    ============================================ */
 .page-container {
   width: 100%;
+  padding-top: 28px;
 }
 
 .page-header {
@@ -903,7 +904,7 @@ body::-webkit-scrollbar-thumb:hover {
   margin-left: 260px;
   flex: 1;
   min-width: 0;
-  padding: 88px 40px 40px;
+  padding: 60px 40px 40px;
   min-height: 100vh;
   width: calc(100% - 260px);
 }
