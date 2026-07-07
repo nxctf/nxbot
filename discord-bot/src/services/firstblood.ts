@@ -74,6 +74,7 @@ export class FirstBloodService {
         },
         async (payload) => {
           try {
+            console.log(`[FirstBlood] 🔔 Realtime event received for ${guild.guild_name}:`, JSON.stringify({ eventType: payload.eventType, new: payload.new, old: payload.old }));
             let solve = payload.new as SolvePayload;
 
             // Supabase Realtime may send empty/partial payloads if REPLICA IDENTITY FULL is not set
