@@ -2,6 +2,7 @@
 
 import React, { use, useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Database, ShieldCheck, KeyRound, ShieldAlert, ShieldOff, Cloud, Eye, EyeOff, Save, RefreshCw, AlertTriangle, Check, Trash2 } from 'lucide-react';
+import Tag from '@/components/Tag';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/Button';
@@ -170,13 +171,6 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
         loading={deleteLoading} title="Delete Connection" message="Delete this Supabase connection?" confirmText="Delete" />
       <div className="page-container">
         <div className="page-container-content space-y-5">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.back()}
-              className="flex items-center justify-center w-7 h-7 rounded-lg bg-slate-800/50 text-slate-400 hover:text-slate-200 transition-all shrink-0">
-              <ArrowLeft size={14} />
-            </button>
-            <h1 className="text-base font-bold text-slate-100">Edit Connection</h1>
-          </div>
           {error && <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm font-medium"><AlertTriangle size={16} /> {error}</div>}
           {success && <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium"><Check size={16} /> {success}</div>}
 
@@ -185,23 +179,30 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
           ) : conn ? (
             <div className="flex flex-col xl:flex-row gap-4">
               {/* Left Panel */}
-              <div className="w-full xl:w-[260px] bg-bg-card rounded-xl p-4 flex flex-col shrink-0 gap-4">
+              <div className="w-full xl:w-[260px] bg-bg-card rounded-xl p-4 flex flex-col shrink-0 gap-4 self-start">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => router.back()}
+                    className="flex items-center justify-center w-6 h-6 rounded-lg bg-slate-800/50 text-slate-400 hover:text-slate-200 transition-all shrink-0">
+                    <ArrowLeft size={12} />
+                  </button>
+                  <h1 className="text-sm font-bold text-slate-100">Edit Connection</h1>
+                </div>
                 <div className="space-y-1">
                   <h2 className="text-sm font-bold text-slate-100 truncate">{conn.name}</h2>
                   <p className="text-[11px] text-slate-500 font-mono break-all">{conn.supabase_url}</p>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {conn.supabase_login_email && <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full"><ShieldCheck size={10} /> {conn.supabase_login_email}</span>}
+                <div className="flex flex-col gap-1.5">
+                  {conn.supabase_login_email && <Tag icon={<ShieldCheck size={10} />} variant="emerald">{conn.supabase_login_email}</Tag>}
                   {conn.supabase_access_token
-                    ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full"><KeyRound size={10} /> Token Active</span>
+                    ? <Tag icon={<KeyRound size={10} />} variant="cyan">Token Active</Tag>
                     : conn.supabase_login_email
-                      ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full"><ShieldAlert size={10} /> Re-auth</span>
-                      : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-800/40 px-2 py-0.5 rounded-full"><ShieldOff size={10} /> Anon</span>}
+                      ? <Tag icon={<ShieldAlert size={10} />} variant="amber">Re-auth</Tag>
+                      : <Tag icon={<ShieldOff size={10} />} variant="slate">Anon</Tag>}
                   {conn.supabase_turnstile_site_key
-                    ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full"><Cloud size={10} /> Turnstile</span>
-                    : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-800/30 px-2 py-0.5 rounded-full">No Turnstile</span>}
+                    ? <Tag icon={<Cloud size={10} />} variant="violet">Turnstile</Tag>
+                    : <Tag variant="slate">No Turnstile</Tag>}
                 </div>
-                <div className="border-t border-border-color/40 pt-4 space-y-2">
+                <div className="space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Test</span>
                   <div className="flex items-center gap-2">
                     <Button variant="secondary" size="sm" onClick={handleTest} loading={testLoading}
@@ -210,7 +211,7 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
                     {testStatus.error && <span className="text-xs text-rose-400 font-bold" title={testStatus.error}>✗</span>}
                   </div>
                 </div>
-                <div className="border-t border-border-color/40 pt-4 space-y-2">
+                <div className="space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Login</span>
                   <Button variant="secondary" size="sm" onClick={handleLogin} loading={loginLoading}
                     className="text-xs w-full" disabled={!loginEmail || !loginPassword}>Login to Supabase</Button>

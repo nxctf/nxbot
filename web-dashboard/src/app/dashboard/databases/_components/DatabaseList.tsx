@@ -1,6 +1,7 @@
 import React from 'react';
-import { Database, ShieldCheck, KeyRound, ShieldAlert, ShieldOff, Cloud, Trash2 } from 'lucide-react';
+import { Database, ShieldCheck, KeyRound, ShieldAlert, ShieldOff, Cloud } from 'lucide-react';
 import Button from '@/components/Button';
+import Tag from '@/components/Tag';
 import { Connection } from '../_types';
 
 interface DatabaseListProps {
@@ -53,6 +54,7 @@ export function DatabaseList({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {conns.map((conn) => {
+        const isTesting = testConnLoading[conn.id];
         const status = testConnStatus[conn.id] || {};
 
         return (
@@ -72,55 +74,52 @@ export function DatabaseList({
               </div>
             </div>
 
-            {/* Tags */}
-            <div className="flex flex-wrap gap-1.5">
-              {conn.supabase_login_email && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                  <ShieldCheck size={10} /> {conn.supabase_login_email}
-                </span>
-              )}
-              {conn.supabase_access_token ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full">
-                  <KeyRound size={10} /> Token Active
-                </span>
-              ) : conn.supabase_login_email ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                  <ShieldAlert size={10} /> Re-auth
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-800/40 px-2 py-0.5 rounded-full">
-                  <ShieldOff size={10} /> Anon
-                </span>
-              )}
-              {conn.supabase_turnstile_site_key ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">
-                  <Cloud size={10} /> Turnstile
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-800/30 px-2 py-0.5 rounded-full">
-                  No Turnstile
-                </span>
-              )}
-            </div>
+            {/* Border above tags */}
+            <div className="border-t border-border-color/30" />
 
-            {/* Actions row */}
-            <div className="flex items-center gap-2 pt-2 border-t border-border-color/30">
-              <div className="flex items-center gap-1.5">
-                {status.success && <span className="text-[11px] text-emerald-400 font-bold">✓</span>}
-                {status.error && <span className="text-[11px] text-rose-400 font-bold">✗</span>}
-                <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onTestClick(conn); }}
-                  className="text-[11px] px-2.5 py-1.5">Test</Button>
-              </div>
-              {conn.supabase_login_email && !conn.supabase_access_token && (
-                <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onReAuthClick(conn); }}
-                  className="text-[11px] px-2.5 py-1.5 border-cyan-400/20 text-cyan-400 hover:bg-cyan-400/10">
-                  <KeyRound size={11} className="mr-1" />Auth
-                </Button>
+            {/* Tags + Test */}
+            <div className="space-y-1.5">
+              {conn.supabase_login_email ? (
+                <div className="flex items-center justify-between gap-3">
+                  <Tag icon={<ShieldCheck size={10} />} variant="emerald">{conn.supabase_login_email}</Tag>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {status.success && <span className="text-[11px] text-emerald-400 font-bold">✓</span>}
+                    {status.error && <span className="text-[11px] text-rose-400 font-bold" title={status.error}>✗</span>}
+                    <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onTestClick(conn); }}
+                      loading={isTesting} className="text-[11px] px-2.5 py-1.5">Test</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <Tag icon={<ShieldOff size={10} />} variant="slate">Anon</Tag>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {status.success && <span className="text-[11px] text-emerald-400 font-bold">✓</span>}
+                    {status.error && <span className="text-[11px] text-rose-400 font-bold" title={status.error}>✗</span>}
+                    <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onTestClick(conn); }}
+                      loading={isTesting} className="text-[11px] px-2.5 py-1.5">Test</Button>
+                  </div>
+                </div>
               )}
-              <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onDeleteClick(conn.id); }}
-                className="ml-auto p-1.5 border-rose-500/20 text-rose-400/80 hover:bg-rose-500/10 hover:text-rose-400">
-                <Trash2 size={13} />
-              </Button>
+              <div className="flex items-center justify-between gap-3">
+                {conn.supabase_access_token ? (
+                  <Tag icon={<KeyRound size={10} />} variant="cyan">Token Active</Tag>
+                ) : conn.supabase_login_email ? (
+                  <Tag icon={<ShieldAlert size={10} />} variant="amber">Re-auth</Tag>
+                ) : null}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                {conn.supabase_turnstile_site_key ? (
+                  <Tag icon={<Cloud size={10} />} variant="violet">Turnstile</Tag>
+                ) : (
+                  <Tag variant="slate">No Turnstile</Tag>
+                )}
+                {conn.supabase_login_email && !conn.supabase_access_token && (
+                  <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onReAuthClick(conn); }}
+                    className="text-[11px] px-2.5 py-1.5 border-cyan-400/20 text-cyan-400 hover:bg-cyan-400/10 shrink-0">
+                    <KeyRound size={11} className="mr-1" />Auth
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         );

@@ -219,12 +219,8 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             {/* Bottom spacer */}
             <div className="flex-1" />
 
-            {/* Dates & People */}
+            {/* Dates */}
             <div className="space-y-2 text-xs border-t border-border-color/40 pt-4">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Server</span>
-                <span className="text-slate-300 font-medium truncate ml-2">{ticket.guild_name}</span>
-              </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Opened</span>
                 <span className="text-slate-300 font-medium">{new Date(ticket.created_at).toLocaleString()}</span>
@@ -233,6 +229,10 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 <span className="text-slate-500">Closed</span>
                 <span className="text-slate-300 font-medium">{ticket.closed_at ? new Date(ticket.closed_at).toLocaleString() : '-'}</span>
               </div>
+            </div>
+
+            {/* People */}
+            <div className="space-y-2 text-xs border-t border-border-color/40 pt-4">
               <div className="flex justify-between">
                 <span className="text-slate-500">Opened by</span>
                 <span className="font-semibold text-slate-200 inline-flex items-center gap-1.5">
@@ -275,7 +275,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             </div>
 
             {ticket.status !== 'closed' && (
-              <div className="pt-3 border-t border-border-color/40 mt-4">
+              <div className="pt-4 border-t border-border-color/40">
                 {showConfirmClose ? (
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-rose-400 font-bold">Close this ticket?</span>
