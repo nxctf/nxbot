@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { Ticket, Filter, Server, User, Lock, RefreshCw, ChevronRight } from 'lucide-react';
+import { Ticket, Filter, Server, User, Lock, RefreshCw, ChevronRight, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import PageContainer from '@/components/PageContainer';
 import Button from '@/components/Button';
@@ -44,6 +44,10 @@ function TicketsContent() {
   const [statusFilter, setStatusFilter] = useState('');
   const [guildFilter, setGuildFilter] = useState('');
   const [confirmCloseId, setConfirmCloseId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [confirmResetAll, setConfirmResetAll] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState('');
 
   const fetchTickets = async () => {
     try {
@@ -83,6 +87,7 @@ function TicketsContent() {
   useEffect(() => {
     if (!loading) {
       fetchTickets();
+      setResetSuccess('');
     }
   }, [statusFilter, guildFilter]);
 
@@ -102,6 +107,41 @@ function TicketsContent() {
       console.error('Error updating ticket status:', err);
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, ticketId: number) => {
+    e.stopPropagation();
+    setActionLoading(ticketId);
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setTickets(tickets.filter(t => t.id !== ticketId));
+      }
+    } catch (err) {
+      console.error('Error deleting ticket:', err);
+    } finally {
+      setActionLoading(null);
+      setConfirmDeleteId(null);
+    }
+  };
+
+  const handleResetAll = async () => {
+    if (!guildFilter) return;
+    setResetLoading(true);
+    setResetSuccess('');
+    try {
+      const res = await fetch(`/api/tickets/batch?guildId=${encodeURIComponent(guildFilter)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        setTickets([]);
+        setResetSuccess(data.message || 'All tickets deleted successfully.');
+        setConfirmResetAll(false);
+      }
+    } catch (err) {
+      console.error('Error resetting tickets:', err);
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -155,7 +195,40 @@ function TicketsContent() {
           </select>
         </div>
 
-        <Button 
+        {guildFilter && (
+          confirmResetAll ? (
+            <div className="flex gap-2 items-center ml-auto">
+              <span className="text-[10px] text-accent-red font-bold mr-1">Delete ALL tickets for this server?</span>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleResetAll}
+                className="py-1 px-2.5 text-xs font-semibold"
+                disabled={resetLoading}
+              >
+                {resetLoading ? 'Deleting...' : 'Yes, Reset All'}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setConfirmResetAll(false)}
+                className="py-1 px-2.5 text-xs font-semibold"
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setConfirmResetAll(true)}
+            >
+              <Trash2 size={14} className="mr-1.5" />
+              Reset All Tickets
+            </Button>
+          )
+        )}
+        <Button
           variant="secondary"
           size="sm"
           onClick={() => { setStatusFilter(''); setGuildFilter(''); }}
@@ -164,6 +237,11 @@ function TicketsContent() {
           Reset Filters
         </Button>
       </div>
+      {resetSuccess && (
+        <div className="mb-6 px-5 py-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
+          {resetSuccess}
+        </div>
+      )}
 
       {/* Ticket List */}
       {tickets.length === 0 ? (
@@ -240,7 +318,7 @@ function TicketsContent() {
                     {new Date(t.created_at).toLocaleDateString()}
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       {t.status !== 'closed' ? (
                         confirmCloseId === t.id ? (
                           <div className="flex gap-1.5 items-center">
@@ -289,6 +367,40 @@ function TicketsContent() {
                           )}
                           <span className="font-medium">Closed by @{t.closed_by_username || t.closed_by || 'system'}</span>
                         </span>
+                      )}
+
+                      <div className="w-px h-5 bg-white/5 mx-1" />
+
+                      {confirmDeleteId === t.id ? (
+                        <div className="flex gap-1.5 items-center">
+                          <span className="text-[10px] text-accent-red font-bold">Delete?</span>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={(e) => handleDelete(e, t.id)}
+                            className="py-1 px-2 text-xs font-semibold"
+                            disabled={actionLoading === t.id}
+                          >
+                            {actionLoading === t.id ? '...' : 'Yes'}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="py-1 px-2 text-xs font-semibold"
+                          >
+                            No
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setConfirmDeleteId(t.id)}
+                          className="py-1 px-2 text-xs text-accent-red/70 border-accent-red/10 hover:bg-accent-red/10 hover:text-accent-red"
+                        >
+                          <Trash2 size={12} />
+                        </Button>
                       )}
                     </div>
                   </td>
