@@ -12,10 +12,11 @@ export async function GET() {
     const db = getDb();
     const settings = db.prepare("SELECT key, updated_at FROM system_settings WHERE key != 'admin_password_hash' AND key != 'jwt_secret'").all();
     
-    // Check logs count, servers count, tickets count
+    // Check logs count, servers count, tickets count, databases count
     const serversCount = db.prepare('SELECT count(*) as count FROM guilds').get() as { count: number };
     const ticketsCount = db.prepare('SELECT count(*) as count FROM tickets').get() as { count: number };
     const logsCount = db.prepare('SELECT count(*) as count FROM bot_logs').get() as { count: number };
+    const databasesCount = db.prepare('SELECT count(*) as count FROM supabase_connections').get() as { count: number };
 
     return NextResponse.json({
       settings,
@@ -23,6 +24,7 @@ export async function GET() {
         servers: serversCount?.count || 0,
         tickets: ticketsCount?.count || 0,
         logs: logsCount?.count || 0,
+        databases: databasesCount?.count || 0,
       }
     });
   } catch (err: any) {
@@ -44,24 +46,7 @@ export async function POST(request: Request) {
     const db = getDb();
 
     if (action === 'change_password') {
-      if (!currentPassword || !newPassword || newPassword.length < 6) {
-        return NextResponse.json({ error: 'Current password and new password (min 6 characters) are required.' }, { status: 400 });
-      }
-
-      const passHashRow = db.prepare("SELECT value FROM system_settings WHERE key = 'admin_password_hash'").get() as { value: string } | undefined;
-      if (!passHashRow) {
-        return NextResponse.json({ error: 'Admin settings not found.' }, { status: 500 });
-      }
-
-      const isMatch = verifyPassword(currentPassword, passHashRow.value);
-      if (!isMatch) {
-        return NextResponse.json({ error: 'Current password is incorrect.' }, { status: 400 });
-      }
-
-      const hashedNew = hashPassword(newPassword);
-      db.prepare("UPDATE system_settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = 'admin_password_hash'").run(hashedNew);
-
-      return NextResponse.json({ success: true, message: 'Password updated successfully.' });
+      return NextResponse.json({ error: 'Password changes are disabled on the web dashboard. Please use the CLI: nxbot reset-password' }, { status: 400 });
     }
 
     if (action === 'clear_cache') {

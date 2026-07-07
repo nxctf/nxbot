@@ -1,17 +1,17 @@
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js';
-import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage, getPendingBotActions, completeBotAction } from './db/local';
+import { Client, GatewayIntentBits, Collection, REST, Routes, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
+import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage, getPendingBotActions, completeBotAction, upsertDiscordUser } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
 import { FirstBloodService } from './services/firstblood';
 import { AnnouncementService } from './services/announcements';
 import { TicketManager } from './services/ticket-manager';
 import { setTicketManager } from './commands/ticket';
+import { ScoreboardService } from './services/scoreboard';
 
 // Import commands
-import * as pingCmd from './commands/ping';
-import * as ticketCmd from './commands/ticket';
+import { commandsList } from './commands';
 
 // ---- Configuration ----
 const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -38,12 +38,15 @@ interface Command {
 }
 
 const commands = new Collection<string, Command>();
-commands.set(pingCmd.data.name, pingCmd);
+for (const cmd of commandsList) {
+  commands.set(cmd.data.name, cmd as Command);
+}
 
 // ---- Services ----
 let firstBloodService: FirstBloodService;
 let announcementService: AnnouncementService;
 let ticketManager: TicketManager;
+let scoreboardService: ScoreboardService;
 
 // ---- Event: Ready ----
 client.once('ready', async () => {
@@ -82,7 +85,8 @@ client.once('ready', async () => {
   ticketManager = new TicketManager(client);
   setTicketManager(ticketManager);
 
-  firstBloodService = new FirstBloodService(client);
+  scoreboardService = new ScoreboardService(client);
+  firstBloodService = new FirstBloodService(client, scoreboardService);
   announcementService = new AnnouncementService(client);
 
   // Initialize Supabase connections for all active guilds
@@ -92,8 +96,22 @@ client.once('ready', async () => {
   await firstBloodService.startAll();
   await announcementService.startAll();
 
+  // Trigger initial scoreboard updates for all active guilds
+  await scoreboardService.updateAll().catch((err) => console.error('[Bot] Failed initial scoreboard update:', err));
+
   logEvent(null, 'info', 'startup', `Bot started. ${supabaseManager.connectionCount} Supabase connection(s) active.`);
   console.log(`[Bot] Ready! ${supabaseManager.connectionCount} Supabase connection(s) active.`);
+
+  // Start periodic scoreboard update loop every 60 seconds (1 minute)
+  setInterval(async () => {
+    try {
+      if (scoreboardService) {
+        await scoreboardService.updateAll();
+      }
+    } catch (err) {
+      console.error('[Bot] Error in periodic scoreboard update loop:', err);
+    }
+  }, 60000);
 
   // Start config sync polling loop every 10 seconds
   setInterval(async () => {
@@ -120,6 +138,10 @@ client.once('ready', async () => {
           await supabaseManager.connect(dbGuild);
           firstBloodService.subscribeGuild(dbGuild);
           announcementService.subscribeGuild(dbGuild);
+          // Initial update when new active guild is connected
+          if (dbGuild.enable_scoreboard && dbGuild.channel_scoreboard && dbGuild.scoreboard_message_id) {
+            scoreboardService.updateScoreboard(dbGuild.id).catch(() => null);
+          }
         } else if (existingConfig) {
           // Check if key configurations or credentials changed
           const hasChanged = 
@@ -132,6 +154,9 @@ client.once('ready', async () => {
             existingConfig.enable_firstblood !== dbGuild.enable_firstblood ||
             existingConfig.channel_firstblood !== dbGuild.channel_firstblood ||
             existingConfig.channel_announcements !== dbGuild.channel_announcements ||
+            existingConfig.enable_scoreboard !== dbGuild.enable_scoreboard ||
+            existingConfig.channel_scoreboard !== dbGuild.channel_scoreboard ||
+            existingConfig.scoreboard_message_id !== dbGuild.scoreboard_message_id ||
             existingConfig.updated_at !== dbGuild.updated_at;
 
           if (hasChanged) {
@@ -139,6 +164,10 @@ client.once('ready', async () => {
             await supabaseManager.reload(dbGuild);
             firstBloodService.subscribeGuild(dbGuild);
             announcementService.subscribeGuild(dbGuild);
+            // Immediate update on config change
+            if (dbGuild.enable_scoreboard && dbGuild.channel_scoreboard && dbGuild.scoreboard_message_id) {
+              scoreboardService.updateScoreboard(dbGuild.id).catch(() => null);
+            }
           }
         }
       }
@@ -170,44 +199,167 @@ client.on('interactionCreate', async (interaction) => {
 
   // Handle button interactions
   if (interaction.isButton()) {
-    // Ticket close confirmation — Yes
-    if (interaction.customId.startsWith('ticket_close_confirm_')) {
+    // Ticket close → show Modal with reason input
+    if (interaction.customId.startsWith('ticket_close_')) {
       if (!ticketManager) return;
-      await interaction.deferUpdate();
-      const result = await ticketManager.closeTicket(interaction.channelId, interaction.user.id);
-      if (!result.success) {
-        await interaction.followUp({ content: `❌ ${result.error}`, ephemeral: true });
-      }
-      // Channel will be deleted by closeTicket — no further reply needed
+      if (!interaction.guildId) return;
+
+      const modal = new ModalBuilder()
+        .setCustomId('ticket_close_modal')
+        .setTitle('🔒 Close Ticket');
+
+      const reasonInput = new TextInputBuilder()
+        .setCustomId('ticket_close_reason')
+        .setLabel('Reason for closing (optional)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('e.g., Issue resolved, duplicate ticket...')
+        .setRequired(false)
+        .setMaxLength(200);
+
+      const actionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(reasonInput);
+      modal.addComponents(actionRow);
+
+      await interaction.showModal(modal);
       return;
     }
 
-    // Ticket close confirmation — Cancel
-    if (interaction.customId.startsWith('ticket_close_cancel_')) {
+    // Ticket claim button
+    if (interaction.customId.startsWith('ticket_claim_')) {
+      const ticketId = parseInt(interaction.customId.replace('ticket_claim_', ''));
+      if (!ticketManager) return;
+
+      const ticket = getTicketByChannel(interaction.channelId);
+      if (ticket && interaction.user.id === ticket.user_id) {
+        await interaction.reply({ content: '❌ You cannot claim your own ticket.', ephemeral: true });
+        return;
+      }
+
+      const result = await ticketManager.claimTicket(interaction.channelId, interaction.user.id, interaction.user.username);
+      if (!result.success) {
+        await interaction.reply({ content: `❌ ${result.error}`, ephemeral: true });
+        return;
+      }
+
+      // Update the embed and components
+      const originalEmbed = interaction.message.embeds[0];
+      if (!originalEmbed) {
+        await interaction.reply({ content: '❌ Original embed not found.', ephemeral: true });
+        return;
+      }
+
+      // Build a new Embed with the updated status
+      const updatedEmbed = EmbedBuilder.from(originalEmbed)
+        .spliceFields(
+          originalEmbed.fields.findIndex(f => f.name === 'Status'),
+          1,
+          { name: 'Status', value: `🟡 In Progress (Claimed by <@${interaction.user.id}>)`, inline: true }
+        );
+
+      // Build updated ActionRow
+      const updatedRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`ticket_claimed_${ticketId}`)
+          .setLabel(`Claimed by ${interaction.user.username}`)
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(true)
+          .setEmoji('🙋‍♂️'),
+        new ButtonBuilder()
+          .setCustomId(`ticket_close_${ticketId}`)
+          .setLabel('Close Ticket')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('🔒')
+      );
+
       await interaction.update({
-        embeds: [],
-        components: [],
-        content: '✅ Ticket close cancelled.',
+        embeds: [updatedEmbed],
+        components: [updatedRow]
+      });
+
+      // Post a system message in the channel announcing the claim
+      await interaction.followUp({
+        content: `🙋‍♂️ <@${interaction.user.id}> has claimed this ticket and will assist you shortly.`
       });
       return;
     }
 
-    // Ticket open panel button
+    // Ticket open panel button -> Show Modal
     if (interaction.customId === 'ticket_open_panel') {
       if (!ticketManager) return;
       if (!interaction.guildId) return;
+      
+      const modal = new ModalBuilder()
+        .setCustomId('ticket_open_modal')
+        .setTitle('Open a Support Ticket');
+
+      const subjectInput = new TextInputBuilder()
+        .setCustomId('ticket_subject')
+        .setLabel('Subject / Short Summary')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('e.g., Database connection issue')
+        .setRequired(true)
+        .setMaxLength(100);
+
+      const descInput = new TextInputBuilder()
+        .setCustomId('ticket_description')
+        .setLabel('Describe your problem')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Provide details to help staff assist you...')
+        .setRequired(true)
+        .setMaxLength(1000);
+
+      const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(subjectInput);
+      const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(descInput);
+
+      modal.addComponents(firstRow, secondRow);
+
+      await interaction.showModal(modal);
+    }
+  }
+
+  // Handle modal submissions
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId === 'ticket_open_modal') {
+      if (!ticketManager) return;
+      if (!interaction.guildId) return;
+      
+      const subject = interaction.fields.getTextInputValue('ticket_subject');
+      const description = interaction.fields.getTextInputValue('ticket_description');
+      
       await interaction.deferReply({ ephemeral: true });
+      
       const result = await ticketManager.createTicketChannel(
         interaction.guildId,
         interaction.user.id,
         interaction.user.username,
-        'Support Request (via panel)',
+        subject,
+        description
       );
+      
       if ('error' in result) {
         await interaction.editReply(`❌ ${result.error}`);
       } else {
         await interaction.editReply(`✅ Ticket created! Go to <#${result.channelId}>`);
       }
+      return;
+    }
+
+    // Ticket close modal with reason
+    if (interaction.customId === 'ticket_close_modal') {
+      if (!ticketManager) return;
+      if (!interaction.channelId) return;
+
+      const reason = interaction.fields.getTextInputValue('ticket_close_reason');
+      await interaction.deferReply({ ephemeral: true });
+
+      const result = await ticketManager.closeTicket(interaction.channelId, interaction.user.id, reason);
+
+      if (!result.success) {
+        await interaction.editReply(`❌ ${result.error}`);
+        return;
+      }
+
+      await interaction.editReply('🔒 Ticket closed.');
+      // Channel will be deleted by closeTicket after 10 seconds
     }
   }
 });
@@ -235,6 +387,15 @@ setInterval(async () => {
               setTimeout(() => channel.delete('Closed via dashboard').catch(() => null), 10_000);
             }
           }
+        } else if (action.action_type === 'send_message') {
+          const payload = JSON.parse(action.payload) as { channel_id: string; message_content: string };
+          const channel = await client.channels.fetch(payload.channel_id).catch(() => null);
+          if (channel && 'send' in channel) {
+            const { TextChannel } = await import('discord.js');
+            if (channel instanceof TextChannel) {
+              await channel.send({ content: payload.message_content });
+            }
+          }
         }
         completeBotAction(action.id, true);
       } catch (actionErr) {
@@ -256,6 +417,7 @@ client.on('messageCreate', async (message) => {
     if (!ticket || ticket.status === 'closed') return;
 
     const avatarUrl = message.author.displayAvatarURL({ forceStatic: false }) || null;
+    upsertDiscordUser(message.author.id, message.author.username, avatarUrl);
     const content = message.content || null;
 
     // Handle attachments (images + files, max 10MB each)
@@ -343,21 +505,21 @@ async function registerCommands(): Promise<void> {
 
     console.log('[Bot] Global slash commands registered.');
 
-    // Instant registration for all currently connected guilds (bypasses 1-hour cache delay)
+    // Clean up guild-specific slash commands for all currently connected guilds to prevent duplication
     const guildIds = client.guilds.cache.map(g => g.id);
     if (guildIds.length > 0) {
-      console.log(`[Bot] Syncing slash commands instantly for ${guildIds.length} guild(s)...`);
+      console.log(`[Bot] Cleaning up guild-specific commands for ${guildIds.length} guild(s)...`);
       for (const guildId of guildIds) {
         try {
           await rest.put(
             Routes.applicationGuildCommands(client.user!.id, guildId),
-            { body: commandData },
+            { body: [] },
           );
         } catch (guildErr) {
-          console.warn(`[Bot] Could not register commands for guild ${guildId}:`, guildErr);
+          console.warn(`[Bot] Could not clean up guild commands for guild ${guildId}:`, guildErr);
         }
       }
-      console.log('[Bot] Slash commands synced instantly.');
+      console.log('[Bot] Guild-specific commands cleaned up.');
     }
   } catch (err) {
     console.error('[Bot] Failed to register commands:', err);

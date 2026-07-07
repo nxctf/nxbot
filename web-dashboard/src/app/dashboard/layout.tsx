@@ -1,23 +1,21 @@
 import { getSessionUser, isPlatformSetup } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 import BotStatusBanner from '@/components/BotStatusBanner';
 import React from 'react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardLayout({
-
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // 1. Force setup if platform is not setup
   if (!isPlatformSetup()) {
-    redirect('/setup');
+    redirect('/login');
   }
 
-  // 2. Protect dashboard path with auth session
   const user = await getSessionUser();
   if (!user) {
     redirect('/login');
@@ -27,6 +25,7 @@ export default async function DashboardLayout({
     <div className="layout-container">
       <Sidebar username={user.username} />
       <main className="main-content">
+        <Header username={user.username} />
         <BotStatusBanner />
         {children}
       </main>

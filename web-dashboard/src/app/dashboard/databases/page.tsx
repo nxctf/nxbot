@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Database, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, RefreshCw, Save, ArrowLeft, KeyRound, ShieldAlert, ShieldOff } from 'lucide-react';
 import Script from 'next/script';
+import { useRouter, useSearchParams } from 'next/navigation';
+import PageContainer from '@/components/PageContainer';
 
 interface Connection {
   id: string;
@@ -17,7 +19,12 @@ interface Connection {
   created_at: string;
 }
 
-export default function DatabasesPage() {
+function DatabasesContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab');
+  const id = searchParams.get('id');
+
   const [conns, setConns] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -62,6 +69,45 @@ export default function DatabasesPage() {
       setLoading(false);
     }
   };
+
+  // Sync tab & id query params with form state
+  useEffect(() => {
+    if (tab === 'add') {
+      setShowForm(true);
+      setEditingId(null);
+      setName('');
+      setSupabaseUrl('');
+      setSupabaseAnonKey('');
+      setLoginEmail('');
+      setLoginPassword('');
+      setTurnstileSiteKey('');
+      setCaptchaToken(null);
+      setError('');
+      setSuccess('');
+    } else if (tab === 'edit' && id) {
+      const conn = conns.find(c => c.id === id);
+      if (conn) {
+        setEditingId(conn.id);
+        setName(conn.name);
+        setSupabaseUrl(conn.supabase_url);
+        setSupabaseAnonKey(conn.supabase_anon_key);
+        setLoginEmail(conn.supabase_login_email || '');
+        setLoginPassword(conn.supabase_login_password || '');
+        setTurnstileSiteKey(conn.supabase_turnstile_site_key || '');
+        setCaptchaToken(null);
+        setShowForm(true);
+        setError('');
+        setSuccess('');
+      } else {
+        if (conns.length > 0) {
+          router.push('/dashboard/databases');
+        }
+      }
+    } else {
+      setShowForm(false);
+      setEditingId(null);
+    }
+  }, [tab, id, conns, router]);
 
   // Turnstile widget rendering effect for connection creation
   useEffect(() => {
@@ -160,17 +206,7 @@ export default function DatabasesPage() {
   };
 
   const handleEdit = (conn: Connection) => {
-    setEditingId(conn.id);
-    setName(conn.name);
-    setSupabaseUrl(conn.supabase_url);
-    setSupabaseAnonKey(conn.supabase_anon_key);
-    setLoginEmail(conn.supabase_login_email || '');
-    setLoginPassword(conn.supabase_login_password || '');
-    setTurnstileSiteKey(conn.supabase_turnstile_site_key || '');
-    setCaptchaToken(null);
-    setShowForm(true);
-    setError('');
-    setSuccess('');
+    router.push(`/dashboard/databases?tab=edit&id=${conn.id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -233,15 +269,7 @@ export default function DatabasesPage() {
   };
 
   const resetForm = () => {
-    setEditingId(null);
-    setName('');
-    setSupabaseUrl('');
-    setSupabaseAnonKey('');
-    setLoginEmail('');
-    setLoginPassword('');
-    setTurnstileSiteKey('');
-    setCaptchaToken(null);
-    setShowForm(false);
+    router.push('/dashboard/databases');
   };
 
   // Re-auth modal open handler — render Turnstile widget
@@ -305,30 +333,23 @@ export default function DatabasesPage() {
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+    <>
       {/* Script for Cloudflare Turnstile inside form */}
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
         strategy="afterInteractive"
       />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.5px', marginBottom: '8px', color: '#f8fafc' }}>
-            Supabase DB Connections
-          </h1>
-          <p style={{ color: '#94a3b8', fontSize: '14px' }}>
-            Configure and verify saved Supabase database credentials to map to your Discord CTF servers.
-          </p>
-        </div>
-
-        {!showForm && (
-          <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <PageContainer
+        title="Supabase DB Connections"
+        subtitle="Configure and verify saved Supabase database credentials to map to your Discord CTF servers."
+        extra={!showForm && (
+          <button onClick={() => router.push('/dashboard/databases?tab=add')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={18} />
             Add Connection
           </button>
         )}
-      </div>
+      >
 
       {error && (
         <div className="alert alert-error" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -454,18 +475,32 @@ export default function DatabasesPage() {
       ) : (
         <>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '64px 0', color: '#94a3b8' }}>
-              <RefreshCw className="animate-spin" style={{ margin: '0 auto 16px' }} size={32} />
+            <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
+              <RefreshCw className="animate-spin" size={32} style={{ margin: '0 auto 16px' }} />
               <p>Fetching saved database connections...</p>
             </div>
           ) : conns.length === 0 ? (
-            <div className="glass-panel" style={{ padding: '64px 32px', textAlign: 'center', color: '#94a3b8' }}>
-              <Database size={48} style={{ margin: '0 auto 16px', color: '#64748b' }} />
-              <h3 style={{ fontSize: '18px', color: '#f8fafc', marginBottom: '8px' }}>No Database Connections Configured</h3>
-              <p style={{ fontSize: '14px', maxWidth: '450px', margin: '0 auto 24px' }}>
+            <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.2)',
+                color: '#38bdf8',
+                marginBottom: '24px',
+                boxShadow: '0 0 20px rgba(56, 189, 248, 0.15)'
+              }}>
+                <Database size={36} />
+              </div>
+              <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px', fontWeight: 700 }}>No Database Connections Configured</h2>
+              <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto 24px', lineHeight: '1.6' }}>
                 Create a database connection first so you can link it to your Discord servers.
               </p>
-              <button onClick={() => setShowForm(true)} className="btn btn-primary">
+              <button onClick={() => router.push('/dashboard/databases?tab=add')} className="btn btn-primary">
                 Add Connection Now
               </button>
             </div>
@@ -620,6 +655,19 @@ export default function DatabasesPage() {
           </div>
         );
       })()}
-    </div>
+      </PageContainer>
+    </>
+  );
+}
+
+export default function DatabasesPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <RefreshCw className="animate-spin" size={32} style={{ color: '#38bdf8' }} />
+      </div>
+    }>
+      <DatabasesContent />
+    </Suspense>
   );
 }

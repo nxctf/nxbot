@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Server, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Server, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, HelpCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import Script from 'next/script';
+import PageContainer from '@/components/PageContainer';
 
 interface Guild {
   id: string;
@@ -152,12 +153,10 @@ export default function ServersPage() {
   };
 
   return (
-    <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <div>
-          <h1 style={{ fontSize: '32px', fontWeight: 800 }}>CTF Servers</h1>
-          <p style={{ color: '#94a3b8' }}>Connect and manage multiple Discord servers</p>
-        </div>
+    <PageContainer
+      title="CTF Servers"
+      subtitle="Connect and manage multiple Discord servers"
+      extra={
         <button
           onClick={() => { setShowAddForm(!showAddForm); setError(''); setSuccess(''); }}
           className="btn btn-primary"
@@ -166,7 +165,8 @@ export default function ServersPage() {
           <Plus size={18} />
           {showAddForm ? 'Cancel' : 'Add Server'}
         </button>
-      </div>
+      }
+    >
 
       {error && (
         <div style={{
@@ -324,12 +324,29 @@ export default function ServersPage() {
 
       {/* Connected Servers List */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px' }}>Loading server details...</div>
-      ) : servers.length === 0 ? (
         <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-          <HelpCircle size={48} style={{ marginBottom: '16px', opacity: 0.5, color: '#38bdf8' }} />
-          <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px' }}>No Connected Discord Servers</h2>
-          <p style={{ maxWidth: '460px', margin: '0 auto 24px' }}>
+          <RefreshCw className="animate-spin" size={32} style={{ margin: '0 auto 16px' }} />
+          <p>Loading server details...</p>
+        </div>
+      ) : servers.length === 0 ? (
+        <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            background: 'rgba(56, 189, 248, 0.1)',
+            border: '1px solid rgba(56, 189, 248, 0.2)',
+            color: '#38bdf8',
+            marginBottom: '24px',
+            boxShadow: '0 0 20px rgba(56, 189, 248, 0.15)'
+          }}>
+            <Server size={36} />
+          </div>
+          <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px', fontWeight: 700 }}>No Connected Discord Servers</h2>
+          <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto 24px', lineHeight: '1.6' }}>
             Get started by registering a server. You will need your Discord Server ID and your NXCTF database project details.
           </p>
           <button onClick={() => setShowAddForm(true)} className="btn btn-primary">
@@ -391,6 +408,6 @@ export default function ServersPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

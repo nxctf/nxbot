@@ -1,5 +1,5 @@
 import { Client, EmbedBuilder, TextChannel, ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { createTicket, getTicketByChannel, getTicketsByGuild, getTicketsByUser, updateTicketStatus, assignTicket, Ticket, getGuild, logEvent } from '../db/local';
+import { createTicket, getTicketByChannel, getTicketsByGuild, getTicketsByUser, updateTicketStatus, assignTicket, Ticket, getGuild, logEvent, saveTicketMessage, upsertDiscordUser, getDb } from '../db/local';
 
 /**
  * Ticket Manager Service
@@ -25,7 +25,8 @@ export class TicketManager {
     guildId: string,
     userId: string,
     username: string,
-    subject: string
+    subject: string,
+    description?: string
   ): Promise<{ ticket: Ticket; channelId: string } | { error: string }> {
     const guildConfig = getGuild(guildId);
     if (!guildConfig || !guildConfig.enable_tickets) {
@@ -37,18 +38,28 @@ export class TicketManager {
       return { error: 'Bot is not in this server.' };
     }
 
+    // Fetch member and resolve avatar URL
+    let userAvatar: string | null = null;
+    let member: any = null;
+    try {
+      member = await discordGuild.members.fetch(userId);
+      userAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 128 }) || null;
+      upsertDiscordUser(userId, username, userAvatar);
+    } catch (err) {
+      console.warn('[Ticket] Could not fetch member or avatar:', err);
+      upsertDiscordUser(userId, username, null);
+    }
+
     // Check required roles (if configured)
     if (guildConfig.ticket_required_roles) {
       const requiredRoleIds = guildConfig.ticket_required_roles.split(',').filter(Boolean);
       if (requiredRoleIds.length > 0) {
-        try {
-          const member = await discordGuild.members.fetch(userId);
-          const hasRole = requiredRoleIds.some(roleId => member.roles.cache.has(roleId));
-          if (!hasRole) {
-            return { error: 'You do not have the required role to open a ticket.' };
-          }
-        } catch {
+        if (!member) {
           return { error: 'Could not verify your roles. Please try again.' };
+        }
+        const hasRole = requiredRoleIds.some(roleId => member.roles.cache.has(roleId));
+        if (!hasRole) {
+          return { error: 'You do not have the required role to open a ticket.' };
         }
       }
     }
@@ -106,37 +117,73 @@ export class TicketManager {
       });
     }
 
+    // Create the private channel
+    let channel;
     try {
-      // Create the private channel
-      const channel = await discordGuild.channels.create({
+      channel = await discordGuild.channels.create({
         name: channelName,
         type: ChannelType.GuildText,
         parent: guildConfig.channel_ticket_category || undefined,
         permissionOverwrites,
       });
+    } catch (err: any) {
+      console.error('[Ticket] Channel creation failed:', err?.message || err, err?.code || '');
+      logEvent(guildId, 'error', 'ticket', `Channel create error: ${err?.message || err}`);
+      return { error: `Failed to create channel: ${err?.message || 'Discord API error'}` };
+    }
 
-      // Insert ticket into local DB
-      const ticketId = createTicket({
+    // Insert ticket into local DB
+    let ticketId: number;
+    try {
+      ticketId = createTicket({
         guild_id: guildId,
         channel_id: channel.id,
         user_id: userId,
         username,
         subject,
       });
+    } catch (err: any) {
+      console.error('[Ticket] DB insert failed:', err?.message || err);
+      logEvent(guildId, 'error', 'ticket', `DB createTicket error: ${err?.message || err}`);
+      return { error: 'Internal database error creating ticket.' };
+    }
 
-      // Send initial embed with close button
+    // Save initial description to ticket_messages DB if provided
+    try {
+      if (description) {
+        saveTicketMessage(
+          ticketId,
+          userId,
+          username,
+          userAvatar,
+          `📝 **Initial Description:**\n${description}`
+        );
+      }
+    } catch (err: any) {
+      console.error('[Ticket] Failed to save initial message:', err?.message || err);
+      logEvent(guildId, 'error', 'ticket', `saveTicketMessage error: ${err?.message || err}`);
+    }
+
+    // Send initial embed with close and claim buttons
+    try {
       const embed = new EmbedBuilder()
-        .setColor(0x5865F2) // Discord blurple
+        .setColor(0x5865F2)
         .setTitle(`🎫 Ticket #${String(ticketNumber).padStart(4, '0')}`)
-        .setDescription(`**Subject:** ${subject}`)
         .addFields(
+          { name: 'Subject', value: subject, inline: false },
+          { name: 'Description', value: description || 'No description provided.', inline: false },
           { name: 'Opened by', value: `<@${userId}>`, inline: true },
           { name: 'Status', value: '🟢 Open', inline: true },
         )
         .setTimestamp()
         .setFooter({ text: 'NXBot Ticketing System' });
 
-      const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`ticket_claim_${ticketId}`)
+          .setLabel('Claim Ticket')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('🙋‍♂️'),
         new ButtonBuilder()
           .setCustomId(`ticket_close_${ticketId}`)
           .setLabel('Close Ticket')
@@ -144,23 +191,31 @@ export class TicketManager {
           .setEmoji('🔒'),
       );
 
-      await channel.send({ embeds: [embed], components: [closeButton] });
-
-      // Send custom welcome message or default
       const defaultWelcome = `<@${userId}> Your ticket has been created. Please describe your issue here.`;
       let welcomeMsg = defaultWelcome;
       if (guildConfig.ticket_welcome_message) {
         welcomeMsg = guildConfig.ticket_welcome_message.replace(/\{\{user\}\}/g, `<@${userId}>`);
       }
-      await channel.send(welcomeMsg);
 
-      // Ping staff roles if configured
+      const contentParts: string[] = [welcomeMsg];
       if (pingRoleIds.length > 0) {
         const roleMentions = pingRoleIds.map(id => `<@&${id}>`).join(' ');
-        await channel.send({ content: `📢 ${roleMentions}`, allowedMentions: { roles: pingRoleIds } });
+        contentParts.push(`📢 ${roleMentions}`);
       }
 
-      // Log to ticket logs channel
+      await channel.send({
+        content: contentParts.join('\n'),
+        embeds: [embed],
+        components: [actionRow],
+        allowedMentions: { roles: pingRoleIds, users: [userId] }
+      });
+    } catch (err: any) {
+      console.error('[Ticket] Failed to send welcome message:', err?.message || err);
+      logEvent(guildId, 'warn', 'ticket', `Welcome message send error: ${err?.message || err}`);
+    }
+
+    // Log to ticket logs channel
+    try {
       if (guildConfig.channel_ticket_logs) {
         await this.sendTicketLog(guildConfig.channel_ticket_logs, 'created', {
           ticketNumber,
@@ -170,15 +225,14 @@ export class TicketManager {
           channelId: channel.id,
         });
       }
-
-      logEvent(guildId, 'info', 'ticket', `Ticket #${ticketNumber} created by ${username}: ${subject}`);
-
-      const ticket = getTicketByChannel(channel.id)!;
-      return { ticket, channelId: channel.id };
-    } catch (err) {
-      console.error('[Ticket] Failed to create ticket channel:', err);
-      return { error: 'Failed to create ticket channel. Check bot permissions.' };
+    } catch (err: any) {
+      console.error('[Ticket] Failed to send ticket log:', err?.message || err);
     }
+
+    logEvent(guildId, 'info', 'ticket', `Ticket #${ticketNumber} created by ${username}: ${subject}`);
+
+    const ticket = getTicketByChannel(channel.id)!;
+    return { ticket, channelId: channel.id };
   }
 
   /**
@@ -232,7 +286,7 @@ export class TicketManager {
   /**
    * Close a ticket.
    */
-  async closeTicket(channelId: string, closedByUserId: string): Promise<{ success: boolean; error?: string }> {
+  async closeTicket(channelId: string, closedByUserId: string, reason?: string): Promise<{ success: boolean; error?: string }> {
     const ticket = getTicketByChannel(channelId);
     if (!ticket) {
       return { success: false, error: 'No ticket found for this channel.' };
@@ -251,22 +305,26 @@ export class TicketManager {
       const guild = await this.client.guilds.fetch(ticket.guild_id);
       const member = await guild.members.fetch(closedByUserId);
       closerUsername = member.user.username;
-      closerAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 64 });
+      closerAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 64 }) || null;
+      upsertDiscordUser(closedByUserId, closerUsername, closerAvatar);
     } catch {
-      // Non-fatal — just won't show avatar
+      upsertDiscordUser(closedByUserId, closedByUserId, null);
     }
 
     // Update status in DB
-    updateTicketStatus(ticket.id, 'closed', closedByUserId, closerUsername, closerAvatar);
+    updateTicketStatus(ticket.id, 'closed', closedByUserId);
 
     // Send closing message
     try {
       const channel = await this.client.channels.fetch(channelId);
       if (channel && channel instanceof TextChannel) {
         const embed = new EmbedBuilder()
-          .setColor(0xEF4444) // Red
+          .setColor(0xEF4444)
           .setTitle('🔒 Ticket Closed')
-          .setDescription(`This ticket has been closed by <@${closedByUserId}>.`)
+          .setDescription(
+            `This ticket has been closed by <@${closedByUserId}>.` +
+            (reason ? `\n\n**Reason:** ${reason}` : '')
+          )
           .setTimestamp()
           .setFooter({ text: 'This channel will be deleted in 10 seconds.' });
 
@@ -274,12 +332,14 @@ export class TicketManager {
 
         // Log to ticket logs channel
         if (guildConfig?.channel_ticket_logs) {
+          const creator = getDb().prepare('SELECT username FROM discord_users WHERE user_id = ?').get(ticket.user_id) as { username: string } | undefined;
           await this.sendTicketLog(guildConfig.channel_ticket_logs, 'closed', {
             ticketNumber: ticket.id,
             userId: ticket.user_id,
-            username: ticket.username || 'Unknown',
+            username: creator?.username || 'Unknown',
             subject: ticket.subject,
             closedBy: closedByUserId,
+            reason: reason || undefined,
           });
         }
 
@@ -296,7 +356,7 @@ export class TicketManager {
       console.error('[Ticket] Failed to close ticket channel:', err);
     }
 
-    logEvent(ticket.guild_id, 'info', 'ticket', `Ticket #${ticket.id} closed by ${closedByUserId}`);
+    logEvent(ticket.guild_id, 'info', 'ticket', `Ticket #${ticket.id} closed by ${closedByUserId}` + (reason ? ` (reason: ${reason})` : ''));
     return { success: true };
   }
 
@@ -316,6 +376,50 @@ export class TicketManager {
   }
 
   /**
+   * Claim a ticket by staff.
+   */
+  async claimTicket(channelId: string, staffUserId: string, staffUsername: string): Promise<{ success: boolean; error?: string }> {
+    const ticket = getTicketByChannel(channelId);
+    if (!ticket) {
+      return { success: false, error: 'No ticket found for this channel.' };
+    }
+
+    if (ticket.status !== 'open') {
+      return { success: false, error: `This ticket is already ${ticket.status}.` };
+    }
+
+    // Fetch staff avatar and upsert user cache
+    let staffAvatar: string | null = null;
+    try {
+      const guild = await this.client.guilds.fetch(ticket.guild_id);
+      const member = await guild.members.fetch(staffUserId);
+      staffAvatar = member.user.displayAvatarURL({ forceStatic: false, size: 64 }) || null;
+      upsertDiscordUser(staffUserId, staffUsername, staffAvatar);
+    } catch {
+      upsertDiscordUser(staffUserId, staffUsername, null);
+    }
+
+    // Update status in local DB to in_progress and assign to staff
+    assignTicket(ticket.id, staffUserId);
+
+    // Send log to logs channel if configured
+    const guildConfig = getGuild(ticket.guild_id);
+    if (guildConfig?.channel_ticket_logs) {
+      const creator = getDb().prepare('SELECT username FROM discord_users WHERE user_id = ?').get(ticket.user_id) as { username: string } | undefined;
+      await this.sendTicketLog(guildConfig.channel_ticket_logs, 'assigned', {
+        ticketNumber: ticket.id,
+        userId: ticket.user_id,
+        username: creator?.username || 'Unknown',
+        subject: ticket.subject,
+        assignedTo: staffUserId,
+      });
+    }
+
+    logEvent(ticket.guild_id, 'info', 'ticket', `Ticket #${ticket.id} claimed by ${staffUsername} (${staffUserId})`);
+    return { success: true };
+  }
+
+  /**
    * Send a log message to the ticket logs channel.
    */
   private async sendTicketLog(
@@ -329,6 +433,7 @@ export class TicketManager {
       channelId?: string;
       closedBy?: string;
       assignedTo?: string;
+      reason?: string;
     }
   ): Promise<void> {
     try {
@@ -362,6 +467,9 @@ export class TicketManager {
       }
       if (action === 'closed' && data.closedBy) {
         embed.addFields({ name: 'Closed by', value: `<@${data.closedBy}>`, inline: true });
+      }
+      if (action === 'closed' && data.reason) {
+        embed.addFields({ name: 'Reason', value: data.reason, inline: false });
       }
       if (action === 'assigned' && data.assignedTo) {
         embed.addFields({ name: 'Assigned to', value: `<@${data.assignedTo}>`, inline: true });

@@ -70,7 +70,6 @@ CREATE TABLE IF NOT EXISTS tickets (
     guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
     channel_id TEXT NOT NULL,                   -- Created ticket channel ID
     user_id TEXT NOT NULL,                      -- Discord user who opened ticket
-    username TEXT DEFAULT NULL,                 -- Discord username (cached)
     subject TEXT NOT NULL,
     status TEXT DEFAULT 'open' CHECK(status IN ('open', 'in_progress', 'closed')),
     assigned_to TEXT DEFAULT NULL,              -- Admin/staff Discord user ID (retained in schema but hidden in UI)
@@ -83,6 +82,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 CREATE INDEX IF NOT EXISTS idx_tickets_guild ON tickets(guild_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_user ON tickets(user_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_channel ON tickets(channel_id);
 
 -- =============================================
 -- Table: firstblood_cache
@@ -129,8 +129,6 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     user_id TEXT NOT NULL,
-    username TEXT NOT NULL,
-    avatar_url TEXT DEFAULT NULL,
     message_content TEXT DEFAULT NULL,
     attachment_filename TEXT DEFAULT NULL,
     attachment_original_name TEXT DEFAULT NULL,
@@ -140,6 +138,17 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
 
 CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket ON ticket_messages(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_messages_created ON ticket_messages(created_at);
+
+-- =============================================
+-- Table: discord_users
+-- Cache for Discord users, usernames, and avatars
+-- =============================================
+CREATE TABLE IF NOT EXISTS discord_users (
+    user_id TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    avatar_url TEXT DEFAULT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
 -- =============================================
 -- Table: bot_actions

@@ -45,3 +45,5 @@ __ref/nxctl/
 # Test
 coverage/
 .nyc_output/
+
+.opencode

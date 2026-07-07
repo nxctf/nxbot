@@ -1,6 +1,7 @@
 import { Client, TextChannel, EmbedBuilder, Colors } from 'discord.js';
 import { supabaseManager } from './supabase-manager';
 import { getActiveGuilds, hasFirstBlood, insertFirstBlood, GuildConfig, logEvent } from '../db/local';
+import { ScoreboardService } from './scoreboard';
 
 /**
  * First Blood Detection Service
@@ -20,9 +21,11 @@ interface SolvePayload {
 
 export class FirstBloodService {
   private client: Client;
+  private scoreboardService?: ScoreboardService;
 
-  constructor(client: Client) {
+  constructor(client: Client, scoreboardService?: ScoreboardService) {
     this.client = client;
+    this.scoreboardService = scoreboardService;
   }
 
   /**
@@ -32,7 +35,11 @@ export class FirstBloodService {
     const guilds = getActiveGuilds();
 
     for (const guild of guilds) {
-      if (!guild.enable_firstblood || !guild.channel_firstblood) {
+      const needsSolvesSubscription = 
+        (guild.enable_firstblood && guild.channel_firstblood) || 
+        (guild.enable_scoreboard && guild.channel_scoreboard && guild.scoreboard_message_id);
+
+      if (!needsSolvesSubscription) {
         continue;
       }
 
@@ -49,7 +56,11 @@ export class FirstBloodService {
    * Subscribe to solves for a specific guild.
    */
   subscribeGuild(guild: GuildConfig): void {
-    if (!guild.enable_firstblood || !guild.channel_firstblood) return;
+    const needsSolvesSubscription = 
+      (guild.enable_firstblood && guild.channel_firstblood) || 
+      (guild.enable_scoreboard && guild.channel_scoreboard && guild.scoreboard_message_id);
+
+    if (!needsSolvesSubscription) return;
 
     const channelName = `firstblood-${guild.id}`;
 
@@ -89,10 +100,26 @@ export class FirstBloodService {
               }
             }
 
-            await this.handleNewSolve(guild, solve);
+            // Handle first blood check/alert
+            if (guild.enable_firstblood && guild.channel_firstblood) {
+              try {
+                await this.handleNewSolve(guild, solve);
+              } catch (err) {
+                console.error(`[FirstBlood] Error handling solve for ${guild.guild_name}:`, err);
+                logEvent(guild.id, 'error', 'firstblood', `Error handling solve: ${err}`);
+              }
+            }
+
+            // Handle live scoreboard update
+            if (this.scoreboardService && guild.enable_scoreboard && guild.channel_scoreboard && guild.scoreboard_message_id) {
+              try {
+                await this.scoreboardService.updateScoreboard(guild.id);
+              } catch (sbErr) {
+                console.error(`[Scoreboard] Error updating scoreboard on solve for ${guild.guild_name}:`, sbErr);
+              }
+            }
           } catch (err) {
-            console.error(`[FirstBlood] Error handling solve for ${guild.guild_name}:`, err);
-            logEvent(guild.id, 'error', 'firstblood', `Error handling solve: ${err}`);
+            console.error(`[FirstBlood] Error in solves subscription for ${guild.guild_name}:`, err);
           }
         }
       );

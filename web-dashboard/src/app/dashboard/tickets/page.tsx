@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download } from 'lucide-react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download, Send, Bot, ArrowLeft } from 'lucide-react';
+import PageContainer from '@/components/PageContainer';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface TicketData {
   id: number;
@@ -18,6 +20,9 @@ interface TicketData {
   closed_by_avatar: string | null;
   closed_at: string | null;
   created_at: string;
+  user_avatar: string | null;
+  assigned_to_username?: string | null;
+  assigned_to_avatar?: string | null;
 }
 
 interface GuildItem {
@@ -38,7 +43,11 @@ interface TicketMessage {
   created_at: string;
 }
 
-export default function TicketsPage() {
+function TicketsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const ticketIdParam = searchParams.get('id');
+
   const [tickets, setTickets] = useState<TicketData[]>([]);
   const [guilds, setGuilds] = useState<GuildItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +62,60 @@ export default function TicketsPage() {
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [confirmCloseId, setConfirmCloseId] = useState<number | null>(null);
+  const openerAvatar = selectedTicket 
+    ? messages.find(m => m.user_id === selectedTicket.user_id && m.avatar_url)?.avatar_url 
+    : null;
+
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+
+  // Sync selectedTicket with ?id= query param
+  useEffect(() => {
+    if (ticketIdParam) {
+      const ticketId = parseInt(ticketIdParam, 10);
+      if (!isNaN(ticketId)) {
+        const ticket = tickets.find(t => t.id === ticketId);
+        if (ticket) {
+          setSelectedTicket(ticket);
+          fetchMessages(ticket.id);
+        } else {
+          if (tickets.length > 0) {
+            router.push('/dashboard/tickets');
+          }
+        }
+      }
+    } else {
+      setSelectedTicket(null);
+      setConfirmCloseId(null);
+    }
+  }, [ticketIdParam, tickets, router]);
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !selectedTicket) return;
+    setSendingReply(true);
+    try {
+      const res = await fetch(`/api/tickets/${selectedTicket.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: replyText }),
+      });
+      if (res.ok) {
+        setReplyText('');
+        // Refresh messages list to show the newly sent message
+        await fetchMessages(selectedTicket.id);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(`Failed to send message: ${errData.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Error sending reply:', err);
+      alert('Error sending message. Please try again.');
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   const fetchTickets = async () => {
     try {
@@ -154,8 +217,7 @@ export default function TicketsPage() {
   };
 
   const handleRowClick = (ticket: TicketData) => {
-    setSelectedTicket(ticket);
-    fetchMessages(ticket.id);
+    router.push(`/dashboard/tickets?id=${ticket.id}`);
   };
 
   if (loading) {
@@ -167,11 +229,12 @@ export default function TicketsPage() {
   }
 
   return (
-    <div className="animate-fade-in" style={{ position: 'relative', minHeight: '80vh' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Support Tickets</h1>
-        <p style={{ color: '#94a3b8' }}>Monitor and view chat transcripts for ticket channels created by CTF participants</p>
-      </div>
+    <>
+      {!selectedTicket && (
+        <PageContainer
+          title="Support Tickets"
+          subtitle="Monitor and view chat transcripts for ticket channels created by CTF participants"
+        >
 
       {/* Filter Bar */}
       <div className="glass-panel" style={{ padding: '20px', marginBottom: '32px', display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
@@ -219,10 +282,26 @@ export default function TicketsPage() {
 
       {/* Ticket List */}
       {tickets.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-          <HelpCircle size={48} style={{ marginBottom: '16px', opacity: 0.5, color: '#a855f7' }} />
-          <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px' }}>No Tickets Found</h2>
-          <p>Support requests opened on Discord servers will list here in real time.</p>
+        <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            background: 'rgba(168, 85, 247, 0.1)',
+            border: '1px solid rgba(168, 85, 247, 0.2)',
+            color: '#a855f7',
+            marginBottom: '24px',
+            boxShadow: '0 0 20px rgba(168, 85, 247, 0.15)'
+          }}>
+            <Ticket size={36} />
+          </div>
+          <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px', fontWeight: 700 }}>No Tickets Found</h2>
+          <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto', lineHeight: '1.6' }}>
+            Support requests opened on Discord servers will list here in real time.
+          </p>
         </div>
       ) : (
         <div className="table-container">
@@ -244,7 +323,7 @@ export default function TicketsPage() {
                   key={t.id} 
                   onClick={() => handleRowClick(t)} 
                   style={{ cursor: 'pointer' }}
-                  className={selectedTicket?.id === t.id ? 'active-row' : ''}
+                  className={ticketIdParam === String(t.id) ? 'active-row' : ''}
                 >
                   <td style={{ fontWeight: 700, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
                     #{String(t.id).padStart(4, '0')}
@@ -256,8 +335,33 @@ export default function TicketsPage() {
                     </span>
                   </td>
                   <td>
-                    <span style={{ color: '#cbd5e1' }}>@{t.username || 'unknown'}</span>
-                    <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>ID: {t.user_id}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {t.user_avatar ? (
+                        <img 
+                          src={t.user_avatar} 
+                          alt="" 
+                          style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.05)' }} 
+                        />
+                      ) : (
+                        <div style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                          border: '1px solid rgba(168, 85, 247, 0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#a855f7'
+                        }}>
+                          <User size={12} />
+                        </div>
+                      )}
+                      <div>
+                        <span style={{ color: '#cbd5e1', fontWeight: 600 }}>@{t.username || 'unknown'}</span>
+                        <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>ID: {t.user_id}</div>
+                      </div>
+                    </div>
                   </td>
                   <td style={{ color: '#f8fafc', fontWeight: 500, maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {t.subject}
@@ -309,8 +413,16 @@ export default function TicketsPage() {
                           </button>
                         )
                       ) : (
-                        <span style={{ color: '#64748b', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Lock size={12} /> Closed by @{t.closed_by || 'system'}
+                        <span style={{ color: '#64748b', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <Lock size={12} style={{ color: '#ef4444' }} />
+                          {t.closed_by_avatar && (
+                            <img 
+                              src={t.closed_by_avatar} 
+                              alt="" 
+                              style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} 
+                            />
+                          )}
+                          <span>Closed by @{t.closed_by_username || t.closed_by || 'system'}</span>
                         </span>
                       )}
                     </div>
@@ -321,46 +433,59 @@ export default function TicketsPage() {
           </table>
         </div>
       )}
+        </PageContainer>
+      )}
 
-      {/* Transcript Drawer Overlay */}
+      {/* Transcript Details Workspace */}
       {selectedTicket && (
-        <>
-          <div 
-            onClick={() => setSelectedTicket(null)}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
-              backdropFilter: 'blur(4px)',
-              zIndex: 900,
-              transition: 'opacity 0.3s ease',
-            }}
-          />
+        <div>
           <div 
             style={{
-              position: 'fixed',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: '100%',
-              maxWidth: '550px',
-              backgroundColor: '#0c0f17',
-              borderLeft: '1px solid var(--border-color)',
-              boxShadow: '-10px 0 40px rgba(0, 0, 0, 0.6)',
-              zIndex: 1000,
               display: 'flex',
               flexDirection: 'column',
-              animation: 'slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              height: 'calc(100vh - 180px)',
+              backgroundColor: '#0c0f17',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
+              overflow: 'hidden',
             }}
           >
-            {/* Drawer Header */}
-            <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(22, 28, 45, 0.2)' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 800, color: '#f8fafc' }}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(22, 28, 45, 0.2)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <button 
+                  onClick={() => router.push('/dashboard/tickets')}
+                  style={{ 
+                    background: 'none', 
+                    color: '#94a3b8', 
+                    cursor: 'pointer', 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    fontSize: '14px', 
+                    fontWeight: 600,
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#f8fafc';
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#94a3b8';
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)';
+                  }}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Back to Tickets</span>
+                </button>
+                <div style={{ width: '1px', height: '24px', backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px', fontWeight: 800, color: '#f8fafc' }}>
                     Ticket #{String(selectedTicket.id).padStart(4, '0')}
                   </span>
                   <span className={`badge ${
@@ -370,267 +495,462 @@ export default function TicketsPage() {
                     {selectedTicket.status === 'open' ? 'Open' : selectedTicket.status === 'in_progress' ? 'In Progress' : 'Closed'}
                   </span>
                 </div>
-                <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>
-                  Subject: <span style={{ color: '#38bdf8', fontWeight: 500 }}>{selectedTicket.subject}</span>
-                </p>
-              </div>
-              <button 
-                onClick={() => setSelectedTicket(null)}
-                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#f8fafc'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
-              >
-                <X size={24} />
-              </button>
-            </div>
-            
-            {/* Ticket Info Section */}
-            <div style={{ padding: '16px 24px', background: 'rgba(13, 17, 28, 0.4)', borderBottom: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px', fontSize: '13px' }}>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Opened By</span>
-                <span style={{ fontWeight: 600, color: '#cbd5e1' }}>@{selectedTicket.username || 'unknown'}</span>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>ID: {selectedTicket.user_id}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Server / Guild</span>
-                <span style={{ fontWeight: 600, color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <Server size={12} style={{ color: '#94a3b8' }} />
-                  {selectedTicket.guild_name}
-                </span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', marginBottom: '2px' }}>Opened Date</span>
-                <span style={{ fontWeight: 600, color: '#cbd5e1' }}>
-                  {new Date(selectedTicket.created_at).toLocaleString()}
-                </span>
               </div>
             </div>
 
-            {/* Transcript Messages Area */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', background: '#080a0f' }}>
-              {messagesLoading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px', color: '#94a3b8' }}>
-                  <RefreshCw className="animate-spin" size={24} style={{ color: '#38bdf8' }} />
-                  <span>Loading ticket transcript...</span>
-                </div>
-              ) : messages.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px', color: '#64748b', textAlign: 'center', padding: '32px' }}>
-                  <MessageSquare size={32} style={{ opacity: 0.3 }} />
-                  <div>
-                    <span style={{ fontWeight: 600, color: '#94a3b8', display: 'block', marginBottom: '4px' }}>No messages logged</span>
-                    <span style={{ fontSize: '12px' }}>Messages sent inside this ticket channel on Discord will appear here.</span>
+            {/* Split Layout Body */}
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+              {/* Left Column: Details & Metadata */}
+              <div 
+                style={{ 
+                  width: '360px', 
+                  flexShrink: 0, 
+                  borderRight: '1px solid var(--border-color)', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  background: 'rgba(13, 17, 28, 0.4)',
+                  overflowY: 'auto'
+                }}
+              >
+                {/* Opened By Section */}
+                <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Opened By</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {openerAvatar ? (
+                      <img 
+                        src={openerAvatar} 
+                        alt="" 
+                        style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} 
+                      />
+                    ) : (
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                        border: '1px solid rgba(168, 85, 247, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#a855f7',
+                        flexShrink: 0
+                      }}>
+                        <User size={18} />
+                      </div>
+                    )}
+                    <div>
+                      <span style={{ fontWeight: 700, color: '#f8fafc', display: 'block', fontSize: '14px' }}>@{selectedTicket.username || 'unknown'}</span>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>ID: {selectedTicket.user_id}</span>
+                    </div>
                   </div>
                 </div>
-              ) : (
-                messages.map((msg, index) => {
-                  const isUser = msg.user_id === selectedTicket.user_id;
-                  return (
-                    <div 
-                      key={msg.id}
-                      style={{
-                        display: 'flex',
-                        gap: '12px',
-                        alignItems: 'flex-start',
-                        animation: 'fadeIn 0.25s ease forwards',
-                        animationDelay: `${index * 0.03}s`,
-                      }}
-                    >
-                      {/* Avatar */}
-                      {msg.avatar_url ? (
-                        <img 
-                          src={msg.avatar_url} 
-                          alt={msg.username}
-                          style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
+
+                {/* Metadata Grid */}
+                <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.03)', display: 'grid', gridTemplateColumns: '1fr', gap: '16px', fontSize: '13px' }}>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Server / Guild</span>
+                    <span style={{ fontWeight: 600, color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Server size={14} style={{ color: '#94a3b8' }} />
+                      {selectedTicket.guild_name}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Opened Date</span>
+                    <span style={{ fontWeight: 600, color: '#cbd5e1' }}>
+                      {new Date(selectedTicket.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  {selectedTicket.assigned_to && (
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Claimed By Staff</span>
+                      <span style={{ fontWeight: 600, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        {selectedTicket.assigned_to_avatar ? (
+                          <img 
+                            src={selectedTicket.assigned_to_avatar} 
+                            alt="" 
+                            style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} 
+                          />
+                        ) : (
+                          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+                        )}
+                        @{selectedTicket.assigned_to_username || selectedTicket.assigned_to}
+                      </span>
+                    </div>
+                  )}
+                  {selectedTicket.status === 'closed' && (
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Closed By</span>
+                      <span style={{ fontWeight: 600, color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        {selectedTicket.closed_by_avatar && (
+                          <img 
+                            src={selectedTicket.closed_by_avatar} 
+                            alt="" 
+                            style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} 
+                          />
+                        )}
+                        @{selectedTicket.closed_by_username || selectedTicket.closed_by || 'system'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Subject & Description Card */}
+                <div style={{ padding: '20px 24px', flex: 1, borderBottom: '1px solid rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'hidden' }}>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Subject</span>
+                    <span style={{ color: '#f8fafc', fontWeight: 600, fontSize: '14px' }}>{selectedTicket.subject}</span>
+                  </div>
+                  {(() => {
+                    const descMsg = messages.find(m => m.message_content && m.message_content.includes('Initial Description:'));
+                    if (descMsg) {
+                      const cleanedDesc = descMsg.message_content
+                        .replace('📝 **Initial Description:**\n', '')
+                        .replace('[Initial Description] ', '')
+                        .replace('📝 **Initial Description:**', '');
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Description</span>
+                          <div style={{ 
+                            color: '#cbd5e1', 
+                            fontSize: '13px', 
+                            lineHeight: '1.5', 
+                            background: '#090d16', 
+                            padding: '12px', 
+                            borderRadius: '8px', 
+                            border: '1px solid rgba(255,255,255,0.03)', 
+                            whiteSpace: 'pre-wrap',
+                            flex: 1,
+                            overflowY: 'auto'
+                          }}>
+                            {cleanedDesc}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
+                {/* Left Column Footer Actions */}
+                <div style={{ padding: '20px 24px', borderTop: '1px solid var(--border-color)', background: 'rgba(13, 17, 28, 0.6)', flexShrink: 0 }}>
+                  {selectedTicket.status !== 'closed' ? (
+                    confirmCloseId === selectedTicket.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', color: '#f43f5e', fontWeight: 600, textAlign: 'center' }}>Are you sure you want to close?</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            onClick={(e) => {
+                              handleUpdateStatus(e as any, selectedTicket.id, 'closed');
+                              setConfirmCloseId(null);
+                            }}
+                            className="btn btn-danger"
+                            style={{ flex: 1, height: '36px', padding: 0, background: '#f43f5e', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}
+                            disabled={actionLoading === selectedTicket.id}
+                          >
+                            Yes
+                          </button>
+                          <button 
+                            onClick={() => setConfirmCloseId(null)}
+                            className="btn btn-secondary"
+                            style={{ flex: 1, height: '36px', padding: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                          >
+                            No
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => setConfirmCloseId(selectedTicket.id)}
+                        className="btn btn-danger"
+                        style={{ width: '100%', height: '40px', padding: 0, borderRadius: '6px', fontWeight: 600 }}
+                        disabled={actionLoading === selectedTicket.id}
+                      >
+                        Close Support Ticket
+                      </button>
+                    )
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {selectedTicket.closed_by_avatar ? (
+                        <img
+                          src={selectedTicket.closed_by_avatar}
+                          alt={selectedTicket.closed_by_username || 'closer'}
+                          style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(244,63,94,0.3)', flexShrink: 0 }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
                       ) : (
                         <div style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '50%',
-                          backgroundColor: isUser ? '#1e293b' : '#312e81',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 700,
-                          fontSize: '13px',
-                          color: '#f8fafc',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          flexShrink: 0,
+                          width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+                          background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                          {msg.username.substring(0, 2).toUpperCase()}
+                          <Lock size={12} style={{ color: '#f43f5e' }} />
                         </div>
                       )}
-
-                      {/* Content */}
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '2px' }}>
-                          <span style={{ fontWeight: 700, fontSize: '14px', color: isUser ? '#f8fafc' : '#a78bfa' }}>
-                            {msg.username}
-                          </span>
-                          {isUser && (
-                            <span style={{ fontSize: '10px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', padding: '1px 5px', borderRadius: '4px', fontWeight: 600 }}>
-                              Creator
-                            </span>
-                          )}
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>
-                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#f8fafc', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          Closed by @{selectedTicket.closed_by_username || selectedTicket.closed_by || 'system'}
                         </div>
-                        {msg.message_content?.trim() && (
-                          <div style={{
-                            color: '#e2e8f0',
-                            fontSize: '14px',
-                            lineHeight: '1.5',
-                            whiteSpace: 'pre-wrap',
-                            background: 'rgba(22, 28, 45, 0.3)',
-                            padding: '10px 14px',
-                            borderRadius: msg.attachment_filename ? '0 12px 0 0' : '0 12px 12px 12px',
-                            border: '1px solid rgba(255,255,255,0.03)',
-                          }}>
-                            {msg.message_content}
-                          </div>
-                        )}
-
-                        {msg.attachment_filename && (() => {
-                          const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(msg.attachment_filename);
-                          const downloadUrl = `/api/tickets/attachments/${msg.attachment_filename}`;
-                          const sizeKb = msg.attachment_size ? Math.round(msg.attachment_size / 1024) : 0;
-                          
-                          if (isImage) {
-                            return (
-                              <div style={{ marginTop: '8px', maxWidth: '100%', overflow: 'hidden', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                                  <img 
-                                    src={downloadUrl} 
-                                    alt={msg.attachment_original_name || 'Attachment'} 
-                                    style={{ maxWidth: '100%', maxHeight: '240px', objectFit: 'contain', display: 'block', cursor: 'zoom-in' }}
-                                  />
-                                </a>
-                              </div>
-                            );
-                          }
-                          
-                          return (
-                            <div style={{
-                              marginTop: '8px',
-                              padding: '12px',
-                              background: 'rgba(30, 41, 59, 0.4)',
-                              border: '1px solid var(--border-color)',
-                              borderRadius: '8px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '12px'
-                            }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-                                <File size={20} style={{ color: '#38bdf8', flexShrink: 0 }} />
-                                <div style={{ overflow: 'hidden' }}>
-                                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                    {msg.attachment_original_name}
-                                  </span>
-                                  <span style={{ fontSize: '11px', color: '#64748b' }}>{sizeKb} KB</span>
-                                </div>
-                              </div>
-                              <a 
-                                href={downloadUrl} 
-                                download 
-                                className="btn btn-secondary" 
-                                style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                              >
-                                <Download size={14} />
-                                Download
-                              </a>
-                            </div>
-                          );
-                        })()}
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px' }}>
+                          {selectedTicket.closed_at ? new Date(selectedTicket.closed_at).toLocaleDateString() : 'Unknown date'}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Drawer Footer Actions */}
-            <div style={{ padding: '20px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px', background: 'rgba(13, 17, 28, 0.6)' }}>
-              {selectedTicket.status !== 'closed' ? (
-                confirmCloseId === selectedTicket.id ? (
-                  <div style={{ display: 'flex', width: '100%', gap: '12px' }}>
-                    <button 
-                      onClick={(e) => {
-                        handleUpdateStatus(e as any, selectedTicket.id, 'closed');
-                        setConfirmCloseId(null);
-                      }}
-                      className="btn btn-danger"
-                      style={{ flex: 1, height: '40px', padding: 0, background: '#f43f5e', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-                      disabled={actionLoading === selectedTicket.id}
-                    >
-                      Confirm Close (Yes)
-                    </button>
-                    <button 
-                      onClick={() => setConfirmCloseId(null)}
-                      className="btn btn-secondary"
-                      style={{ flex: 1, height: '40px', padding: 0, borderRadius: '6px', cursor: 'pointer' }}
-                    >
-                      Cancel (No)
-                    </button>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={() => setConfirmCloseId(selectedTicket.id)}
-                    className="btn btn-danger"
-                    style={{ flex: 1, height: '40px', padding: 0 }}
-                    disabled={actionLoading === selectedTicket.id}
-                  >
-                    Close Support Ticket
-                  </button>
-                )
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
-                  {selectedTicket.closed_by_avatar ? (
-                    <img
-                      src={selectedTicket.closed_by_avatar}
-                      alt={selectedTicket.closed_by_username || 'closer'}
-                      style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(244,63,94,0.3)', flexShrink: 0 }}
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-                      background: 'rgba(244,63,94,0.15)', border: '2px solid rgba(244,63,94,0.3)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <Lock size={14} style={{ color: '#f43f5e' }} />
+                      <span className="badge badge-danger" style={{ flexShrink: 0, fontSize: '11px', padding: '3px 8px' }}>Closed</span>
                     </div>
                   )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc' }}>
-                      Closed by @{selectedTicket.closed_by_username || selectedTicket.closed_by || 'system'}
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                      {selectedTicket.closed_at ? new Date(selectedTicket.closed_at).toLocaleString() : 'Unknown time'}
-                    </div>
-                  </div>
-                  <span className="badge badge-danger" style={{ flexShrink: 0 }}>Closed</span>
                 </div>
-              )}
+              </div>
+
+              {/* Right Column: Chat Transcript messages */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#080a0f', overflow: 'hidden' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {messagesLoading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px', color: '#94a3b8' }}>
+                      <RefreshCw className="animate-spin" size={24} style={{ color: '#38bdf8' }} />
+                      <span>Loading ticket transcript...</span>
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', color: '#64748b', textAlign: 'center', padding: '48px' }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%',
+                        background: 'rgba(56, 189, 248, 0.06)',
+                        border: '1px solid rgba(56, 189, 248, 0.15)',
+                        color: '#38bdf8',
+                        boxShadow: '0 0 15px rgba(56, 189, 248, 0.08)'
+                      }}>
+                        <MessageSquare size={28} />
+                      </div>
+                      <div>
+                        <span style={{ fontWeight: 700, color: '#f8fafc', display: 'block', marginBottom: '6px', fontSize: '15px' }}>No messages logged</span>
+                        <span style={{ fontSize: '13px', color: '#94a3b8', maxWidth: '320px', display: 'block', margin: '0 auto', lineHeight: '1.5' }}>Messages sent inside this ticket channel on Discord will appear here.</span>
+                      </div>
+                    </div>
+                  ) : (
+                    messages.map((msg, index) => {
+                      const isUser = msg.user_id === selectedTicket.user_id;
+                      return (
+                        <div 
+                          key={msg.id}
+                          style={{
+                            display: 'flex',
+                            gap: '12px',
+                            alignItems: 'flex-start',
+                            animation: 'fadeIn 0.25s ease forwards',
+                            animationDelay: `${index * 0.03}s`,
+                          }}
+                        >
+                          {/* Avatar */}
+                          {(() => {
+                            const isBot = msg.user_id === 'bot' || msg.user_id === 'system_bot' || msg.username.includes('NXBot');
+                            if (msg.avatar_url) {
+                              return (
+                                <img 
+                                  src={msg.avatar_url} 
+                                  alt={msg.username}
+                                  style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}
+                                />
+                              );
+                            } else if (isBot) {
+                              return (
+                                <div style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '50%',
+                                  backgroundColor: 'rgba(88, 101, 242, 0.15)',
+                                  border: '1px solid rgba(88, 101, 242, 0.3)',
+                                  color: '#5865F2',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  boxShadow: '0 0 10px rgba(88, 101, 242, 0.2)'
+                                }}>
+                                  <Bot size={18} />
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '50%',
+                                  backgroundColor: isUser ? 'rgba(56, 189, 248, 0.1)' : 'rgba(168, 85, 247, 0.1)',
+                                  border: `1px solid ${isUser ? 'rgba(56, 189, 248, 0.2)' : 'rgba(168, 85, 247, 0.2)'}`,
+                                  color: isUser ? '#38bdf8' : '#a855f7',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 700,
+                                  fontSize: '13px',
+                                  flexShrink: 0,
+                                }}>
+                                  {msg.username.substring(0, 2).toUpperCase()}
+                                </div>
+                              );
+                            }
+                          })()}
+
+                          {/* Content */}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '2px' }}>
+                              <span style={{ fontWeight: 700, fontSize: '14px', color: isUser ? '#f8fafc' : '#a78bfa' }}>
+                                {msg.username}
+                              </span>
+                              <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                {new Date(msg.created_at).toLocaleString()}
+                              </span>
+                            </div>
+                            <div style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: '1.5', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                              {msg.message_content}
+                            </div>
+
+                            {/* Attachment */}
+                            {msg.attachment_filename && (() => {
+                              const downloadUrl = `/api/tickets/attachments/${msg.attachment_filename}`;
+                              const sizeKb = msg.attachment_size ? Math.round(msg.attachment_size / 1024) : 0;
+                              const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.attachment_original_name || '');
+                              
+                              if (isImage) {
+                                return (
+                                  <div style={{ marginTop: '8px', maxWidth: '320px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)' }}>
+                                    <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                                      <img 
+                                        src={downloadUrl} 
+                                        alt={msg.attachment_original_name || 'Attachment'} 
+                                        style={{ maxWidth: '100%', maxHeight: '240px', objectFit: 'contain', display: 'block', cursor: 'zoom-in' }}
+                                      />
+                                    </a>
+                                  </div>
+                                );
+                              }
+                              
+                              return (
+                                <div style={{
+                                  marginTop: '8px',
+                                  padding: '12px',
+                                  background: 'rgba(30, 41, 59, 0.4)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: '12px'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                                    <File size={20} style={{ color: '#38bdf8', flexShrink: 0 }} />
+                                    <div style={{ overflow: 'hidden' }}>
+                                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                        {msg.attachment_original_name}
+                                      </span>
+                                      <span style={{ fontSize: '11px', color: '#64748b' }}>{sizeKb} KB</span>
+                                    </div>
+                                  </div>
+                                  <a 
+                                    href={downloadUrl} 
+                                    download 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    <Download size={14} />
+                                    Download
+                                  </a>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Chat Input Bar */}
+                <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', background: 'rgba(13, 17, 28, 0.4)', display: 'flex', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
+                  {selectedTicket.status !== 'closed' ? (
+                    <>
+                      <input 
+                        type="text"
+                        placeholder="Type a response to send to Discord..."
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSendReply();
+                        }}
+                        style={{
+                          flex: 1,
+                          height: '42px',
+                          background: '#090d16',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          padding: '0 16px',
+                          color: '#f8fafc',
+                          fontSize: '14px',
+                          outline: 'none',
+                        }}
+                        disabled={sendingReply}
+                      />
+                      <button
+                        onClick={handleSendReply}
+                        className="btn btn-primary"
+                        style={{
+                          height: '42px',
+                          padding: '0 20px',
+                          borderRadius: '8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontWeight: 600,
+                        }}
+                        disabled={sendingReply || !replyText.trim()}
+                      >
+                        {sendingReply ? (
+                          <RefreshCw className="animate-spin" size={16} />
+                        ) : (
+                          <>
+                            <span>Send</span>
+                            <Send size={16} />
+                          </>
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', width: '100%', fontStyle: 'italic' }}>
+                      This ticket is closed. Sending messages is disabled.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Slide & Fade Keyframe Styling */}
           <style jsx global>{`
-            @keyframes slideIn {
-              from { transform: translateX(100%); }
-              to { transform: translateX(0); }
+            @keyframes modalFadeIn {
+              from { opacity: 0; transform: scale(0.96); }
+              to { opacity: 1; transform: scale(1); }
             }
             .active-row td {
               background-color: rgba(56, 189, 248, 0.06) !important;
             }
           `}</style>
-        </>
+        </div>
       )}
-    </div>
+    </>
+  );
+}
+
+export default function TicketsPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <RefreshCw className="animate-spin" size={32} style={{ color: '#38bdf8' }} />
+      </div>
+    }>
+      <TicketsContent />
+    </Suspense>
   );
 }

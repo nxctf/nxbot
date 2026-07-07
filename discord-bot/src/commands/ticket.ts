@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { TicketManager } from '../services/ticket-manager';
 import { getTicketByChannel, getTicketsByGuild, getTicketsByUser, getGuild, assignTicket } from '../db/local';
 
@@ -123,32 +123,22 @@ async function handleClose(interaction: ChatInputCommandInteraction): Promise<vo
     return;
   }
 
-  const reason = interaction.options.getString('reason');
+  const modal = new ModalBuilder()
+    .setCustomId('ticket_close_modal')
+    .setTitle('🔒 Close Ticket');
 
-  const embed = new EmbedBuilder()
-    .setColor(0xF59E0B)
-    .setTitle('⚠️ Close this Ticket?')
-    .setDescription(
-      `Are you sure you want to close ticket **#${String(ticket.id).padStart(4, '0')}**?\n\n` +
-      (reason ? `**Reason:** ${reason}\n\n` : '') +
-      '> This channel will be deleted after closing.'
-    )
-    .setTimestamp();
+  const reasonInput = new TextInputBuilder()
+    .setCustomId('ticket_close_reason')
+    .setLabel('Reason for closing (optional)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('e.g., Issue resolved, duplicate ticket...')
+    .setRequired(false)
+    .setMaxLength(200);
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`ticket_close_confirm_${ticket.id}`)
-      .setLabel('Yes, Close Ticket')
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji('🔒'),
-    new ButtonBuilder()
-      .setCustomId(`ticket_close_cancel_${ticket.id}`)
-      .setLabel('Cancel')
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji('✖️'),
-  );
+  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(reasonInput);
+  modal.addComponents(row);
 
-  await interaction.reply({ embeds: [embed], components: [row] });
+  await interaction.showModal(modal);
 }
 
 async function handleList(interaction: ChatInputCommandInteraction): Promise<void> {
