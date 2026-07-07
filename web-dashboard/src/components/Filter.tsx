@@ -28,6 +28,7 @@ export function FilterSelect({ options, placeholder, className = '', value, ...p
     <div className="relative min-w-[160px]">
       <select
         className={`${FORM_SELECT_CLASS} ${isActive ? 'border-primary/50' : ''} text-sm ${className}`}
+        style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
         value={value}
         {...props}
       >
