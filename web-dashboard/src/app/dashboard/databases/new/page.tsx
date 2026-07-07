@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, AlertTriangle, Check } from 'lucide-react';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,13 @@ export default function NewDatabasePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Escape key to go back
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') router.back(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [router]);
 
   const handleSaveConnection = async (formData: any) => {
     setError('');
@@ -53,7 +60,7 @@ export default function NewDatabasePage() {
       {/* Compact Header */}
       <div className="flex items-center gap-3 pb-5">
         <button
-          onClick={() => router.push('/dashboard/databases')}
+          onClick={() => router.back()}
           className="flex items-center justify-center w-7 h-7 rounded-lg bg-slate-800/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 transition-all shrink-0"
         >
           <ArrowLeft size={14} />
@@ -78,7 +85,7 @@ export default function NewDatabasePage() {
       <DatabaseForm
         editingConn={null}
         onSave={handleSaveConnection}
-        onCancel={() => router.push('/dashboard/databases')}
+        onCancel={() => router.back()}
         loading={loading}
       />
     </>

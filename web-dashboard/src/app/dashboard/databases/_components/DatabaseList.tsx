@@ -38,7 +38,7 @@ export function DatabaseList({
   if (conns.length === 0) {
     return (
       <div className="bg-bg-card rounded-xl py-16 text-center text-slate-400 flex flex-col items-center gap-4">
-        <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center">
+        <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center">
           <Database size={28} />
         </div>
         <div>
@@ -61,7 +61,7 @@ export function DatabaseList({
             key={conn.id}
             className="bg-bg-card rounded-xl p-5 flex items-center gap-4"
           >
-            <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <Database size={20} />
             </div>
 

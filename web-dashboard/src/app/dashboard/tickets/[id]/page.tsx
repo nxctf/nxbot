@@ -94,6 +94,13 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     scrollToBottom();
   }, [messages]);
 
+  // Escape key to go back
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') router.back(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [router]);
+
   // Real-time: poll messages + ticket detail every 6s
   useEffect(() => {
     if (!ticket || ticket.status === 'closed') return;
@@ -169,37 +176,55 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     ticket.status === 'in_progress' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
   const statusLabel = ticket.status === 'open' ? 'Open' : ticket.status === 'in_progress' ? 'In Progress' : 'Closed';
 
+  // First message = description (strip the "📝 **Initial Description:**" prefix if present)
+  const firstMsg = messages.find(m => m.user_id === ticket.user_id);
+  const rawDesc = firstMsg?.message_content || '';
+  const description = rawDesc.replace(/^📝\s*\*\*Initial Description:\*\*\s*/i, '');
+
   return (
     <div className="page-container">
       <div className="page-container-content h-[calc(100vh-60px-40px-28px)] flex flex-col">
         <div className="flex flex-col xl:flex-row gap-4 flex-1 min-h-0">
 
           {/* Left: Compact Ticket Info */}
-          <div className="w-full xl:w-[280px] bg-bg-card rounded-xl p-4 flex flex-col shrink-0 overflow-y-auto space-y-4">
-            <button
-              onClick={() => router.push('/dashboard/tickets')}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors w-fit"
-            >
-              <ArrowLeft size={13} /> Back to Tickets
-            </button>
-
-            <div className="space-y-1">
-              <h1 className="text-base font-bold text-slate-100 font-mono">Ticket #{String(ticket.id).padStart(4, '0')}</h1>
-              <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                <Server size={12} className="shrink-0" />
-                <span className="truncate">{ticket.guild_name}</span>
-                <span className={`shrink-0 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold ${statusBadge}`}>
-                  {statusLabel}
-                </span>
+          <div className="w-full xl:w-[280px] bg-bg-card rounded-xl p-4 flex flex-col shrink-0 overflow-y-auto">
+            {/* Header: back + ticket ID | status */}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <button onClick={() => router.back()}
+                  className="flex items-center justify-center w-6 h-6 rounded-lg bg-slate-800/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 transition-all shrink-0">
+                  <ArrowLeft size={12} />
+                </button>
+                <h1 className="text-sm font-bold text-slate-100 font-mono truncate">Ticket #{String(ticket.id).padStart(4, '0')}</h1>
               </div>
+              <span className={`shrink-0 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold ${statusBadge}`}>
+                {statusLabel}
+              </span>
             </div>
 
-            <div className="space-y-0.5">
-              <span className="text-[11px] text-slate-400 font-semibold">Subject</span>
-              <p className="text-sm text-slate-100 font-medium leading-relaxed">{ticket.subject}</p>
+            {/* Server name */}
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-3">
+              <Server size={12} className="shrink-0" />
+              <span className="truncate">{ticket.guild_name}</span>
             </div>
 
+            {/* Subject + Description */}
+            <div className="space-y-1 mb-4">
+              <h2 className="text-sm font-bold text-slate-100 leading-snug">{ticket.subject}</h2>
+              {description && (
+                <p className="text-xs text-slate-400 leading-relaxed line-clamp-4">{description}</p>
+              )}
+            </div>
+
+            {/* Bottom spacer */}
+            <div className="flex-1" />
+
+            {/* Dates & People */}
             <div className="space-y-2 text-xs border-t border-border-color/40 pt-4">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Server</span>
+                <span className="text-slate-300 font-medium truncate ml-2">{ticket.guild_name}</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Opened</span>
                 <span className="text-slate-300 font-medium">{new Date(ticket.created_at).toLocaleString()}</span>
@@ -208,42 +233,39 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 <span className="text-slate-500">Closed</span>
                 <span className="text-slate-300 font-medium">{ticket.closed_at ? new Date(ticket.closed_at).toLocaleString() : '-'}</span>
               </div>
-            </div>
-
-            <div className="space-y-3 text-xs border-t border-border-color/40 pt-4">
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between">
                 <span className="text-slate-500">Opened by</span>
                 <span className="font-semibold text-slate-200 inline-flex items-center gap-1.5">
                   {openerAvatar ? (
-                    <img src={openerAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                    <img src={openerAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
                   ) : (
-                    <div className="w-5 h-5 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400">
-                      <User size={10} />
+                    <div className="w-4 h-4 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400">
+                      <User size={8} />
                     </div>
                   )}
                   @{ticket.username}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between">
                 <span className="text-slate-500">Assigned to</span>
                 <span className="font-semibold text-slate-200 inline-flex items-center gap-1.5">
                   {ticket.assigned_to ? (
                     <>
                       {ticket.assigned_to_avatar && (
-                        <img src={ticket.assigned_to_avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        <img src={ticket.assigned_to_avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
                       )}
                       @{ticket.assigned_to_username || ticket.assigned_to}
                     </>
                   ) : <span className="text-slate-500">-</span>}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between">
                 <span className="text-slate-500">Closed by</span>
                 <span className="font-semibold text-slate-200 inline-flex items-center gap-1.5">
                   {ticket.status === 'closed' && ticket.closed_by ? (
                     <>
                       {ticket.closed_by_avatar && (
-                        <img src={ticket.closed_by_avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        <img src={ticket.closed_by_avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
                       )}
                       @{ticket.closed_by_username || ticket.closed_by || 'system'}
                     </>
@@ -253,7 +275,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             </div>
 
             {ticket.status !== 'closed' && (
-              <div className="pt-3 border-t border-border-color/40">
+              <div className="pt-3 border-t border-border-color/40 mt-4">
                 {showConfirmClose ? (
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-rose-400 font-bold">Close this ticket?</span>

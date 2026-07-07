@@ -144,7 +144,8 @@ export default function DatabasesPage() {
 
       <div className="page-container">
         <div className="page-container-content space-y-5">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            <h1 className="text-sm font-bold text-slate-200">Databases</h1>
             <button 
               onClick={() => router.push('/dashboard/databases/new')} 
               className="inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 active:scale-[0.98] bg-primary text-slate-950 hover:bg-primary-hover shadow-lg shadow-primary/10 px-4 py-2.5 text-sm gap-2"

@@ -120,7 +120,7 @@ export default function ServersPage() {
     <div className="page-container">
       <div className="page-container-content space-y-5">
         <div className="flex items-center justify-between">
-          <div />
+          <h1 className="text-sm font-bold text-slate-200">Servers</h1>
           <Button
             onClick={() => { setShowAddForm(!showAddForm); setError(''); setSuccess(''); }}
             variant={showAddForm ? 'secondary' : 'primary'}
@@ -216,7 +216,7 @@ export default function ServersPage() {
           </div>
         ) : servers.length === 0 ? (
           <div className="bg-bg-card rounded-xl py-16 text-center text-slate-400 flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center">
               <Server size={28} />
             </div>
             <div>
@@ -234,7 +234,7 @@ export default function ServersPage() {
                   className="bg-bg-card rounded-xl p-5 block cursor-pointer transition-all hover:bg-slate-800/30 duration-200">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                         <Server size={18} />
                       </div>
                       <div className="min-w-0">

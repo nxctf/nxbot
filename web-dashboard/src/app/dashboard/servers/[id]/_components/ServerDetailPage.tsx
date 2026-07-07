@@ -93,6 +93,13 @@ export function ServerDetailPage({
   // URL-driven Tab State (?tab=general|supabase|tickets)
   const activeTab = (searchParams.get('tab') || 'general') as 'general' | 'supabase' | 'tickets';
 
+  // Escape key to go back
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') router.back(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [router]);
+
   // Delete Server Confirmation states
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [confirmServerName, setConfirmServerName] = useState('');
@@ -134,13 +141,13 @@ export function ServerDetailPage({
         {/* Fixed Header Bar at top-[60px] */}
         <div className="sticky top-[60px] z-40 bg-bg-dark/95 backdrop-blur-md border-b border-border-color -mx-10 mb-8 px-10 py-4 flex items-center justify-between shadow-lg shadow-black/30">
           <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard/servers"
+            <button
+              onClick={() => router.back()}
               className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-800/50 border border-border-color text-slate-200 transition-all hover:bg-slate-700/60"
-              title="Back to Servers"
+              title="Back"
             >
               <ArrowLeft size={16} />
-            </Link>
+            </button>
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-xl font-extrabold text-slate-100">{config.guild_name || 'Configure Server'}</h1>
