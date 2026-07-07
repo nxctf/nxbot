@@ -50,24 +50,17 @@ export default function NewDatabasePage() {
         strategy="afterInteractive"
       />
 
-      {/* Sticky Header */}
-      <div className="sticky top-[60px] z-40 bg-bg-dark/95 backdrop-blur-md border-b border-border-color -mx-10 mb-8 px-10 py-4 flex items-center justify-between shadow-lg shadow-black/30">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push('/dashboard/databases')}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-800/50 border border-border-color text-slate-200 transition-all hover:bg-slate-700/60"
-            title="Back to Connections"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-100">Add Database Connection</h1>
-            <p className="text-slate-400 text-xs mt-0.5">Configure a new Supabase database connection.</p>
-          </div>
-        </div>
+      {/* Compact Header */}
+      <div className="flex items-center gap-3 pb-5">
+        <button
+          onClick={() => router.push('/dashboard/databases')}
+          className="flex items-center justify-center w-7 h-7 rounded-lg bg-slate-800/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 transition-all shrink-0"
+        >
+          <ArrowLeft size={14} />
+        </button>
+        <h1 className="text-base font-bold text-slate-100">Add Database Connection</h1>
       </div>
 
-      {/* Error notification */}
       {error && (
         <div className="alert bg-accent-red/10 border border-accent-red/20 text-accent-red p-4 rounded-xl mb-6 flex items-center gap-3">
           <AlertTriangle size={18} className="shrink-0" />
@@ -75,7 +68,6 @@ export default function NewDatabasePage() {
         </div>
       )}
 
-      {/* Success notification */}
       {success && (
         <div className="alert bg-accent-green/10 border border-accent-green/20 text-accent-green p-4 rounded-xl mb-6 flex items-center gap-3">
           <Check size={18} className="shrink-0" />

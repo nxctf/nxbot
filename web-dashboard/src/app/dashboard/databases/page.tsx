@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Plus, AlertTriangle, Check } from 'lucide-react';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
-import PageContainer from '@/components/PageContainer';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Connection } from './_types';
 import DatabaseList from './_components/DatabaseList';
@@ -143,36 +142,33 @@ export default function DatabasesPage() {
         strategy="afterInteractive"
       />
 
-      <PageContainer
-        title="Supabase DB Connections"
-        subtitle="Configure and verify saved Supabase database credentials to map to your Discord CTF servers."
-        extra={
-          <button 
-            onClick={() => router.push('/dashboard/databases/new')} 
-            className="inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 active:scale-[0.98] bg-primary text-slate-950 hover:bg-primary-hover shadow-lg shadow-primary/10 px-4 py-2.5 text-sm gap-2"
-          >
-            <Plus size={18} />
-            Add Connection
-          </button>
-        }
-      >
-        {/* Error notification */}
-        {error && (
-          <div className="alert bg-accent-red/10 border border-accent-red/20 text-accent-red p-4 rounded-xl mb-6 flex items-center gap-3">
-            <AlertTriangle size={18} className="shrink-0" />
-            <span className="text-sm font-medium">{error}</span>
+      <div className="page-container">
+        <div className="page-container-content space-y-5">
+          <div className="flex items-center justify-end">
+            <button 
+              onClick={() => router.push('/dashboard/databases/new')} 
+              className="inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 active:scale-[0.98] bg-primary text-slate-950 hover:bg-primary-hover shadow-lg shadow-primary/10 px-4 py-2.5 text-sm gap-2"
+            >
+              <Plus size={18} />
+              Add Connection
+            </button>
           </div>
-        )}
 
-        {/* Success notification */}
-        {success && (
-          <div className="alert bg-accent-green/10 border border-accent-green/20 text-accent-green p-4 rounded-xl mb-6 flex items-center gap-3">
-            <Check size={18} className="shrink-0" />
-            <span className="text-sm font-medium">{success}</span>
-          </div>
-        )}
+          {error && (
+            <div className="alert bg-accent-red/10 border border-accent-red/20 text-accent-red p-4 rounded-xl flex items-center gap-3">
+              <AlertTriangle size={18} className="shrink-0" />
+              <span className="text-sm font-medium">{error}</span>
+            </div>
+          )}
 
-        <DatabaseList
+          {success && (
+            <div className="alert bg-accent-green/10 border border-accent-green/20 text-accent-green p-4 rounded-xl flex items-center gap-3">
+              <Check size={18} className="shrink-0" />
+              <span className="text-sm font-medium">{success}</span>
+            </div>
+          )}
+
+          <DatabaseList
           conns={conns}
           loading={loading}
           testConnLoading={testConnLoading}
@@ -207,7 +203,8 @@ export default function DatabasesPage() {
           message="Are you sure you want to delete this Supabase connection? Any Discord servers mapped to this connection will have their Supabase credentials unlinked."
           confirmText="Delete"
         />
-      </PageContainer>
+        </div>
+      </div>
     </>
   );
 }
