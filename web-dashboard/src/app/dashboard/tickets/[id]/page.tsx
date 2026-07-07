@@ -6,8 +6,8 @@ import {
   MessageSquare, Bot, File, Download, Send, RefreshCw, Clock 
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import PageContainer from '@/components/PageContainer';
 import Button from '@/components/Button';
+import GlassInput from '@/components/GlassInput';
 
 interface TicketData {
   id: number;
@@ -193,32 +193,67 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
 
   const openerAvatar = messages.find(m => m.user_id === ticket.user_id && m.avatar_url)?.avatar_url;
 
+  const statusBadge = ticket.status === 'open' ? 'bg-accent-green/10 text-accent-green' :
+    ticket.status === 'in_progress' ? 'bg-accent-yellow/10 text-accent-yellow' : 'bg-accent-red/10 text-accent-red';
+  const statusLabel = ticket.status === 'open' ? 'Open' : ticket.status === 'in_progress' ? 'In Progress' : 'Closed';
+
   return (
-    <PageContainer
-      title={`Ticket #${String(ticket.id).padStart(4, '0')}`}
-      subtitle={ticket.subject}
-    >
+    <>
+      {/* Sticky Header */}
+      <div className="sticky top-[60px] z-40 bg-bg-dark/95 backdrop-blur-md border-b border-border-color -mx-10 mb-8 px-10 py-4 flex items-center justify-between shadow-lg shadow-black/30">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/dashboard/tickets')}
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-800/50 border border-border-color text-slate-200 transition-all hover:bg-slate-700/60"
+            title="Back to Tickets"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-extrabold text-slate-100">Ticket #{String(ticket.id).padStart(4, '0')}</h1>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold ${statusBadge}`}>
+                {statusLabel}
+              </span>
+            </div>
+            <p className="text-slate-400 text-xs mt-0.5 truncate max-w-lg">{ticket.subject}</p>
+          </div>
+        </div>
+
+        {ticket.status !== 'closed' && (
+          showConfirmClose ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-accent-red font-bold">Are you sure?</span>
+              <Button variant="danger" size="sm" onClick={handleCloseTicket} loading={actionLoading}>
+                Yes, Close
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowConfirmClose(false)}>
+                No
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowConfirmClose(true)}
+              className="text-accent-red border-accent-red/20 hover:bg-accent-red/10"
+            >
+              <Lock size={14} className="mr-1.5" />
+              Close Ticket
+            </Button>
+          )
+        )}
+      </div>
+
       <div className="flex flex-col xl:flex-row gap-6 h-[calc(100vh-200px)] min-h-[500px]">
         {/* Left Column: Details panel */}
         <div className="w-full xl:w-[320px] bg-slate-950/40 border border-border-color rounded-2xl p-5 flex flex-col justify-between shrink-0 overflow-y-auto">
           <div className="space-y-6">
-            {/* Back button */}
-            <button 
-              onClick={() => router.push('/dashboard/tickets')}
-              className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors text-sm font-semibold mb-4"
-            >
-              <ArrowLeft size={16} />
-              <span>Back to Tickets</span>
-            </button>
-
             {/* Status Info */}
             <div className="space-y-1.5">
               <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</span>
-              <span className={`badge text-xs px-3 py-1 ${
-                ticket.status === 'open' ? 'badge-success' : 
-                ticket.status === 'in_progress' ? 'badge-warning' : 'badge-danger'
-              }`}>
-                {ticket.status === 'open' ? 'Open' : ticket.status === 'in_progress' ? 'In Progress' : 'Closed'}
+              <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-bold ${statusBadge}`}>
+                {statusLabel}
               </span>
             </div>
 
@@ -298,44 +333,6 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
-          {/* Close Action bottom button */}
-          {ticket.status !== 'closed' && (
-            <div className="pt-4 border-t border-border-color/60 mt-6">
-              {showConfirmClose ? (
-                <div className="space-y-2 bg-accent-red/5 p-3 border border-accent-red/20 rounded-xl">
-                  <span className="text-xs text-accent-red font-bold block text-center">Are you sure?</span>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="danger" 
-                      size="sm" 
-                      onClick={handleCloseTicket} 
-                      loading={actionLoading}
-                      className="flex-1 text-xs py-1.5"
-                    >
-                      Yes, Close
-                    </Button>
-                    <Button 
-                      variant="secondary" 
-                      size="sm" 
-                      onClick={() => setShowConfirmClose(false)}
-                      className="flex-1 text-xs py-1.5"
-                    >
-                      No
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button 
-                  variant="secondary" 
-                  onClick={() => setShowConfirmClose(true)} 
-                  className="w-full text-accent-red border-accent-red/20 hover:bg-accent-red/10"
-                >
-                  <Lock size={14} className="mr-2" />
-                  Close Ticket
-                </Button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Right Column: Chat Transcript container */}
@@ -455,17 +452,19 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
           <div className="p-4 border-t border-border-color bg-slate-950/40 flex gap-3 items-center shrink-0">
             {ticket.status !== 'closed' ? (
               <>
-                <input 
-                  type="text"
-                  placeholder="Type a response to send to Discord ticket channel..."
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSendReply();
-                  }}
-                  className="flex-1 h-11 bg-slate-900 border border-border-color rounded-xl px-4 text-slate-200 text-sm outline-none focus:border-border-hover transition-colors"
-                  disabled={sendingReply}
-                />
+                <div className="flex-1">
+                  <GlassInput
+                    type="text"
+                    placeholder="Type a response to send to Discord ticket channel..."
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSendReply();
+                    }}
+                    className="text-sm"
+                    disabled={sendingReply}
+                  />
+                </div>
                 <Button
                   onClick={handleSendReply}
                   loading={sendingReply}
@@ -484,6 +483,6 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
-    </PageContainer>
+    </>
   );
 }

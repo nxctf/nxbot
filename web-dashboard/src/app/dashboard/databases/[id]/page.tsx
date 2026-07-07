@@ -1,10 +1,10 @@
 'use client';
 
 import React, { use, useState, useEffect } from 'react';
-import { AlertTriangle, Check } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Check } from 'lucide-react';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
-import PageContainer from '@/components/PageContainer';
+import Button from '@/components/Button';
 import DatabaseForm from '../_components/DatabaseForm';
 import { Connection } from '../_types';
 
@@ -76,44 +76,56 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
         strategy="afterInteractive"
       />
 
-      <PageContainer
-        title="Edit Database Connection"
-        subtitle="Modify settings and Turnstile captcha configuration for this connection."
-      >
-        {/* Error notification */}
-        {error && (
-          <div className="alert bg-accent-red/10 border border-accent-red/20 text-accent-red p-4 rounded-xl mb-6 flex items-center gap-3">
-            <AlertTriangle size={18} className="shrink-0" />
-            <span className="text-sm font-medium">{error}</span>
+      {/* Sticky Header */}
+      <div className="sticky top-[60px] z-40 bg-bg-dark/95 backdrop-blur-md border-b border-border-color -mx-10 mb-8 px-10 py-4 flex items-center justify-between shadow-lg shadow-black/30">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/dashboard/databases')}
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-800/50 border border-border-color text-slate-200 transition-all hover:bg-slate-700/60"
+            title="Back to Connections"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-100">Edit Database Connection</h1>
+            <p className="text-slate-400 text-xs mt-0.5">Modify settings and Turnstile captcha configuration.</p>
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* Success notification */}
-        {success && (
-          <div className="alert bg-accent-green/10 border border-accent-green/20 text-accent-green p-4 rounded-xl mb-6 flex items-center gap-3">
-            <Check size={18} className="shrink-0" />
-            <span className="text-sm font-medium">{success}</span>
-          </div>
-        )}
+      {/* Error notification */}
+      {error && (
+        <div className="alert bg-accent-red/10 border border-accent-red/20 text-accent-red p-4 rounded-xl mb-6 flex items-center gap-3">
+          <AlertTriangle size={18} className="shrink-0" />
+          <span className="text-sm font-medium">{error}</span>
+        </div>
+      )}
 
-        {fetching ? (
-          <div className="glass-panel p-16 text-center text-slate-400">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary mx-auto mb-4" />
-            <p>Fetching connection details...</p>
-          </div>
-        ) : conn ? (
-          <DatabaseForm
-            editingConn={conn}
-            onSave={handleSaveConnection}
-            onCancel={() => router.push('/dashboard/databases')}
-            loading={loading}
-          />
-        ) : (
-          <div className="glass-panel p-16 text-center text-slate-400">
-            <p>Connection not found.</p>
-          </div>
-        )}
-      </PageContainer>
+      {/* Success notification */}
+      {success && (
+        <div className="alert bg-accent-green/10 border border-accent-green/20 text-accent-green p-4 rounded-xl mb-6 flex items-center gap-3">
+          <Check size={18} className="shrink-0" />
+          <span className="text-sm font-medium">{success}</span>
+        </div>
+      )}
+
+      {fetching ? (
+        <div className="glass-panel p-16 text-center text-slate-400">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary mx-auto mb-4" />
+          <p>Fetching connection details...</p>
+        </div>
+      ) : conn ? (
+        <DatabaseForm
+          editingConn={conn}
+          onSave={handleSaveConnection}
+          onCancel={() => router.push('/dashboard/databases')}
+          loading={loading}
+        />
+      ) : (
+        <div className="glass-panel p-16 text-center text-slate-400">
+          <p>Connection not found.</p>
+        </div>
+      )}
     </>
   );
 }
