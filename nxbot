@@ -222,9 +222,8 @@ cmd_stop() {
 
 cmd_restart() {
     echo -e "$PREFIX_INFO Restarting all NXBot services..."
-    compose restart
-    echo -e "$PREFIX_INFO All services restarted."
-    cmd_status
+    cmd_stop
+    cmd_start
 }
 
 cmd_status() {
@@ -333,7 +332,7 @@ cmd_setup() {
     echo ""
     echo -e "$PREFIX_INFO Configure Administrator Credentials"
     echo "  ──────────────────────────────────────────"
-    
+
     local username=""
     while [ -z "$username" ] || [ ${#username} -lt 3 ]; do
         read -p "  Enter admin username (min 3 chars): " username

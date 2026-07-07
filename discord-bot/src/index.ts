@@ -8,6 +8,7 @@ import { FirstBloodService } from './services/firstblood';
 import { AnnouncementService } from './services/announcements';
 import { TicketManager } from './services/ticket-manager';
 import { setTicketManager } from './commands/ticket';
+import { ScoreboardService } from './services/scoreboard';
 
 // Import commands
 import { commandsList } from './commands';
@@ -45,6 +46,7 @@ for (const cmd of commandsList) {
 let firstBloodService: FirstBloodService;
 let announcementService: AnnouncementService;
 let ticketManager: TicketManager;
+let scoreboardService: ScoreboardService;
 
 // ---- Event: Ready ----
 client.once('ready', async () => {
@@ -83,7 +85,8 @@ client.once('ready', async () => {
   ticketManager = new TicketManager(client);
   setTicketManager(ticketManager);
 
-  firstBloodService = new FirstBloodService(client);
+  scoreboardService = new ScoreboardService(client);
+  firstBloodService = new FirstBloodService(client, scoreboardService);
   announcementService = new AnnouncementService(client);
 
   // Initialize Supabase connections for all active guilds
@@ -93,8 +96,22 @@ client.once('ready', async () => {
   await firstBloodService.startAll();
   await announcementService.startAll();
 
+  // Trigger initial scoreboard updates for all active guilds
+  await scoreboardService.updateAll().catch((err) => console.error('[Bot] Failed initial scoreboard update:', err));
+
   logEvent(null, 'info', 'startup', `Bot started. ${supabaseManager.connectionCount} Supabase connection(s) active.`);
   console.log(`[Bot] Ready! ${supabaseManager.connectionCount} Supabase connection(s) active.`);
+
+  // Start periodic scoreboard update loop every 60 seconds (1 minute)
+  setInterval(async () => {
+    try {
+      if (scoreboardService) {
+        await scoreboardService.updateAll();
+      }
+    } catch (err) {
+      console.error('[Bot] Error in periodic scoreboard update loop:', err);
+    }
+  }, 60000);
 
   // Start config sync polling loop every 10 seconds
   setInterval(async () => {
@@ -121,6 +138,10 @@ client.once('ready', async () => {
           await supabaseManager.connect(dbGuild);
           firstBloodService.subscribeGuild(dbGuild);
           announcementService.subscribeGuild(dbGuild);
+          // Initial update when new active guild is connected
+          if (dbGuild.enable_scoreboard && dbGuild.channel_scoreboard && dbGuild.scoreboard_message_id) {
+            scoreboardService.updateScoreboard(dbGuild.id).catch(() => null);
+          }
         } else if (existingConfig) {
           // Check if key configurations or credentials changed
           const hasChanged = 
@@ -133,6 +154,9 @@ client.once('ready', async () => {
             existingConfig.enable_firstblood !== dbGuild.enable_firstblood ||
             existingConfig.channel_firstblood !== dbGuild.channel_firstblood ||
             existingConfig.channel_announcements !== dbGuild.channel_announcements ||
+            existingConfig.enable_scoreboard !== dbGuild.enable_scoreboard ||
+            existingConfig.channel_scoreboard !== dbGuild.channel_scoreboard ||
+            existingConfig.scoreboard_message_id !== dbGuild.scoreboard_message_id ||
             existingConfig.updated_at !== dbGuild.updated_at;
 
           if (hasChanged) {
@@ -140,6 +164,10 @@ client.once('ready', async () => {
             await supabaseManager.reload(dbGuild);
             firstBloodService.subscribeGuild(dbGuild);
             announcementService.subscribeGuild(dbGuild);
+            // Immediate update on config change
+            if (dbGuild.enable_scoreboard && dbGuild.channel_scoreboard && dbGuild.scoreboard_message_id) {
+              scoreboardService.updateScoreboard(dbGuild.id).catch(() => null);
+            }
           }
         }
       }

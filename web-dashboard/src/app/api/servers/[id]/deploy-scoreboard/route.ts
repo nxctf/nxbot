@@ -187,7 +187,7 @@ export async function POST(
       deployedMessageId = newMsg.id;
 
       // Update message ID in local DB
-      db.prepare('UPDATE guilds SET scoreboard_message_id = ? WHERE id = ?').run(deployedMessageId, guildId);
+      db.prepare('UPDATE guilds SET scoreboard_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(deployedMessageId, guildId);
     }
 
     return NextResponse.json({
