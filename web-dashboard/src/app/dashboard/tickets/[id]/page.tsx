@@ -191,7 +191,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const openerAvatar = messages.find(m => m.user_id === ticket.user_id && m.avatar_url)?.avatar_url;
+  const openerAvatar = ticket.user_avatar || messages.find(m => m.user_id === ticket.user_id && m.avatar_url)?.avatar_url;
 
   const statusBadge = ticket.status === 'open' ? 'bg-accent-green/10 text-accent-green' :
     ticket.status === 'in_progress' ? 'bg-accent-yellow/10 text-accent-yellow' : 'bg-accent-red/10 text-accent-red';
