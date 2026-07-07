@@ -5,9 +5,9 @@ const fs = require('fs');
 console.log('[Runner] Starting NXBot Unified Services...');
 
 // Resolve directories
-const botDir = path.join(__dirname, 'discord-bot');
-const webDir = path.join(__dirname, 'web-dashboard');
-const dataDir = path.join(__dirname, 'data');
+const botDir = path.join(__dirname, '..', 'discord-bot');
+const webDir = path.join(__dirname, '..', 'web-dashboard');
+const dataDir = path.join(__dirname, '..', 'data');
 
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });

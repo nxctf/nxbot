@@ -1,15 +1,15 @@
-// Run this from the project root: node check_db.js
+// Run this from the project root: node scripts/check_db.js
 // It uses discord-bot's node_modules for dependencies
 
 const path = require('path');
 
 // Resolve modules from discord-bot/node_modules
-const modulePath = path.join(__dirname, 'discord-bot', 'node_modules');
+const modulePath = path.join(__dirname, '..', 'discord-bot', 'node_modules');
 const { createClient } = require(path.join(modulePath, '@supabase/supabase-js'));
 const sqlite = require(path.join(modulePath, 'better-sqlite3'));
 
 // Open the SQLite database
-const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'data/nxbot.db');
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data/nxbot.db');
 console.log('📂 Database path:', dbPath);
 
 const db = new sqlite(dbPath);

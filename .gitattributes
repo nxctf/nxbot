@@ -1,0 +1,2 @@
+# Ensure CLI script uses LF line endings so it's executable on Unix/Linux systems even if checked out on Windows
+nxbot text eol=lf
