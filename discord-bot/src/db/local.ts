@@ -355,9 +355,9 @@ export function saveTicketMessage(
 
   // Insert actual chat message metadata/content
   getDb().prepare(`
-    INSERT INTO ticket_messages (ticket_id, user_id, message_content, attachment_filename, attachment_original_name, attachment_size)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(ticketId, userId, content ?? '', attachmentFilename ?? null, attachmentOriginalName ?? null, attachmentSize ?? null);
+    INSERT INTO ticket_messages (ticket_id, user_id, username, message_content, attachment_filename, attachment_original_name, attachment_size)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(ticketId, userId, username, content ?? '', attachmentFilename ?? null, attachmentOriginalName ?? null, attachmentSize ?? null);
 }
 
 // ---- Logging ----

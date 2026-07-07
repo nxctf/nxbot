@@ -29,7 +29,7 @@ export async function GET(
     // 2. Fetch all messages in order
     const messages = db.prepare(`
       SELECT tm.id, tm.ticket_id, tm.user_id, 
-             COALESCE(u.username, tm.user_id) AS username,
+             COALESCE(u.username, tm.username, tm.user_id) AS username,
              u.avatar_url AS avatar_url,
              tm.message_content, tm.attachment_filename,
              tm.attachment_original_name, tm.attachment_size, tm.created_at
@@ -81,9 +81,9 @@ export async function POST(
 
     // 2. Insert message into ticket_messages for immediate display in dashboard transcript
     db.prepare(`
-      INSERT INTO ticket_messages (ticket_id, user_id, message_content)
-      VALUES (?, ?, ?)
-    `).run(ticketId, 'bot', message);
+      INSERT INTO ticket_messages (ticket_id, user_id, username, message_content)
+      VALUES (?, ?, ?, ?)
+    `).run(ticketId, 'bot', `NXBot (via ${user.username})`, message);
 
     // 3. Upsert bot user cache
     db.prepare(`

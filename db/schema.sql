@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     user_id TEXT NOT NULL,
+    username TEXT NOT NULL DEFAULT 'unknown',
     message_content TEXT DEFAULT NULL,
     attachment_filename TEXT DEFAULT NULL,
     attachment_original_name TEXT DEFAULT NULL,
