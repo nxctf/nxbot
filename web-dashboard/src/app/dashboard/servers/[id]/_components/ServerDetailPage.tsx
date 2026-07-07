@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { ArrowLeft, Save, RefreshCw, Database, Ticket, AlertTriangle, CheckCircle } from 'lucide-react';
+import TabSidebar from '@/components/TabSidebar';
 import { GuildConfig, DatabaseConnection, EventItem, DiscordChannel, DiscordRole, DiscordGuildInfo } from '../_types';
 import GeneralTab from './GeneralTab';
 import IntegrationTab from './IntegrationTab';
@@ -97,7 +98,7 @@ export function ServerDetailPage({
   const [confirmServerName, setConfirmServerName] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const handleTabChange = (tab: 'general' | 'supabase' | 'tickets') => {
+  const handleTabChange = (tab: string) => {
     router.replace(`${pathname}?tab=${tab}`, { scroll: false });
   };
 
@@ -181,98 +182,72 @@ export function ServerDetailPage({
           </div>
         )}
 
-        {/* Tabs Bar */}
-        <div className="sticky top-[120px] z-30 bg-bg-dark/95 backdrop-blur-md border-b border-border-color py-3 -mx-10 px-10 mb-8 flex gap-2 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => handleTabChange('general')}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all shrink-0 ${
-              activeTab === 'general'
-                ? 'bg-primary text-slate-950 border-primary shadow-lg shadow-primary/10'
-                : 'bg-slate-800/30 border-border-color text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <RefreshCw size={14} className={activeTab === 'general' ? '' : 'text-slate-500'} />
-            General Settings
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('supabase')}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all shrink-0 ${
-              activeTab === 'supabase'
-                ? 'bg-primary text-slate-950 border-primary shadow-lg shadow-primary/10'
-                : 'bg-slate-800/30 border-border-color text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Database size={14} className={activeTab === 'supabase' ? '' : 'text-slate-500'} />
-            Supabase & Integration
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('tickets')}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all shrink-0 ${
-              activeTab === 'tickets'
-                ? 'bg-primary text-slate-950 border-primary shadow-lg shadow-primary/10'
-                : 'bg-slate-800/30 border-border-color text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Ticket size={14} className={activeTab === 'tickets' ? '' : 'text-slate-500'} />
-            Ticket System
-          </button>
+        <div className="flex gap-6 items-start">
+          <TabSidebar
+            tabs={[
+              { value: 'general', label: 'General', icon: <RefreshCw size={15} /> },
+              { value: 'supabase', label: 'Integration', icon: <Database size={15} /> },
+              { value: 'tickets', label: 'Tickets', icon: <Ticket size={15} /> },
+            ]}
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+          />
+
+          {/* Tab Contents */}
+          <div className="flex-1 min-w-0">
+            {activeTab === 'general' && (
+              <GeneralTab 
+                formState={config} 
+                setFormState={setConfig} 
+                discordGuildInfo={discordGuildInfo}
+                onDeleteClick={() => setDeleteConfirmOpen(true)}
+              />
+            )}
+
+            {activeTab === 'supabase' && (
+              <IntegrationTab
+                formState={config}
+                setFormState={setConfig}
+                databases={databases}
+                events={events}
+                eventsLoading={eventsLoading}
+                channels={channels}
+                botConnected={botConnected}
+                onTestConnection={onTestConnection}
+                testConnLoading={testConnLoading}
+                testConnSuccess={testConnSuccess}
+                testConnError={testConnError}
+                onTestFirstBlood={onTestFirstBlood}
+                testFbLoading={testFbLoading}
+                testFbSuccess={testFbSuccess}
+                testFbError={testFbError}
+                onTestAnnouncement={onTestAnnouncement}
+                testAnnLoading={testAnnLoading}
+                testAnnSuccess={testAnnSuccess}
+                testAnnError={testAnnError}
+                onDeployScoreboard={onDeployScoreboard}
+                scoreLoading={scoreLoading}
+                scoreSuccess={scoreSuccess}
+                scoreError={scoreError}
+                fetchEventsList={fetchEventsList}
+              />
+            )}
+
+            {activeTab === 'tickets' && (
+              <TicketsTab
+                formState={config}
+                setFormState={setConfig}
+                channels={channels}
+                roles={roles}
+                botConnected={botConnected}
+                onDeployPanel={onDeployPanel}
+                deployLoading={deployLoading}
+                deploySuccess={deploySuccess}
+                deployError={deployError}
+              />
+            )}
+          </div>
         </div>
-
-        {/* Tab Contents */}
-        {activeTab === 'general' && (
-          <GeneralTab 
-            formState={config} 
-            setFormState={setConfig} 
-            discordGuildInfo={discordGuildInfo}
-            onDeleteClick={() => setDeleteConfirmOpen(true)}
-          />
-        )}
-
-        {activeTab === 'supabase' && (
-          <IntegrationTab
-            formState={config}
-            setFormState={setConfig}
-            databases={databases}
-            events={events}
-            eventsLoading={eventsLoading}
-            channels={channels}
-            botConnected={botConnected}
-            onTestConnection={onTestConnection}
-            testConnLoading={testConnLoading}
-            testConnSuccess={testConnSuccess}
-            testConnError={testConnError}
-            onTestFirstBlood={onTestFirstBlood}
-            testFbLoading={testFbLoading}
-            testFbSuccess={testFbSuccess}
-            testFbError={testFbError}
-            onTestAnnouncement={onTestAnnouncement}
-            testAnnLoading={testAnnLoading}
-            testAnnSuccess={testAnnSuccess}
-            testAnnError={testAnnError}
-            onDeployScoreboard={onDeployScoreboard}
-            scoreLoading={scoreLoading}
-            scoreSuccess={scoreSuccess}
-            scoreError={scoreError}
-            fetchEventsList={fetchEventsList}
-          />
-        )}
-
-        {activeTab === 'tickets' && (
-          <TicketsTab
-            formState={config}
-            setFormState={setConfig}
-            channels={channels}
-            roles={roles}
-            botConnected={botConnected}
-            onDeployPanel={onDeployPanel}
-            deployLoading={deployLoading}
-            deploySuccess={deploySuccess}
-            deployError={deployError}
-          />
-        )}
       </form>
 
       {/* Name-verification Delete Confirmation Modal */}
