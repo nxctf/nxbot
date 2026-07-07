@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { Ticket, Filter, Server, User, Lock, RefreshCw, ChevronRight, Trash2 } from 'lucide-react';
+import { Ticket, Server, User, Lock, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import PageContainer from '@/components/PageContainer';
 import Button from '@/components/Button';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/Table';
+import { FilterToolbar, FilterSelect } from '@/components/Filter';
 
 interface TicketData {
   id: number;
@@ -32,6 +34,12 @@ interface GuildItem {
   guild_name: string;
 }
 
+const STATUS_OPTIONS = [
+  { value: 'open', label: '🟢 Open' },
+  { value: 'in_progress', label: '🟡 In Progress' },
+  { value: 'closed', label: '🔴 Closed' },
+];
+
 function TicketsContent() {
   const router = useRouter();
 
@@ -40,7 +48,6 @@ function TicketsContent() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
-  // Filters
   const [statusFilter, setStatusFilter] = useState('');
   const [guildFilter, setGuildFilter] = useState('');
   const [confirmCloseId, setConfirmCloseId] = useState<number | null>(null);
@@ -66,13 +73,12 @@ function TicketsContent() {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const guildsRes = await fetch('/api/servers');
-      const guildsData = await guildsRes.json();
-      setGuilds(guildsData);
-      
-      const ticketsRes = await fetch('/api/tickets');
-      const ticketsData = await ticketsRes.json();
-      setTickets(ticketsData);
+      const [guildsRes, ticketsRes] = await Promise.all([
+        fetch('/api/servers'),
+        fetch('/api/tickets'),
+      ]);
+      setGuilds(await guildsRes.json());
+      setTickets(await ticketsRes.json());
     } catch (err) {
       console.error('Error fetching tickets initial data:', err);
     } finally {
@@ -92,7 +98,7 @@ function TicketsContent() {
   }, [statusFilter, guildFilter]);
 
   const handleUpdateStatus = async (e: React.MouseEvent, ticketId: number, newStatus: string) => {
-    e.stopPropagation(); // Avoid opening page
+    e.stopPropagation();
     setActionLoading(ticketId);
     try {
       const res = await fetch(`/api/tickets/${ticketId}`, {
@@ -158,92 +164,54 @@ function TicketsContent() {
   }
 
   return (
-    <PageContainer
-      title="Support Tickets"
-      subtitle="Monitor and view chat transcripts for ticket channels created by CTF participants"
-    >
-      {/* Filter Bar */}
-      <div className="glass-panel p-5 mb-8 flex flex-wrap gap-5 items-center">
-        <div className="flex items-center gap-2 text-primary">
-          <Filter size={18} />
-          <span className="text-sm font-semibold">Filters:</span>
-        </div>
-
-        <div className="form-group mb-0 min-w-[200px]">
-          <select 
-            className="w-full px-4 py-2 bg-slate-950/60 border border-border-color rounded-lg text-slate-200 text-sm outline-none cursor-pointer"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">All Statuses</option>
-            <option value="open">🟢 Open</option>
-            <option value="in_progress">🟡 In Progress</option>
-            <option value="closed">🔴 Closed</option>
-          </select>
-        </div>
-
-        <div className="form-group mb-0 min-w-[240px]">
-          <select 
-            className="w-full px-4 py-2 bg-slate-950/60 border border-border-color rounded-lg text-slate-200 text-sm outline-none cursor-pointer"
-            value={guildFilter}
-            onChange={(e) => setGuildFilter(e.target.value)}
-          >
-            <option value="">All Servers</option>
-            {guilds.map((g) => (
-              <option key={g.id} value={g.id}>{g.guild_name}</option>
-            ))}
-          </select>
-        </div>
-
-        {guildFilter && (
-          confirmResetAll ? (
-            <div className="flex gap-2 items-center ml-auto">
-              <span className="text-[10px] text-accent-red font-bold mr-1">Delete ALL tickets for this server?</span>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleResetAll}
-                className="py-1 px-2.5 text-xs font-semibold"
-                disabled={resetLoading}
-              >
-                {resetLoading ? 'Deleting...' : 'Yes, Reset All'}
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setConfirmResetAll(false)}
-                className="py-1 px-2.5 text-xs font-semibold"
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => setConfirmResetAll(true)}
-            >
-              <Trash2 size={14} className="mr-1.5" />
-              Reset All Tickets
+    <PageContainer title="Tickets">
+      <FilterToolbar
+        actions={
+          <>
+            {guildFilter && (
+              confirmResetAll ? (
+                <div className="flex gap-2 items-center">
+                  <span className="text-[10px] text-accent-red font-bold">Delete ALL tickets for this server?</span>
+                  <Button variant="danger" size="sm" onClick={handleResetAll} className="py-1 px-2.5 text-xs font-semibold" disabled={resetLoading}>
+                    {resetLoading ? 'Deleting...' : 'Yes, Reset All'}
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setConfirmResetAll(false)} className="py-1 px-2.5 text-xs font-semibold">
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="danger" size="sm" onClick={() => setConfirmResetAll(true)}>
+                  <Trash2 size={14} className="mr-1.5" />
+                  Reset All Tickets
+                </Button>
+              )
+            )}
+            <Button variant="secondary" size="sm" onClick={() => { setStatusFilter(''); setGuildFilter(''); }}>
+              Reset Filters
             </Button>
-          )
-        )}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => { setStatusFilter(''); setGuildFilter(''); }}
-          className="ml-auto"
-        >
-          Reset Filters
-        </Button>
-      </div>
+          </>
+        }
+      >
+        <FilterSelect
+          placeholder="All Statuses"
+          options={STATUS_OPTIONS}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        />
+        <FilterSelect
+          placeholder="All Servers"
+          options={guilds.map((g) => ({ value: g.id, label: g.guild_name }))}
+          value={guildFilter}
+          onChange={(e) => setGuildFilter(e.target.value)}
+        />
+      </FilterToolbar>
+
       {resetSuccess && (
         <div className="mb-6 px-5 py-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
           {resetSuccess}
         </div>
       )}
 
-      {/* Ticket List */}
       {tickets.length === 0 ? (
         <div className="glass-panel py-16 px-6 text-center text-slate-400 flex flex-col items-center justify-center">
           <div className="flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 mb-6 shadow-[0_0_15px_rgba(168,85,247,0.15)]">
@@ -255,43 +223,39 @@ function TicketsContent() {
           </p>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Ticket ID</th>
-                <th>Server</th>
-                <th>Opened By</th>
-                <th>Subject</th>
-                <th>Status</th>
-                <th>Created At</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="glass-panel overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Ticket ID</TableHead>
+                <TableHead>Server</TableHead>
+                <TableHead>Opened By</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created At</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {tickets.map((t) => (
-                <tr 
-                  key={t.id} 
-                  onClick={() => handleRowClick(t)} 
-                  className="cursor-pointer hover:bg-slate-800/10 transition-colors"
+                <TableRow
+                  key={t.id}
+                  onClick={() => handleRowClick(t)}
+                  className="cursor-pointer"
                 >
-                  <td className="font-bold text-primary font-mono">
+                  <TableCell className="font-bold text-primary font-mono">
                     #{String(t.id).padStart(4, '0')}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <span className="inline-flex items-center gap-1.5 font-semibold text-slate-200">
                       <Server size={14} className="text-slate-400" />
                       {t.guild_name}
                     </span>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-2">
                       {t.user_avatar ? (
-                        <img 
-                          src={t.user_avatar} 
-                          alt="" 
-                          className="w-6 h-6 rounded-full object-cover border border-white/5" 
-                        />
+                        <img src={t.user_avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-white/5" />
                       ) : (
                         <div className="w-6 h-6 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
                           <User size={12} />
@@ -302,56 +266,40 @@ function TicketsContent() {
                         <div className="text-[10px] text-slate-500 font-mono">ID: {t.user_id}</div>
                       </div>
                     </div>
-                  </td>
-                  <td className="text-slate-100 font-medium max-w-[240px] truncate">
+                  </TableCell>
+                  <TableCell className="text-slate-100 font-medium max-w-[240px] truncate">
                     {t.subject}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     <span className={`badge ${
-                      t.status === 'open' ? 'badge-success' : 
+                      t.status === 'open' ? 'badge-success' :
                       t.status === 'in_progress' ? 'badge-warning' : 'badge-danger'
                     }`}>
                       {t.status === 'open' ? 'Open' : t.status === 'in_progress' ? 'In Progress' : 'Closed'}
                     </span>
-                  </td>
-                  <td className="text-slate-400 text-xs">
+                  </TableCell>
+                  <TableCell className="text-slate-400 text-xs">
                     {new Date(t.created_at).toLocaleDateString()}
-                  </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-2 items-center">
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
+                    <div className="flex gap-2 items-center justify-end">
                       {t.status !== 'closed' ? (
                         confirmCloseId === t.id ? (
                           <div className="flex gap-1.5 items-center">
-                            <span className="text-[10px] text-accent-red font-bold mr-1">Sure?</span>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={(e) => {
-                                handleUpdateStatus(e, t.id, 'closed');
-                                setConfirmCloseId(null);
-                              }}
-                              className="py-1 px-2.5 text-xs font-semibold"
-                              disabled={actionLoading === t.id}
-                            >
+                            <span className="text-[10px] text-accent-red font-bold">Sure?</span>
+                            <Button variant="danger" size="sm" onClick={(e) => { handleUpdateStatus(e, t.id, 'closed'); setConfirmCloseId(null); }}
+                              className="py-1 px-2.5 text-xs font-semibold" disabled={actionLoading === t.id}>
                               Yes
                             </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setConfirmCloseId(null)}
-                              className="py-1 px-2.5 text-xs font-semibold"
-                            >
+                            <Button variant="secondary" size="sm" onClick={() => setConfirmCloseId(null)}
+                              className="py-1 px-2.5 text-xs font-semibold">
                               No
                             </Button>
                           </div>
                         ) : (
-                          <Button 
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setConfirmCloseId(t.id)}
+                          <Button variant="secondary" size="sm" onClick={() => setConfirmCloseId(t.id)}
                             className="py-1 px-2.5 text-xs text-accent-red border-accent-red/20 hover:bg-accent-red/10"
-                            disabled={actionLoading === t.id}
-                          >
+                            disabled={actionLoading === t.id}>
                             Close
                           </Button>
                         )
@@ -359,11 +307,7 @@ function TicketsContent() {
                         <span className="text-slate-400 text-xs inline-flex items-center gap-1.5">
                           <Lock size={12} className="text-accent-red" />
                           {t.closed_by_avatar && (
-                            <img 
-                              src={t.closed_by_avatar} 
-                              alt="" 
-                              className="w-4 h-4 rounded-full object-cover" 
-                            />
+                            <img src={t.closed_by_avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
                           )}
                           <span className="font-medium">Closed by @{t.closed_by_username || t.closed_by || 'system'}</span>
                         </span>
@@ -374,40 +318,27 @@ function TicketsContent() {
                       {confirmDeleteId === t.id ? (
                         <div className="flex gap-1.5 items-center">
                           <span className="text-[10px] text-accent-red font-bold">Delete?</span>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={(e) => handleDelete(e, t.id)}
-                            className="py-1 px-2 text-xs font-semibold"
-                            disabled={actionLoading === t.id}
-                          >
+                          <Button variant="danger" size="sm" onClick={(e) => handleDelete(e, t.id)}
+                            className="py-1 px-2 text-xs font-semibold" disabled={actionLoading === t.id}>
                             {actionLoading === t.id ? '...' : 'Yes'}
                           </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="py-1 px-2 text-xs font-semibold"
-                          >
+                          <Button variant="secondary" size="sm" onClick={() => setConfirmDeleteId(null)}
+                            className="py-1 px-2 text-xs font-semibold">
                             No
                           </Button>
                         </div>
                       ) : (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setConfirmDeleteId(t.id)}
-                          className="py-1 px-2 text-xs text-accent-red/70 border-accent-red/10 hover:bg-accent-red/10 hover:text-accent-red"
-                        >
+                        <Button variant="secondary" size="sm" onClick={() => setConfirmDeleteId(t.id)}
+                          className="py-1 px-2 text-xs text-accent-red/70 border-accent-red/10 hover:bg-accent-red/10 hover:text-accent-red">
                           <Trash2 size={12} />
                         </Button>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </PageContainer>

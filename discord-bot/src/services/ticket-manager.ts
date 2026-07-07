@@ -166,8 +166,10 @@ export class TicketManager {
 
     // Send initial embed with close and claim buttons
     try {
+      const botAvatar = this.client.user?.displayAvatarURL({ forceStatic: false }) ?? null;
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
+        .setAuthor({ name: 'NXBot Ticketing System', iconURL: botAvatar ?? undefined })
         .setTitle(`🎫 Ticket #${String(ticketNumber).padStart(4, '0')}`)
         .addFields(
           { name: 'Subject', value: subject, inline: false },
@@ -254,8 +256,10 @@ export class TicketManager {
         return { success: false, error: 'Ticket panel channel not found or is not a text channel.' };
       }
 
+      const botAvatarPanel = this.client.user?.displayAvatarURL({ forceStatic: false }) ?? null;
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
+        .setAuthor({ name: 'NXBot Ticketing System', iconURL: botAvatarPanel ?? undefined })
         .setTitle('🎫 Support Tickets')
         .setDescription(
           '**Need help?** Click the button below to open a support ticket.\n\n' +
@@ -318,8 +322,10 @@ export class TicketManager {
     try {
       const channel = await this.client.channels.fetch(channelId);
       if (channel && channel instanceof TextChannel) {
+        const botAvatarClose = this.client.user?.displayAvatarURL({ forceStatic: false }) ?? null;
         const embed = new EmbedBuilder()
           .setColor(0xEF4444)
+          .setAuthor({ name: 'NXBot Ticketing System', iconURL: botAvatarClose ?? undefined })
           .setTitle('🔒 Ticket Closed')
           .setDescription(
             `This ticket has been closed by <@${closedByUserId}>.` +

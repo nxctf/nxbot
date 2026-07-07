@@ -85,21 +85,21 @@ export async function POST(
       VALUES (?, ?, ?)
     `).run(ticketId, 'bot', message);
 
-    // 3. Upsert bot user cache
+    // 3. Upsert user cache for dashboard display
     db.prepare(`
       INSERT INTO discord_users (user_id, username, avatar_url, updated_at)
       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(user_id) DO UPDATE SET
         username = excluded.username,
         updated_at = CURRENT_TIMESTAMP
-    `).run('bot', `NXBot (via ${user.username})`, null);
+    `).run('bot', user.username, null);
 
     // 3. Enqueue bot action to send message to Discord
     db.prepare(`
       INSERT INTO bot_actions (action_type, payload) VALUES (?, ?)
     `).run('send_message', JSON.stringify({
       channel_id: ticket.channel_id,
-      message_content: `💬 **Admin (${user.username}):** ${message}`,
+      message_content: message,
     }));
 
     return NextResponse.json({ success: true });
