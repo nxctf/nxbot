@@ -21,7 +21,8 @@ export default function ServerDetailWrapper({ params }: { params: Promise<{ id: 
     events,
     eventsLoading,
     fetchEvents,
-    botConnected
+    botConnected,
+    discordGuildInfo
   } = useGuildConfig(id);
 
   const {
@@ -184,6 +185,7 @@ export default function ServerDetailWrapper({ params }: { params: Promise<{ id: 
       deploySuccess={deploySuccess}
       deployError={deployError}
       fetchEventsList={fetchEvents}
+      discordGuildInfo={discordGuildInfo}
       error={error}
       success={success}
     />

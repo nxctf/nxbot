@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { ArrowLeft, Save, RefreshCw, Database, Ticket, AlertTriangle, CheckCircle } from 'lucide-react';
-import { GuildConfig, DatabaseConnection, EventItem, DiscordChannel, DiscordRole } from '../_types';
+import { GuildConfig, DatabaseConnection, EventItem, DiscordChannel, DiscordRole, DiscordGuildInfo } from '../_types';
 import GeneralTab from './GeneralTab';
 import IntegrationTab from './IntegrationTab';
 import TicketsTab from './TicketsTab';
@@ -43,6 +43,7 @@ interface ServerDetailPageProps {
   deploySuccess: string;
   deployError: string;
   fetchEventsList: (url: string, key: string) => Promise<void>;
+  discordGuildInfo: DiscordGuildInfo | null;
   error: string;
   success: string;
 }
@@ -80,6 +81,7 @@ export function ServerDetailPage({
   deploySuccess,
   deployError,
   fetchEventsList,
+  discordGuildInfo,
   error,
   success,
 }: ServerDetailPageProps) {
@@ -180,7 +182,7 @@ export function ServerDetailPage({
         )}
 
         {/* Tabs Bar */}
-        <div className="flex gap-2 border-b border-border-color pb-3 mb-8 overflow-x-auto">
+        <div className="sticky top-[120px] z-30 bg-bg-dark/95 backdrop-blur-md border-b border-border-color py-3 -mx-10 px-10 mb-8 flex gap-2 overflow-x-auto">
           <button
             type="button"
             onClick={() => handleTabChange('general')}
@@ -224,6 +226,7 @@ export function ServerDetailPage({
           <GeneralTab 
             formState={config} 
             setFormState={setConfig} 
+            discordGuildInfo={discordGuildInfo}
             onDeleteClick={() => setDeleteConfirmOpen(true)}
           />
         )}
