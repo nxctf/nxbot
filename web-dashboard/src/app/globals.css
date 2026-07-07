@@ -12,26 +12,30 @@
   --bg-card: rgba(22, 28, 45, 0.4);
   --border-color: rgba(38, 50, 77, 0.4);
   --border-hover: rgba(56, 189, 248, 0.4);
-  
+
   --foreground: #f8fafc;
   --muted: #94a3b8;
-  
+
   /* Accent Colors */
-  --primary: #38bdf8; /* Cyber Blue */
+  --primary: #38bdf8;
+  /* Cyber Blue */
   --primary-hover: #0ea5e9;
   --primary-glow: rgba(56, 189, 248, 0.15);
-  
-  --accent-red: #f43f5e; /* Solves/First Blood Red */
+
+  --accent-red: #f43f5e;
+  /* Solves/First Blood Red */
   --accent-red-glow: rgba(244, 63, 94, 0.15);
-  
-  --accent-green: #10b981; /* Success Green */
+
+  --accent-green: #10b981;
+  /* Success Green */
   --accent-green-glow: rgba(16, 185, 129, 0.15);
-  
-  --accent-yellow: #f59e0b; /* Pending/Warn Yellow */
+
+  --accent-yellow: #f59e0b;
+  /* Pending/Warn Yellow */
   --accent-yellow-glow: rgba(245, 158, 11, 0.15);
 
   --accent-purple: #a855f7;
-  
+
   --font-outfit: 'Outfit', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
@@ -47,7 +51,7 @@
 body {
   min-height: 100vh;
   background-color: var(--bg-dark);
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.05) 0px, transparent 50%),
     radial-gradient(at 50% 100%, rgba(168, 85, 247, 0.05) 0px, transparent 50%),
     radial-gradient(at 100% 0%, rgba(244, 63, 94, 0.03) 0px, transparent 50%);
@@ -87,6 +91,93 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.2);
 }
+
+/* Scrollbar global */
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  overflow-x: hidden;
+  /* overflow-y: scroll !important; */
+  scroll-behavior: smooth;
+}
+
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+  overflow: hidden !important;
+  padding-right: 0 !important;
+}
+
+html::-webkit-scrollbar {
+  width: 12px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3b82f6, #60a5fa);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3b82f6, #60a5fa);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.3s ease;
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #2563eb, #3b82f6);
+}
+
+@media (prefers-color-scheme: dark) {
+  body::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #6b7280, #4b5563);
+  }
+
+  body::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #374151, #1f2937);
+  }
+}
+
+/* overflow-y-auto */
+*::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar {
+  height: 6px;
+}
+
+*::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  /* background-color: rgba(100, 100, 255, 0.4); */
+  border-radius: 9999px;
+}
+
+/* hide */
+/* sembunyiin scrollbar, tapi scroll tetap jalan */
+.scroll-hidden::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari */
+}
+
+.scroll-hidden {
+  -ms-overflow-style: none;
+  /* IE & Edge lama */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
 
 /* Input Styles */
 .glass-input {
@@ -795,8 +886,15 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
+
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
 }
 
 /* ============================================
@@ -839,8 +937,15 @@ body {
    Animations
    ============================================ */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
