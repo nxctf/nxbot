@@ -795,8 +795,7 @@ body::-webkit-scrollbar-thumb:hover {
    PAGE CONTAINER
    ============================================ */
 .page-container {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .page-header {

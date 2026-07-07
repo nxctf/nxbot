@@ -1,31 +1,24 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, AlertTriangle, Check } from 'lucide-react';
 import Script from 'next/script';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import PageContainer from '@/components/PageContainer';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Connection } from './_types';
 import DatabaseList from './_components/DatabaseList';
-import DatabaseForm from './_components/DatabaseForm';
 import ReAuthModal from './_components/ReAuthModal';
 
-function DatabasesContent() {
+export default function DatabasesPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const tab = searchParams.get('tab');
-  const id = searchParams.get('id');
 
   const [conns, setConns] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingConn, setEditingConn] = useState<Connection | null>(null);
   
   // Alert/Status states
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [btnLoading, setBtnLoading] = useState(false);
 
   // Connection testing states
   const [testConnLoading, setTestConnLoading] = useState<Record<string, boolean>>({});
@@ -55,65 +48,6 @@ function DatabasesContent() {
       console.error('Failed to fetch connections:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Sync query parameters with local view states
-  useEffect(() => {
-    if (tab === 'add') {
-      setShowForm(true);
-      setEditingConn(null);
-      setError('');
-      setSuccess('');
-    } else if (tab === 'edit' && id) {
-      const conn = conns.find(c => c.id === id);
-      if (conn) {
-        setEditingConn(conn);
-        setShowForm(true);
-        setError('');
-        setSuccess('');
-      } else if (conns.length > 0) {
-        // Redirect if connection doesn't exist
-        router.push('/dashboard/databases');
-      }
-    } else {
-      setShowForm(false);
-      setEditingConn(null);
-    }
-  }, [tab, id, conns, router]);
-
-  const resetForm = () => {
-    router.push('/dashboard/databases');
-  };
-
-  const handleSaveConnection = async (formData: any) => {
-    setError('');
-    setSuccess('');
-    setBtnLoading(true);
-
-    try {
-      const url = editingConn ? `/api/databases/${editingConn.id}` : '/api/databases';
-      const method = editingConn ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to save database connection.');
-      }
-
-      setSuccess(editingConn ? 'Connection updated successfully!' : 'Connection added successfully!');
-      resetForm();
-      fetchConnections();
-    } catch (err: any) {
-      setError(err.message || 'Verification failed. Double check your Supabase credentials.');
-    } finally {
-      setBtnLoading(false);
     }
   };
 
@@ -212,15 +146,15 @@ function DatabasesContent() {
       <PageContainer
         title="Supabase DB Connections"
         subtitle="Configure and verify saved Supabase database credentials to map to your Discord CTF servers."
-        extra={!showForm && (
+        extra={
           <button 
-            onClick={() => router.push('/dashboard/databases?tab=add')} 
+            onClick={() => router.push('/dashboard/databases/new')} 
             className="inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 active:scale-[0.98] bg-primary text-slate-950 hover:bg-primary-hover shadow-lg shadow-primary/10 px-4 py-2.5 text-sm gap-2"
           >
             <Plus size={18} />
             Add Connection
           </button>
-        )}
+        }
       >
         {/* Error notification */}
         {error && (
@@ -238,27 +172,17 @@ function DatabasesContent() {
           </div>
         )}
 
-        {/* Dynamic List or Form view */}
-        {showForm ? (
-          <DatabaseForm
-            editingConn={editingConn}
-            onSave={handleSaveConnection}
-            onCancel={resetForm}
-            loading={btnLoading}
-          />
-        ) : (
-          <DatabaseList
-            conns={conns}
-            loading={loading}
-            testConnLoading={testConnLoading}
-            testConnStatus={testConnStatus}
-            onAddClick={() => router.push('/dashboard/databases?tab=add')}
-            onEditClick={(conn) => router.push(`/dashboard/databases?tab=edit&id=${conn.id}`)}
-            onDeleteClick={(id) => setDeleteConnId(id)}
-            onTestClick={handleTestConnection}
-            onReAuthClick={(conn) => setReAuthConn(conn)}
-          />
-        )}
+        <DatabaseList
+          conns={conns}
+          loading={loading}
+          testConnLoading={testConnLoading}
+          testConnStatus={testConnStatus}
+          onAddClick={() => router.push('/dashboard/databases/new')}
+          onEditClick={(conn) => router.push(`/dashboard/databases/${conn.id}`)}
+          onDeleteClick={(id) => setDeleteConnId(id)}
+          onTestClick={handleTestConnection}
+          onReAuthClick={(conn) => setReAuthConn(conn)}
+        />
 
         {/* Re-Auth modal */}
         {reAuthConn && (
@@ -285,17 +209,5 @@ function DatabasesContent() {
         />
       </PageContainer>
     </>
-  );
-}
-
-export default function DatabasesPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex justify-center items-center h-[80vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary" />
-      </div>
-    }>
-      <DatabasesContent />
-    </Suspense>
   );
 }
