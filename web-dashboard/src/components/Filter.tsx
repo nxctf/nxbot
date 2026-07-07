@@ -10,7 +10,7 @@ interface FilterToolbarProps {
 
 export function FilterToolbar({ children, actions, className = '' }: FilterToolbarProps) {
   return (
-    <div className={`glass-panel p-5 flex flex-wrap gap-4 items-center ${className}`}>
+    <div className={`flex flex-wrap gap-4 items-center w-full ${className}`}>
       {children && <div className="flex flex-wrap items-center gap-4 flex-1">{children}</div>}
       {actions && <div className="flex items-center gap-3 ml-auto">{actions}</div>}
     </div>

@@ -20,7 +20,7 @@ type TableHeaderProps = React.HTMLAttributes<HTMLTableSectionElement> & {
 
 export function TableHeader({ className = '', children, ...props }: TableHeaderProps) {
   return (
-    <thead className={`[&_tr]:border-b border-border-color ${className}`} {...props}>
+    <thead className={className} {...props}>
       {children}
     </thead>
   );
@@ -32,7 +32,7 @@ type TableBodyProps = React.HTMLAttributes<HTMLTableSectionElement> & {
 
 export function TableBody({ className = '', children, ...props }: TableBodyProps) {
   return (
-    <tbody className={`[&_tr:last-child]:border-0 ${className}`} {...props}>
+    <tbody className={className} {...props}>
       {children}
     </tbody>
   );
@@ -45,7 +45,7 @@ type TableRowProps = React.HTMLAttributes<HTMLTableRowElement> & {
 export function TableRow({ className = '', children, ...props }: TableRowProps) {
   return (
     <tr
-      className={`border-b border-border-color transition-colors hover:bg-slate-800/20 ${className}`}
+      className={`transition-colors hover:bg-slate-800/20 ${className}`}
       {...props}
     >
       {children}
@@ -60,7 +60,7 @@ type TableHeadProps = React.ThHTMLAttributes<HTMLTableCellElement> & {
 export function TableHead({ className = '', children, ...props }: TableHeadProps) {
   return (
     <th
-      className={`h-10 px-3 text-left align-middle text-[11px] font-bold uppercase tracking-wider text-slate-400 ${className}`}
+      className={`h-10 px-3 text-left align-middle text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-border-color ${className}`}
       {...props}
     >
       {children}

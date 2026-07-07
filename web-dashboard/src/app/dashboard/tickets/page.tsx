@@ -3,7 +3,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Ticket, Server, User, Lock, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import PageContainer from '@/components/PageContainer';
 import Button from '@/components/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/Table';
 import { FilterToolbar, FilterSelect } from '@/components/Filter';
@@ -164,7 +163,7 @@ function TicketsContent() {
   }
 
   return (
-    <PageContainer title="Tickets">
+    <div className="space-y-5">
       <FilterToolbar
         actions={
           <>
@@ -207,14 +206,14 @@ function TicketsContent() {
       </FilterToolbar>
 
       {resetSuccess && (
-        <div className="mb-6 px-5 py-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
+        <div className="px-5 py-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
           {resetSuccess}
         </div>
       )}
 
       {tickets.length === 0 ? (
-        <div className="glass-panel py-16 px-6 text-center text-slate-400 flex flex-col items-center justify-center">
-          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 mb-6 shadow-[0_0_15px_rgba(168,85,247,0.15)]">
+        <div className="bg-bg-card border border-border-color rounded-xl py-16 px-6 text-center text-slate-400 flex flex-col items-center justify-center">
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 mb-6">
             <Ticket size={28} />
           </div>
           <h2 className="text-lg text-slate-100 mb-2 font-bold">No Tickets Found</h2>
@@ -223,7 +222,7 @@ function TicketsContent() {
           </p>
         </div>
       ) : (
-        <div className="glass-panel overflow-hidden">
+        <div className="bg-bg-card border border-border-color rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -341,7 +340,7 @@ function TicketsContent() {
           </Table>
         </div>
       )}
-    </PageContainer>
+    </div>
   );
 }
 
