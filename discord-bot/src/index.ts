@@ -2,7 +2,7 @@ import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import { Client, GatewayIntentBits, Collection, REST, Routes, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { getDb, isSetup, getActiveGuilds, logEvent, closeDb, getTicketByChannel, saveTicketMessage, getPendingBotActions, completeBotAction, upsertDiscordUser } from './db/local';
+import { getDb, isSetup, getActiveGuilds, getGuild, logEvent, closeDb, getTicketByChannel, saveTicketMessage, getPendingBotActions, completeBotAction, upsertDiscordUser } from './db/local';
 import { supabaseManager } from './services/supabase-manager';
 import { FirstBloodService } from './services/firstblood';
 import { AnnouncementService } from './services/announcements';
@@ -136,6 +136,7 @@ client.once('ready', async () => {
         if (!isConnected) {
           console.log(`[Bot Sync] New active guild detected: ${dbGuild.guild_name} (${connectedId}). Connecting...`);
           await supabaseManager.connect(dbGuild);
+          await supabaseManager.syncConfig(dbGuild.id);
           firstBloodService.subscribeGuild(dbGuild);
           announcementService.subscribeGuild(dbGuild);
           // Initial update when new active guild is connected
@@ -143,7 +144,7 @@ client.once('ready', async () => {
             scoreboardService.updateScoreboard(dbGuild.id).catch(() => null);
           }
         } else if (existingConfig) {
-          // Check if key configurations or credentials changed
+          // Check if key configurations changed (exclude token fields to avoid auth-refresh loop)
           const hasChanged = 
             existingConfig.supabase_url !== dbGuild.supabase_url ||
             existingConfig.supabase_anon_key !== dbGuild.supabase_anon_key ||
@@ -156,12 +157,12 @@ client.once('ready', async () => {
             existingConfig.channel_announcements !== dbGuild.channel_announcements ||
             existingConfig.enable_scoreboard !== dbGuild.enable_scoreboard ||
             existingConfig.channel_scoreboard !== dbGuild.channel_scoreboard ||
-            existingConfig.scoreboard_message_id !== dbGuild.scoreboard_message_id ||
-            existingConfig.updated_at !== dbGuild.updated_at;
+            existingConfig.scoreboard_message_id !== dbGuild.scoreboard_message_id;
 
           if (hasChanged) {
             console.log(`[Bot Sync] Configuration updated for guild: ${dbGuild.guild_name} (${connectedId}). Reloading connection...`);
             await supabaseManager.reload(dbGuild);
+            await supabaseManager.syncConfig(dbGuild.id);
             firstBloodService.subscribeGuild(dbGuild);
             announcementService.subscribeGuild(dbGuild);
             // Immediate update on config change

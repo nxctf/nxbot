@@ -86,7 +86,11 @@ export class FirstBloodService {
                 // Have ID but missing fields — fetch full row
                 const { data, error } = await supabase.from('solves').select('*').eq('id', solve.id).single();
                 if (error) {
-                  console.error(`[FirstBlood] Failed to fetch solve details for ID ${solve.id}:`, error.message);
+                  if (error.message?.toLowerCase().includes('permission denied')) {
+                    console.warn(`[FirstBlood] Cannot fetch solve details: Supabase anon key lacks SELECT on 'solves' table. Set REPLICA IDENTITY FULL on the 'solves' table in Supabase Dashboard > SQL Editor > ALTER TABLE solves REPLICA IDENTITY FULL;`);
+                  } else {
+                    console.error(`[FirstBlood] Failed to fetch solve details for ID ${solve.id}:`, error.message);
+                  }
                 }
                 if (!data) return;
                 solve = data as SolvePayload;
@@ -94,7 +98,11 @@ export class FirstBloodService {
                 // Completely empty payload — fetch latest solve
                 const { data, error } = await supabase.from('solves').select('*').order('created_at', { ascending: false }).limit(1).single();
                 if (error) {
-                  console.error(`[FirstBlood] Failed to fetch latest solve:`, error.message);
+                  if (error.message?.toLowerCase().includes('permission denied')) {
+                    console.warn(`[FirstBlood] Cannot fetch latest solve: Supabase anon key lacks SELECT on 'solves' table. Set REPLICA IDENTITY FULL on the 'solves' table in Supabase Dashboard > SQL Editor > ALTER TABLE solves REPLICA IDENTITY FULL;`);
+                  } else {
+                    console.error(`[FirstBlood] Failed to fetch latest solve:`, error.message);
+                  }
                 }
                 if (!data) return;
                 solve = data as SolvePayload;
