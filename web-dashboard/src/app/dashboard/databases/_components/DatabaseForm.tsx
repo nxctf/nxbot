@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Database, ArrowLeft, Save } from 'lucide-react';
+import { Database, Save } from 'lucide-react';
 import Button from '@/components/Button';
 import GlassInput from '@/components/GlassInput';
 import { Connection } from '../_types';
@@ -115,15 +115,6 @@ export function DatabaseForm({
 
   return (
     <div className="glass-panel p-8">
-      {/* Back navigation */}
-      <button 
-        onClick={onCancel} 
-        className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors text-sm font-medium mb-6"
-      >
-        <ArrowLeft size={16} />
-        <span>Back to list</span>
-      </button>
-
       {/* Header */}
       <h2 className="text-lg font-bold text-primary flex items-center gap-2 mb-6">
         <Database size={20} />

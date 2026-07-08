@@ -57,13 +57,13 @@ export default function NewDatabasePage() {
         strategy="afterInteractive"
       />
 
-      {/* Compact Header */}
+      {/* Header */}
       <div className="flex items-center gap-3 pb-5">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center w-7 h-7 rounded-lg bg-slate-800/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 transition-all shrink-0"
+          className="flex items-center justify-center w-6 h-6 rounded-lg bg-slate-800/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 transition-all shrink-0"
         >
-          <ArrowLeft size={14} />
+          <ArrowLeft size={12} />
         </button>
         <h1 className="text-base font-bold text-slate-100">Add Database Connection</h1>
       </div>

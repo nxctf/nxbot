@@ -52,7 +52,7 @@ export function DatabaseList({
           <div
             key={conn.id}
             onClick={() => onEditClick(conn)}
-            className="bg-bg-card rounded-xl p-4 flex flex-col gap-3 cursor-pointer transition-all hover:bg-slate-800/30 duration-200"
+            className="bg-bg-card rounded-xl p-5 flex flex-col gap-3 cursor-pointer transition-all hover:bg-slate-800/30 duration-200"
           >
             {/* Header: icon + name + url */}
             <div className="flex items-start gap-3">
