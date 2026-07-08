@@ -1,0 +1,11 @@
+node_modules
+.next
+dist
+.git
+__ref
+data
+*.md
+.env
+.env.example
+.gitignore
+.gitattributes

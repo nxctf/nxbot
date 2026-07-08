@@ -14,11 +14,14 @@ COPY scripts ./scripts
 
 # Build Discord Bot
 WORKDIR /app/discord-bot
-RUN npm ci && npm run build && npm prune --production
+RUN npm ci && npm run build && npm prune --production && npm cache clean --force
 
 # Build Next.js Dashboard
 WORKDIR /app/web-dashboard
-RUN npm ci && npm run build && npm prune --production
+RUN npm ci && npm run build && npm prune --production && npm cache clean --force
+
+# Remove Next.js build cache (not needed at runtime)
+RUN rm -rf /app/web-dashboard/.next/cache
 
 # Final runtime image
 FROM node:22-alpine

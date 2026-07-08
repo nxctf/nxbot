@@ -51,8 +51,9 @@ usage() {
     echo -e "${BOLD}Commands:${NC}"
     echo -e "  ${CYAN}install${NC}         Install nxbot system-wide + dependencies"
     echo -e "  ${CYAN}setup${NC}           Initialize database and first-time setup"
-    echo -e "  ${CYAN}build${NC}           Build/rebuild Docker containers"
-    echo -e "  ${CYAN}start${NC}           Start all services"
+echo -e "  ${CYAN}build${NC}           Build/rebuild Docker containers"
+echo -e "  ${CYAN}clean${NC}           Clean old Docker build cache to free storage"
+echo -e "  ${CYAN}start${NC}           Start all services"
     echo -e "  ${CYAN}stop${NC}            Stop all services"
     echo -e "  ${CYAN}restart${NC}         Restart all services"
     echo -e "  ${CYAN}status${NC}          Show service status"
@@ -248,6 +249,17 @@ cmd_build() {
     echo -e "$PREFIX_INFO Building NXBot containers..."
     compose build
     echo -e "$PREFIX_INFO Build complete."
+
+    # Optionally clean old build cache
+    echo -e "$PREFIX_INFO Cleaning old build cache..."
+    docker builder prune -af 2>/dev/null || true
+    echo -e "$PREFIX_INFO ${GREEN}Cache cleaned.${NC}"
+}
+
+cmd_clean() {
+    echo -e "$PREFIX_INFO Cleaning old Docker build cache..."
+    docker builder prune -af
+    echo -e "$PREFIX_INFO ${GREEN}Done!${NC} Old build cache removed."
 }
 
 cmd_update() {
@@ -281,6 +293,10 @@ cmd_update() {
     # Rebuild containers
     echo -e "$PREFIX_INFO Rebuilding containers..."
     compose build
+
+    # Clean old build cache
+    echo -e "$PREFIX_INFO Cleaning old build cache..."
+    docker builder prune -af 2>/dev/null || true
 
     echo ""
     echo -e "$PREFIX_INFO ${GREEN}Update complete!${NC}"
@@ -391,6 +407,7 @@ main() {
         status)          cmd_status ;;
         logs)            shift; cmd_logs "$@" ;;
         build)           cmd_build ;;
+        clean)           cmd_clean ;;
         setup)           cmd_setup ;;
         update)          cmd_update ;;
         help|--help|-h|"")
