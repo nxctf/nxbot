@@ -7,24 +7,18 @@ import { Connection } from '../_types';
 interface DatabaseListProps {
   conns: Connection[];
   loading: boolean;
-  testConnLoading: Record<string, boolean>;
-  testConnStatus: Record<string, { success?: string; error?: string }>;
   onAddClick: () => void;
   onEditClick: (conn: Connection) => void;
   onDeleteClick: (id: string) => void;
-  onTestClick: (conn: Connection) => void;
   onReAuthClick: (conn: Connection) => void;
 }
 
 export function DatabaseList({
   conns,
   loading,
-  testConnLoading,
-  testConnStatus,
   onAddClick,
   onEditClick,
   onDeleteClick,
-  onTestClick,
   onReAuthClick,
 }: DatabaseListProps) {
   if (loading) {
@@ -54,19 +48,16 @@ export function DatabaseList({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {conns.map((conn) => {
-        const isTesting = testConnLoading[conn.id];
-        const status = testConnStatus[conn.id] || {};
-
         return (
           <div
             key={conn.id}
             onClick={() => onEditClick(conn)}
-            className="bg-bg-card rounded-xl p-5 flex flex-col gap-4 cursor-pointer transition-all hover:bg-slate-800/30 duration-200"
+            className="bg-bg-card rounded-xl p-4 flex flex-col gap-3 cursor-pointer transition-all hover:bg-slate-800/30 duration-200"
           >
             {/* Header: icon + name + url */}
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Database size={20} />
+              <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Database size={18} />
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-slate-100 truncate">{conn.name}</h3>
@@ -74,52 +65,29 @@ export function DatabaseList({
               </div>
             </div>
 
-            {/* Border above tags */}
-            <div className="border-t border-border-color/30" />
-
-            {/* Tags + Test */}
-            <div className="space-y-1.5">
+            {/* Tags compact row */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-auto">
               {conn.supabase_login_email ? (
-                <div className="flex items-center justify-between gap-3">
-                  <Tag icon={<ShieldCheck size={10} />} variant="emerald">{conn.supabase_login_email}</Tag>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {status.success && <span className="text-[11px] text-emerald-400 font-bold">✓</span>}
-                    {status.error && <span className="text-[11px] text-rose-400 font-bold" title={status.error}>✗</span>}
-                    <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onTestClick(conn); }}
-                      loading={isTesting} className="text-[11px] px-2.5 py-1.5">Test</Button>
-                  </div>
-                </div>
+                <Tag icon={<ShieldCheck size={10} />} variant="emerald">{conn.supabase_login_email}</Tag>
               ) : (
-                <div className="flex items-center justify-between gap-3">
-                  <Tag icon={<ShieldOff size={10} />} variant="slate">Anon</Tag>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {status.success && <span className="text-[11px] text-emerald-400 font-bold">✓</span>}
-                    {status.error && <span className="text-[11px] text-rose-400 font-bold" title={status.error}>✗</span>}
-                    <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onTestClick(conn); }}
-                      loading={isTesting} className="text-[11px] px-2.5 py-1.5">Test</Button>
-                  </div>
-                </div>
+                <Tag icon={<ShieldOff size={10} />} variant="slate">Anon</Tag>
               )}
-              <div className="flex items-center justify-between gap-3">
-                {conn.supabase_access_token ? (
-                  <Tag icon={<KeyRound size={10} />} variant="cyan">Token Active</Tag>
-                ) : conn.supabase_login_email ? (
-                  <Tag icon={<ShieldAlert size={10} />} variant="amber">Re-auth</Tag>
-                ) : null}
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                {conn.supabase_turnstile_site_key ? (
-                  <Tag icon={<Cloud size={10} />} variant="violet">Turnstile</Tag>
-                ) : (
-                  <Tag variant="slate">No Turnstile</Tag>
-                )}
-                {conn.supabase_login_email && !conn.supabase_access_token && (
-                  <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onReAuthClick(conn); }}
-                    className="text-[11px] px-2.5 py-1.5 border-cyan-400/20 text-cyan-400 hover:bg-cyan-400/10 shrink-0">
-                    <KeyRound size={11} className="mr-1" />Auth
-                  </Button>
-                )}
-              </div>
+              {conn.supabase_access_token ? (
+                <Tag icon={<KeyRound size={10} />} variant="cyan">Token</Tag>
+              ) : conn.supabase_login_email ? (
+                <Tag icon={<ShieldAlert size={10} />} variant="amber">Re-auth</Tag>
+              ) : null}
+              {conn.supabase_turnstile_site_key ? (
+                <Tag icon={<Cloud size={10} />} variant="violet">Turnstile</Tag>
+              ) : (
+                <Tag variant="slate">No Turnstile</Tag>
+              )}
+              {conn.supabase_login_email && !conn.supabase_access_token && (
+                <button onClick={(e) => { e.stopPropagation(); onReAuthClick(conn); }}
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md border border-cyan-400/20 text-cyan-400 hover:bg-cyan-400/10 transition-all shrink-0 ml-auto">
+                  <KeyRound size={10} />Auth
+                </button>
+              )}
             </div>
           </div>
         );

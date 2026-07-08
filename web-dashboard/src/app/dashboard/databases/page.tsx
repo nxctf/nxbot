@@ -19,10 +19,6 @@ export default function DatabasesPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Connection testing states
-  const [testConnLoading, setTestConnLoading] = useState<Record<string, boolean>>({});
-  const [testConnStatus, setTestConnStatus] = useState<Record<string, { success?: string; error?: string }>>({});
-
   // Re-auth states
   const [reAuthConn, setReAuthConn] = useState<Connection | null>(null);
   const [reAuthLoading, setReAuthLoading] = useState(false);
@@ -73,36 +69,6 @@ export default function DatabasesPage() {
       setError(err.message || 'An error occurred during deletion.');
     } finally {
       setDeleteLoading(false);
-    }
-  };
-
-  const handleTestConnection = async (conn: Connection) => {
-    const id = conn.id;
-    setTestConnLoading(prev => ({ ...prev, [id]: true }));
-    setTestConnStatus(prev => ({ ...prev, [id]: {} }));
-
-    try {
-      const res = await fetch('/api/servers/test-connection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supabase_url: conn.supabase_url,
-          supabase_anon_key: conn.supabase_anon_key,
-          supabase_login_email: conn.supabase_login_email,
-          supabase_login_password: conn.supabase_login_password,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setTestConnStatus(prev => ({ ...prev, [id]: { success: 'Connected' } }));
-      } else {
-        setTestConnStatus(prev => ({ ...prev, [id]: { error: data.error || 'Failed' } }));
-      }
-    } catch (err) {
-      setTestConnStatus(prev => ({ ...prev, [id]: { error: 'Network Error' } }));
-    } finally {
-      setTestConnLoading(prev => ({ ...prev, [id]: false }));
     }
   };
 
@@ -172,12 +138,9 @@ export default function DatabasesPage() {
           <DatabaseList
           conns={conns}
           loading={loading}
-          testConnLoading={testConnLoading}
-          testConnStatus={testConnStatus}
           onAddClick={() => router.push('/dashboard/databases/new')}
           onEditClick={(conn) => router.push(`/dashboard/databases/${conn.id}`)}
           onDeleteClick={(id) => setDeleteConnId(id)}
-          onTestClick={handleTestConnection}
           onReAuthClick={(conn) => setReAuthConn(conn)}
         />
 

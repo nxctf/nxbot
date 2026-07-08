@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { use, useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Database, ShieldCheck, KeyRound, ShieldAlert, ShieldOff, Cloud, Eye, EyeOff, Save, RefreshCw, AlertTriangle, Check, Trash2 } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, KeyRound, ShieldAlert, ShieldOff, Cloud, Eye, EyeOff, Save, RefreshCw, AlertTriangle, Check, Trash2 } from 'lucide-react';
 import Tag from '@/components/Tag';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
@@ -29,8 +29,6 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [showAnonKey, setShowAnonKey] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [testLoading, setTestLoading] = useState(false);
-  const [testStatus, setTestStatus] = useState<{ success?: string; error?: string }>({});
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginStatus, setLoginStatus] = useState<{ success?: string; error?: string }>({});
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -84,25 +82,6 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
     };
   }, [turnstileSiteKey]);
 
-  const handleTest = async () => {
-    setTestLoading(true); setTestStatus({});
-    try {
-      const res = await fetch('/api/servers/test-connection', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supabase_url: supabaseUrl, supabase_anon_key: supabaseAnonKey,
-          supabase_login_email: loginEmail || null, supabase_login_password: loginPassword || null,
-          supabase_access_token: conn?.supabase_access_token || null, supabase_refresh_token: conn?.supabase_refresh_token || null,
-          captchaToken: captchaToken || null,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) setTestStatus({ success: 'OK' });
-      else setTestStatus({ error: data.error || 'Failed' });
-    } catch { setTestStatus({ error: 'Network error' }); }
-    finally { setTestLoading(false); }
-  };
-
   const handleLogin = async () => {
     if (!loginEmail || !loginPassword) { setLoginStatus({ error: 'Enter email & password' }); return; }
     setLoginLoading(true); setLoginStatus({});
@@ -128,19 +107,6 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
     if (!name || !supabaseUrl || !supabaseAnonKey) return;
     setError(''); setSuccess(''); setSaving(true);
 
-    if (loginEmail && loginPassword) {
-      try {
-        const testRes = await fetch('/api/servers/test-connection', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ supabase_url: supabaseUrl, supabase_anon_key: supabaseAnonKey, supabase_login_email: loginEmail, supabase_login_password: loginPassword, captchaToken: captchaToken || null }),
-        });
-        const testData = await testRes.json();
-        if (!testData.success && testData.warning !== 'captcha_required') {
-          setError(testData.error || 'Login verification failed.'); setSaving(false); return;
-        }
-      } catch { setError('Login verification failed.'); setSaving(false); return; }
-    }
-
     try {
       const res = await fetch('/api/databases/' + id, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -163,6 +129,14 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
     } catch { alert('Error'); }
     finally { setDeleteLoading(false); setDeleteConfirmOpen(false); }
   };
+
+  const authChanged = conn ? (
+    supabaseUrl !== conn.supabase_url ||
+    supabaseAnonKey !== conn.supabase_anon_key ||
+    loginEmail !== (conn.supabase_login_email || '') ||
+    loginPassword !== (conn.supabase_login_password || '') ||
+    turnstileSiteKey !== (conn.supabase_turnstile_site_key || '')
+  ) : true;
 
   return (
     <>
@@ -191,25 +165,16 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
                   <h2 className="text-sm font-bold text-slate-100 truncate">{conn.name}</h2>
                   <p className="text-[11px] text-slate-500 font-mono break-all">{conn.supabase_url}</p>
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {conn.supabase_login_email && <Tag icon={<ShieldCheck size={10} />} variant="emerald">{conn.supabase_login_email}</Tag>}
                   {conn.supabase_access_token
-                    ? <Tag icon={<KeyRound size={10} />} variant="cyan">Token Active</Tag>
+                    ? <Tag icon={<KeyRound size={10} />} variant="cyan">Token</Tag>
                     : conn.supabase_login_email
                       ? <Tag icon={<ShieldAlert size={10} />} variant="amber">Re-auth</Tag>
                       : <Tag icon={<ShieldOff size={10} />} variant="slate">Anon</Tag>}
                   {conn.supabase_turnstile_site_key
                     ? <Tag icon={<Cloud size={10} />} variant="violet">Turnstile</Tag>
                     : <Tag variant="slate">No Turnstile</Tag>}
-                </div>
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Test</span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="secondary" size="sm" onClick={handleTest} loading={testLoading}
-                      className="text-xs flex-1" disabled={!conn.supabase_access_token}>Test Connection</Button>
-                    {testStatus.success && <span className="text-xs text-emerald-400 font-bold" title={testStatus.success}>✓</span>}
-                    {testStatus.error && <span className="text-xs text-rose-400 font-bold" title={testStatus.error}>✗</span>}
-                  </div>
                 </div>
                 <div className="space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Login</span>
@@ -268,7 +233,7 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
                   )}
                   <div className="flex gap-3 justify-end pt-4 border-t border-border-color/40">
                     <Button type="button" variant="ghost" onClick={() => router.back()} disabled={saving}>Cancel</Button>
-                    <Button type="submit" variant="primary" loading={saving} disabled={saving || (!!turnstileSiteKey && !captchaToken)}>
+                    <Button type="submit" variant="primary" loading={saving} disabled={saving || (!!turnstileSiteKey && authChanged && !captchaToken)}>
                       <Save size={15} className="mr-1.5" /> Save Changes
                     </Button>
                   </div>
