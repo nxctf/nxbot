@@ -79,7 +79,8 @@ export class ScoreboardService {
         const medals = ['🥇', '🥈', '🥉'];
         const lines = scoreboard.map((entry: any, i: number) => {
           const medal = i < 3 ? medals[i] : `\`${i + 1}.\``;
-          return `${medal} **${entry.username}** — ${entry.score} pts`;
+          const score = Number(entry.score).toLocaleString('en-US');
+          return `${medal} **${entry.username}** — ${score}`;
         });
         scoreboardDescription = lines.join('\n');
       }

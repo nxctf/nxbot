@@ -181,10 +181,10 @@ export class FirstBloodService {
       return;
     }
 
-    // Fetch solver info
+    // Fetch solver info including social links (for Discord username)
     const { data: solver, error: solverError } = await supabase
       .from('users')
-      .select('id, username')
+      .select('id, username, sosmed')
       .eq('id', solve.user_id)
       .single();
 
@@ -192,6 +192,8 @@ export class FirstBloodService {
       console.warn(`[FirstBlood] Could not fetch solver ${solve.user_id}:`, solverError);
       return;
     }
+
+    const discordName = (solver.sosmed as Record<string, string> | null)?.discord || null;
 
     // Save to local cache (for /firstblood command & duplicate prevention)
     insertFirstBlood({
@@ -210,7 +212,7 @@ export class FirstBloodService {
       challengeCategory: challenge.category,
       challengePoints: challenge.points,
       solverUsername: solver.username,
-      solvedAt: solve.created_at,
+      solverDiscord: discordName,
     });
 
     logEvent(guild.id, 'info', 'firstblood', `${solver.username} got first blood on "${challenge.title}"`);
@@ -218,7 +220,7 @@ export class FirstBloodService {
   }
 
   /**
-   * Send a rich embed notification to the configured first blood channel.
+   * Send a clean first blood notification to the configured channel.
    */
   private async sendFirstBloodEmbed(
     guild: GuildConfig,
@@ -227,7 +229,7 @@ export class FirstBloodService {
       challengeCategory: string;
       challengePoints: number;
       solverUsername: string;
-      solvedAt: string;
+      solverDiscord: string | null;
     }
   ): Promise<void> {
     if (!guild.channel_firstblood) return;
@@ -239,17 +241,32 @@ export class FirstBloodService {
         return;
       }
 
+      let discordTag = '';
+      if (data.solverDiscord) {
+        const cleanName = data.solverDiscord.replace(/^@/, '').replace(/#\d+$/, '');
+        const guild_ = this.client.guilds.cache.get(guild.id);
+        if (guild_) {
+          try {
+            const members = await guild_.members.fetch({ query: cleanName, limit: 1 });
+            const member = members.first();
+            if (member) {
+              discordTag = ` (<@${member.id}>)`;
+            } else {
+              discordTag = ` (@${cleanName})`;
+            }
+          } catch {
+            discordTag = ` (@${cleanName})`;
+          }
+        } else {
+          discordTag = ` (@${cleanName})`;
+        }
+      }
+
       const embed = new EmbedBuilder()
-        .setColor(0xDC2626) // Red for first blood
-        .setTitle('🩸 FIRST BLOOD!')
-        .setDescription(`**${data.solverUsername}** drew first blood!`)
-        .addFields(
-          { name: '🏁 Challenge', value: data.challengeTitle, inline: true },
-          { name: '📂 Category', value: data.challengeCategory, inline: true },
-          { name: '💰 Points', value: `${data.challengePoints}`, inline: true },
-        )
-        .setTimestamp(data.solvedAt && !isNaN(new Date(data.solvedAt).getTime()) ? new Date(data.solvedAt) : new Date())
-        .setFooter({ text: `${guild.guild_name} • NXBot CTF` });
+        .setColor(0xDC2626)
+        .setDescription(
+          `🩸 **FIRST BLOOD** — Peserta **${data.solverUsername}**${discordTag} berhasil first blood pada challenge **${data.challengeTitle}** (${data.challengeCategory})`
+        );
 
       await channel.send({ embeds: [embed] });
     } catch (err) {
