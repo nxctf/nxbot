@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Connection } from './_types';
 import DatabaseList from './_components/DatabaseList';
-import ReAuthModal from './_components/ReAuthModal';
+
 
 export default function DatabasesPage() {
   const router = useRouter();
@@ -18,11 +18,6 @@ export default function DatabasesPage() {
   // Alert/Status states
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  // Re-auth states
-  const [reAuthConn, setReAuthConn] = useState<Connection | null>(null);
-  const [reAuthLoading, setReAuthLoading] = useState(false);
-  const [reAuthCaptchaToken, setReAuthCaptchaToken] = useState<string | null>(null);
 
   // Delete confirmation states
   const [deleteConnId, setDeleteConnId] = useState<string | null>(null);
@@ -72,34 +67,6 @@ export default function DatabasesPage() {
     }
   };
 
-  const handleConfirmReAuth = async () => {
-    if (!reAuthConn) return;
-    setReAuthLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const res = await fetch(`/api/databases/${reAuthConn.id}/re-auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ captchaToken: reAuthCaptchaToken }),
-      });
-      
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Re-authentication failed.');
-      }
-
-      setSuccess(`✅ Re-authenticated as ${data.user_email}. Bot will sync within 10s.`);
-      setReAuthConn(null);
-      fetchConnections();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setReAuthLoading(false);
-    }
-  };
-
   return (
     <>
       {/* Script for Cloudflare Turnstile inside components */}
@@ -141,21 +108,7 @@ export default function DatabasesPage() {
           onAddClick={() => router.push('/dashboard/databases/new')}
           onEditClick={(conn) => router.push(`/dashboard/databases/${conn.id}`)}
           onDeleteClick={(id) => setDeleteConnId(id)}
-          onReAuthClick={(conn) => setReAuthConn(conn)}
         />
-
-        {/* Re-Auth modal */}
-        {reAuthConn && (
-          <ReAuthModal
-            conn={reAuthConn}
-            isOpen={!!reAuthConn}
-            onClose={() => setReAuthConn(null)}
-            onConfirm={handleConfirmReAuth}
-            loading={reAuthLoading}
-            captchaToken={reAuthCaptchaToken}
-            setCaptchaToken={setReAuthCaptchaToken}
-          />
-        )}
 
         {/* Delete confirmation modal */}
         <ConfirmDialog

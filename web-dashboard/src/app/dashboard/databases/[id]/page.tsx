@@ -1,13 +1,14 @@
 ﻿'use client';
 
 import React, { use, useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ShieldCheck, KeyRound, ShieldAlert, ShieldOff, Cloud, Eye, EyeOff, Save, RefreshCw, AlertTriangle, Check, Trash2 } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, KeyRound, ShieldAlert, ShieldOff, Cloud, Eye, EyeOff, Save, RefreshCw, AlertTriangle, Check, Trash2, LogIn } from 'lucide-react';
 import Tag from '@/components/Tag';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/Button';
 import GlassInput from '@/components/GlassInput';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import ReAuthModal from '../_components/ReAuthModal';
 import { Connection } from '../_types';
 
 export default function EditDatabasePage({ params }: { params: Promise<{ id: string }> }) {
@@ -33,6 +34,9 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
   const [loginStatus, setLoginStatus] = useState<{ success?: string; error?: string }>({});
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [reAuthOpen, setReAuthOpen] = useState(false);
+  const [reAuthLoading, setReAuthLoading] = useState(false);
+  const [reAuthCaptchaToken, setReAuthCaptchaToken] = useState<string | null>(null);
   const turnstileRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -120,6 +124,23 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
     finally { setSaving(false); }
   };
 
+  const handleReAuth = async () => {
+    if (!conn) return;
+    setReAuthLoading(true);
+    try {
+      const res = await fetch(`/api/databases/${id}/re-auth`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ captchaToken: reAuthCaptchaToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Re-authentication failed.');
+      setSuccess(`Re-authenticated as ${data.user_email}. Bot will sync within 10s.`);
+      setReAuthOpen(false);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err: any) { setError(err.message); }
+    finally { setReAuthLoading(false); }
+  };
+
   const handleDelete = async () => {
     setDeleteLoading(true);
     try {
@@ -180,7 +201,15 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
                 <div className="space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Login</span>
                   <Button variant="secondary" size="sm" onClick={handleLogin} loading={loginLoading}
-                    className="text-xs w-full" disabled={!loginEmail || !loginPassword}>Login to Supabase</Button>
+                    className="text-xs w-full" disabled={!loginEmail || !loginPassword}>
+                    <LogIn size={12} className="mr-1.5" /> Test Login
+                  </Button>
+                  {conn.supabase_login_email && (
+                    <Button variant="secondary" size="sm" onClick={() => setReAuthOpen(true)}
+                      className="text-xs w-full border-cyan-400/20 text-cyan-400 hover:bg-cyan-400/10">
+                      <RefreshCw size={12} className="mr-1.5" /> Re-authenticate
+                    </Button>
+                  )}
                   {loginStatus.success && <span className="text-xs text-emerald-400 font-semibold">✓ {loginStatus.success}</span>}
                   {loginStatus.error && <span className="text-xs text-rose-400 font-semibold">✗ {loginStatus.error}</span>}
                 </div>
@@ -246,6 +275,18 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
           )}
         </div>
       </div>
+
+      {conn && (
+        <ReAuthModal
+          conn={conn}
+          isOpen={reAuthOpen}
+          onClose={() => setReAuthOpen(false)}
+          onConfirm={handleReAuth}
+          loading={reAuthLoading}
+          captchaToken={reAuthCaptchaToken}
+          setCaptchaToken={setReAuthCaptchaToken}
+        />
+      )}
     </>
   );
 }

@@ -10,7 +10,6 @@ interface DatabaseListProps {
   onAddClick: () => void;
   onEditClick: (conn: Connection) => void;
   onDeleteClick: (id: string) => void;
-  onReAuthClick: (conn: Connection) => void;
 }
 
 export function DatabaseList({
@@ -19,7 +18,6 @@ export function DatabaseList({
   onAddClick,
   onEditClick,
   onDeleteClick,
-  onReAuthClick,
 }: DatabaseListProps) {
   if (loading) {
     return (
@@ -81,12 +79,6 @@ export function DatabaseList({
                 <Tag icon={<Cloud size={10} />} variant="violet">Turnstile</Tag>
               ) : (
                 <Tag variant="slate">No Turnstile</Tag>
-              )}
-              {conn.supabase_login_email && !conn.supabase_access_token && (
-                <button onClick={(e) => { e.stopPropagation(); onReAuthClick(conn); }}
-                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md border border-cyan-400/20 text-cyan-400 hover:bg-cyan-400/10 transition-all shrink-0 ml-auto">
-                  <KeyRound size={10} />Auth
-                </button>
               )}
             </div>
           </div>
