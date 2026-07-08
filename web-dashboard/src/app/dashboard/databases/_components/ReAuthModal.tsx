@@ -76,12 +76,9 @@ export function ReAuthModal({
   if (!isOpen) return null;
 
   return (
-    <>
-      <div 
-        onClick={onClose}
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9990] transition-opacity duration-300"
-      />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-slate-900/95 backdrop-blur-md border border-border-color rounded-2xl shadow-2xl p-6 z-[9999] animate-fade-in">
+    <div className="fixed inset-0 flex items-center justify-center z-[9999]">
+      <div onClick={onClose} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
+      <div className="relative w-full max-w-md mx-4 bg-slate-900/95 backdrop-blur-md border border-border-color rounded-2xl shadow-2xl p-6 animate-fade-in">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
             <KeyRound size={20} />
@@ -128,7 +125,7 @@ export function ReAuthModal({
           </Button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 export default ReAuthModal;

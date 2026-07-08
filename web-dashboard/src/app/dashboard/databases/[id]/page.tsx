@@ -95,11 +95,13 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
         body: JSON.stringify({
           supabase_url: supabaseUrl, supabase_anon_key: supabaseAnonKey,
           supabase_login_email: loginEmail, supabase_login_password: loginPassword,
+          supabase_access_token: conn?.supabase_access_token || null,
+          supabase_refresh_token: conn?.supabase_refresh_token || null,
           captchaToken: captchaToken || null,
         }),
       });
       const data = await res.json();
-      if (data.success) setLoginStatus({ success: 'Logged in as ' + loginEmail });
+      if (data.success) setLoginStatus({ success: data.message || 'Connected!' });
       else if (data.warning === 'captcha_required') setLoginStatus({ success: 'Captcha needed - save to auth' });
       else setLoginStatus({ error: data.error || 'Login failed' });
     } catch { setLoginStatus({ error: 'Network error' }); }
