@@ -1,28 +1,33 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Server, Ticket, Settings, LogOut, Terminal, Database, ChevronRight, Code2 } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { LayoutDashboard, Server, Ticket, Settings, Database, ChevronRight, Code2, Activity, WifiOff, Loader2 } from 'lucide-react';
 
-interface SidebarProps {
-  username: string;
+interface BotStatus {
+  status: 'online' | 'offline' | 'error' | 'starting';
+  error?: string | null;
+  username?: string | null;
+  guilds?: number;
+  updatedAt?: string;
 }
 
-export default function Sidebar({ username }: SidebarProps) {
+export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const [bot, setBot] = useState<BotStatus | null>(null);
 
-  const handleLogout = async () => {
-    try {
-      const res = await fetch('/api/auth/logout', { method: 'POST' });
-      if (res.ok) {
-        router.push('/login');
-      }
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
-  };
+  useEffect(() => {
+    const fetchBot = async () => {
+      try {
+        const res = await fetch('/api/settings/bot-status');
+        if (res.ok) setBot(await res.json());
+      } catch {}
+    };
+    fetchBot();
+    const interval = setInterval(fetchBot, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems = [
     { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -36,9 +41,11 @@ export default function Sidebar({ username }: SidebarProps) {
     <aside className="sidebar">
       {/* Logo */}
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <Terminal size={20} />
-        </div>
+        <img
+          src="https://raw.githubusercontent.com/nxctf/assets/refs/heads/main/logo/logo-no-bg.svg"
+          alt="NXCTF"
+          className="sidebar-logo-img"
+        />
         <span>NXBot</span>
       </div>
 
@@ -65,15 +72,25 @@ export default function Sidebar({ username }: SidebarProps) {
 
       {/* Footer */}
       <div className="sidebar-footer">
-        <div className="sidebar-bot-info">
-          <div className="sidebar-bot-icon">
-            <Terminal size={16} />
+        {bot && (
+          <div className="sidebar-bot-card">
+            <div className={`sidebar-bot-indicator ${bot.status}`} />
+            <div className="sidebar-bot-card-info">
+              <span className="sidebar-bot-card-name" title={bot.username || ''}>
+                {bot.username || 'Unknown Bot'}
+              </span>
+              <span className="sidebar-bot-card-meta">
+                {bot.status === 'online' ? (
+                  <><Activity size={10} /> Online &middot; {bot.guilds ?? 0} guilds</>
+                ) : bot.status === 'starting' ? (
+                  <><Loader2 size={10} className="spin" /> Starting...</>
+                ) : (
+                  <><WifiOff size={10} /> {bot.status}</>
+                )}
+              </span>
+            </div>
           </div>
-          <div className="sidebar-bot-detail">
-            <span className="sidebar-bot-name">NXBot Dashboard</span>
-            <span className="sidebar-bot-version">v0.1.0</span>
-          </div>
-        </div>
+        )}
 
         <div className="sidebar-links">
           <a href="https://github.com/nxctf" target="_blank" rel="noopener noreferrer" className="sidebar-link-item" title="GitHub Organization">
@@ -89,11 +106,6 @@ export default function Sidebar({ username }: SidebarProps) {
             <span>Aria Fatah</span>
           </a>
         </div>
-
-        <button onClick={handleLogout} className="sidebar-logout-btn">
-          <LogOut size={14} />
-          <span>Sign Out</span>
-        </button>
       </div>
     </aside>
   );

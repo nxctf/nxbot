@@ -23,7 +23,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="layout-container">
-      <Sidebar username={user.username} />
+      <Sidebar />
       <Header username={user.username} />
       <main className="main-content">
         <BotStatusBanner />

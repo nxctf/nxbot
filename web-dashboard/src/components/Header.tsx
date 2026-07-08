@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { LogOut, ChevronRight, Home, Terminal } from 'lucide-react';
+import { LogOut, ChevronRight, Home } from 'lucide-react';
 
 const breadcrumbMap: Record<string, string> = {
   '/dashboard': 'Overview',
@@ -76,7 +76,11 @@ export default function Header({ username }: HeaderProps) {
             onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
           >
             <div className="header-avatar">
-              <Terminal size={16} />
+              <img
+                src="https://raw.githubusercontent.com/nxctf/assets/refs/heads/main/logo/logo-no-bg.svg"
+                alt="NXCTF"
+                className="header-avatar-img"
+              />
             </div>
           </button>
 
@@ -84,7 +88,11 @@ export default function Header({ username }: HeaderProps) {
             <div className="header-dropdown">
               <div className="header-dropdown-header">
                 <div className="header-avatar small">
-                  <Terminal size={14} />
+                  <img
+                    src="https://raw.githubusercontent.com/nxctf/assets/refs/heads/main/logo/logo-no-bg.svg"
+                    alt="NXCTF"
+                    className="header-avatar-img"
+                  />
                 </div>
                 <div>
                   <div className="header-dropdown-name">NXBot Dashboard</div>
