@@ -420,82 +420,105 @@ body::-webkit-scrollbar-thumb:hover {
 /* Sidebar Footer */
 .sidebar-footer {
   margin-top: auto;
-  padding-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid rgba(38, 50, 77, 0.5);
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.sidebar-user {
+.sidebar-bot-info {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: 10px;
   background: rgba(30, 41, 59, 0.25);
   border: 1px solid rgba(38, 50, 77, 0.4);
 }
 
-.sidebar-user-avatar {
-  width: 34px;
-  height: 34px;
+.sidebar-bot-icon {
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(168, 85, 247, 0.2));
   border: 1px solid rgba(56, 189, 248, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 14px;
   color: var(--primary);
   flex-shrink: 0;
 }
 
-.sidebar-user-info {
+.sidebar-bot-detail {
   display: flex;
   flex-direction: column;
   gap: 1px;
   overflow: hidden;
 }
 
-.sidebar-user-role {
-  font-size: 10px;
-  font-weight: 700;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.sidebar-user-name {
+.sidebar-bot-name {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--primary);
+  font-weight: 700;
+  color: #f8fafc;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sidebar-logout-btn {
+.sidebar-bot-version {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  font-family: var(--font-mono);
+}
+
+.sidebar-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-link-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.sidebar-link-item:hover {
+  color: var(--primary);
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.sidebar-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
+  padding: 7px 12px;
+  border-radius: 6px;
   background: transparent;
-  border: 1px solid rgba(244, 63, 94, 0.15);
-  color: #ef4444;
-  font-size: 13px;
-  font-weight: 600;
+  border: 1px solid rgba(244, 63, 94, 0.12);
+  color: rgba(239, 68, 68, 0.7);
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: var(--font-outfit);
 }
 
 .sidebar-logout-btn:hover {
+  color: #ef4444;
   background: rgba(244, 63, 94, 0.08);
-  border-color: rgba(244, 63, 94, 0.3);
+  border-color: rgba(244, 63, 94, 0.25);
 }
 
 
