@@ -154,10 +154,11 @@ export default function EditDatabasePage({ params }: { params: Promise<{ id: str
             <div className="flex flex-col xl:flex-row gap-4">
               {/* Left Panel */}
               <div className="w-full xl:w-[260px] bg-bg-card rounded-xl p-4 flex flex-col shrink-0 gap-4 self-start">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <button onClick={() => router.back()}
-                    className="flex items-center justify-center w-6 h-6 rounded-lg bg-slate-800/50 text-slate-400 hover:text-slate-200 transition-all shrink-0">
-                    <ArrowLeft size={12} />
+                    className="flex items-center gap-2 h-8 rounded-full px-3.5 text-xs font-bold uppercase tracking-wider text-slate-400 bg-slate-800/50 border border-border-color hover:text-slate-200 hover:bg-slate-700/60 transition-all shrink-0">
+                    <ArrowLeft size={14} />
+                    Back
                   </button>
                   <h1 className="text-sm font-bold text-slate-100">Edit Connection</h1>
                 </div>

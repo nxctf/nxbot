@@ -192,8 +192,9 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2 min-w-0">
                 <button onClick={() => router.back()}
-                  className="flex items-center justify-center w-6 h-6 rounded-lg bg-slate-800/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 transition-all shrink-0">
-                  <ArrowLeft size={12} />
+                  className="flex items-center gap-2 h-8 rounded-full px-3.5 text-xs font-bold uppercase tracking-wider text-slate-400 bg-slate-800/50 border border-border-color hover:text-slate-200 hover:bg-slate-700/60 transition-all shrink-0">
+                  <ArrowLeft size={14} />
+                  Back
                 </button>
                 <h1 className="text-sm font-bold text-slate-100 font-mono truncate">Ticket #{String(ticket.id).padStart(4, '0')}</h1>
               </div>

@@ -143,10 +143,10 @@ export function ServerDetailPage({
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.back()}
-              className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-800/50 border border-border-color text-slate-200 transition-all hover:bg-slate-700/60"
-              title="Back"
+              className="flex items-center gap-2 h-8 rounded-full px-3.5 text-xs font-bold uppercase tracking-wider text-slate-400 bg-slate-800/50 border border-border-color hover:bg-slate-700/60 hover:text-slate-200 transition-all shrink-0"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={14} />
+              Back
             </button>
             <div>
               <div className="flex items-center gap-3">
