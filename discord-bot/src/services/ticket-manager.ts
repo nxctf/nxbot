@@ -166,19 +166,11 @@ export class TicketManager {
 
     // Send initial embed with close and claim buttons
     try {
-      const botAvatar = this.client.user?.displayAvatarURL({ forceStatic: false }) ?? null;
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setAuthor({ name: 'NXBot Ticketing System', iconURL: botAvatar ?? undefined })
-        .setTitle(`🎫 Ticket #${String(ticketNumber).padStart(4, '0')}`)
-        .addFields(
-          { name: 'Subject', value: subject, inline: false },
-          { name: 'Description', value: description || 'No description provided.', inline: false },
-          { name: 'Opened by', value: `<@${userId}>`, inline: true },
-          { name: 'Status', value: '🟢 Open', inline: true },
-        )
-        .setTimestamp()
-        .setFooter({ text: 'NXBot Ticketing System' });
+        .setDescription(
+          `🎫 **Ticket #${String(ticketNumber).padStart(4, '0')}** — ${subject}\nDibuka oleh <@${userId}>`
+        );
 
       const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
@@ -256,18 +248,9 @@ export class TicketManager {
         return { success: false, error: 'Ticket panel channel not found or is not a text channel.' };
       }
 
-      const botAvatarPanel = this.client.user?.displayAvatarURL({ forceStatic: false }) ?? null;
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setAuthor({ name: 'NXBot Ticketing System', iconURL: botAvatarPanel ?? undefined })
-        .setTitle('🎫 Support Tickets')
-        .setDescription(
-          '**Need help?** Click the button below to open a support ticket.\n\n' +
-          'A private channel will be created for you where our staff can assist you.\n\n' +
-          '> ⚠️ Please do not abuse the ticket system.'
-        )
-        .setFooter({ text: 'NXBot Ticketing System' })
-        .setTimestamp();
+        .setDescription('🎫 Klik tombol di bawah untuk membuka tiket.');
 
       const openButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()

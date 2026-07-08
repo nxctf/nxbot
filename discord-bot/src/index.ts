@@ -290,28 +290,19 @@ client.on('interactionCreate', async (interaction) => {
       
       const modal = new ModalBuilder()
         .setCustomId('ticket_open_modal')
-        .setTitle('Open a Support Ticket');
+        .setTitle('Open Ticket');
 
       const subjectInput = new TextInputBuilder()
         .setCustomId('ticket_subject')
-        .setLabel('Subject / Short Summary')
+        .setLabel('Apa yang bisa kami bantu?')
         .setStyle(TextInputStyle.Short)
         .setPlaceholder('e.g., Database connection issue')
         .setRequired(true)
         .setMaxLength(100);
 
-      const descInput = new TextInputBuilder()
-        .setCustomId('ticket_description')
-        .setLabel('Describe your problem')
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('Provide details to help staff assist you...')
-        .setRequired(true)
-        .setMaxLength(1000);
-
       const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(subjectInput);
-      const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(descInput);
 
-      modal.addComponents(firstRow, secondRow);
+      modal.addComponents(firstRow);
 
       await interaction.showModal(modal);
     }
@@ -324,7 +315,6 @@ client.on('interactionCreate', async (interaction) => {
       if (!interaction.guildId) return;
       
       const subject = interaction.fields.getTextInputValue('ticket_subject');
-      const description = interaction.fields.getTextInputValue('ticket_description');
       
       await interaction.deferReply({ ephemeral: true });
       
@@ -332,8 +322,7 @@ client.on('interactionCreate', async (interaction) => {
         interaction.guildId,
         interaction.user.id,
         interaction.user.username,
-        subject,
-        description
+        subject
       );
       
       if ('error' in result) {

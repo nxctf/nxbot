@@ -32,7 +32,7 @@ export async function POST(
       return NextResponse.json({ error: 'Please configure and save the CTF Announcements Channel ID first.' }, { status: 400 });
     }
 
-    // Send a mock announcement notification
+    // Send a test announcement matching the real bot's format
     const res = await fetch(`https://discord.com/api/v10/channels/${guild.channel_announcements}/messages`, {
       method: 'POST',
       headers: {
@@ -42,13 +42,10 @@ export async function POST(
       body: JSON.stringify({
         embeds: [
           {
-            title: '📢 CTF Announcement Test Notification',
-            description: `**NXBot** has successfully verified access to this channel.\n\n` +
-                         `This is a mock announcement sent to verify the integration of your Supabase \`notifications\` table with Discord. When you add a notification on the CTF platform, it will be posted here automatically!`,
-            color: 3719160, // Blue
-            footer: {
-              text: 'NXBot Verification Service',
-            },
+            color: 3719160, // 0x38BDF8
+            title: '📢 Announcement Test',
+            description: 'This is a test announcement to verify the channel integration is working correctly.',
+            footer: { text: 'NXCTF Announcements' },
             timestamp: new Date().toISOString(),
           }
         ]

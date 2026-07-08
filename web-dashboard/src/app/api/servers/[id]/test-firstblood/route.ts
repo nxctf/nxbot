@@ -32,7 +32,7 @@ export async function POST(
       return NextResponse.json({ error: 'Please configure and save the First Blood Channel ID first.' }, { status: 400 });
     }
 
-    // Send a mock first blood notification
+    // Send a test first blood notification matching the real bot's format
     const res = await fetch(`https://discord.com/api/v10/channels/${guild.channel_firstblood}/messages`, {
       method: 'POST',
       headers: {
@@ -42,16 +42,8 @@ export async function POST(
       body: JSON.stringify({
         embeds: [
           {
-            title: '🩸 First Blood Test Notification',
-            description: `**NXBot** has successfully verified access to this channel.\n\n` +
-                         `**Challenge:** \`Test Challenge (100 pts)\`\n` +
-                         `**Solver:** \`@TestSolver\`\n` +
-                         `**Category:** \`Web Exploitation\``,
-            color: 15548997, // Red
-            footer: {
-              text: 'NXBot Verification Service',
-            },
-            timestamp: new Date().toISOString(),
+            color: 14431526, // 0xDC2626
+            description: '🩸 **FIRST BLOOD** — Peserta **TestSolver** berhasil first blood pada challenge **Test Challenge** (Web Exploitation)',
           }
         ]
       }),
