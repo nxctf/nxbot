@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Server, Plus, Trash2, Edit, Check, AlertTriangle, ShieldCheck, HelpCircle, RefreshCw } from 'lucide-react';
+import { Server, Plus, RefreshCw, AlertTriangle, Check, Database, Ticket } from 'lucide-react';
 import Link from 'next/link';
-import Script from 'next/script';
-import PageContainer from '@/components/PageContainer';
+import Button from '@/components/Button';
+import GlassInput from '@/components/GlassInput';
 
 interface Guild {
   id: string;
@@ -20,6 +20,12 @@ interface Guild {
   is_active: number;
 }
 
+interface Connection {
+  id: string;
+  name: string;
+  supabase_url: string;
+}
+
 export default function ServersPage() {
   const [servers, setServers] = useState<Guild[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,13 +34,11 @@ export default function ServersPage() {
   const [success, setSuccess] = useState('');
   const [btnLoading, setBtnLoading] = useState(false);
 
-  // Form Fields
   const [guildId, setGuildId] = useState('');
   const [guildName, setGuildName] = useState('');
-  const [connections, setConnections] = useState<any[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [supabaseConnectionId, setSupabaseConnectionId] = useState('');
 
-  // Discord guilds available to the bot
   const [discordGuilds, setDiscordGuilds] = useState<{ id: string; name: string }[]>([]);
   const [isManualGuild, setIsManualGuild] = useState(false);
   const [guildsLoading, setGuildsLoading] = useState(false);
@@ -42,8 +46,7 @@ export default function ServersPage() {
   const fetchServers = async () => {
     try {
       const res = await fetch('/api/servers');
-      const data = await res.json();
-      setServers(data);
+      setServers(await res.json());
     } catch (err) {
       console.error('Error fetching servers:', err);
     } finally {
@@ -54,10 +57,7 @@ export default function ServersPage() {
   const fetchConnections = async () => {
     try {
       const res = await fetch('/api/databases');
-      if (res.ok) {
-        const data = await res.json();
-        setConnections(data);
-      }
+      if (res.ok) setConnections(await res.json());
     } catch (err) {
       console.error('Error fetching connections:', err);
     }
@@ -70,16 +70,11 @@ export default function ServersPage() {
       if (res.ok) {
         const data = await res.json();
         setDiscordGuilds(data);
-        if (data.length > 0) {
-          setIsManualGuild(false);
-        } else {
-          setIsManualGuild(true);
-        }
+        setIsManualGuild(data.length === 0);
       } else {
         setIsManualGuild(true);
       }
     } catch (err) {
-      console.error('Error fetching Discord guilds:', err);
       setIsManualGuild(true);
     } finally {
       setGuildsLoading(false);
@@ -96,14 +91,8 @@ export default function ServersPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
-
-    if (!guildId || !guildName) {
-      setError('Please fill in all required fields.');
-      return;
-    }
-
+    if (!guildId || !guildName) { setError('Please fill in all required fields.'); return; }
     setBtnLoading(true);
-
     try {
       const res = await fetch('/api/servers', {
         method: 'POST',
@@ -112,25 +101,13 @@ export default function ServersPage() {
           id: guildId,
           guild_name: guildName,
           supabase_connection_id: supabaseConnectionId || null,
-          enable_firstblood: true,
-          enable_scoreboard: true,
-          enable_tickets: true,
+          enable_firstblood: true, enable_scoreboard: true, enable_tickets: true,
         }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to add server.');
-      }
-
+      if (!res.ok) throw new Error(data.error || 'Failed to add server.');
       setSuccess('Server registered successfully!');
-      // Reset form
-      setGuildId('');
-      setGuildName('');
-      setShowAddForm(false);
-      
-      // Reload
+      setGuildId(''); setGuildName(''); setShowAddForm(false);
       fetchServers();
     } catch (err: any) {
       setError(err.message || 'Registration failed.');
@@ -139,275 +116,158 @@ export default function ServersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this server config? Bot subscription will stop.')) return;
-
-    try {
-      const res = await fetch(`/api/servers/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setServers(servers.filter((s) => s.id !== id));
-      }
-    } catch (err) {
-      console.error('Delete error:', err);
-    }
-  };
-
   return (
-    <PageContainer
-      title="CTF Servers"
-      subtitle="Connect and manage multiple Discord servers"
-      extra={
-        <button
-          onClick={() => { setShowAddForm(!showAddForm); setError(''); setSuccess(''); }}
-          className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <Plus size={18} />
-          {showAddForm ? 'Cancel' : 'Add Server'}
-        </button>
-      }
-    >
-
-      {error && (
-        <div style={{
-          background: 'rgba(244, 63, 94, 0.1)',
-          border: '1px solid rgba(244, 63, 94, 0.2)',
-          color: '#f43f5e',
-          padding: '12px 16px',
-          borderRadius: '8px',
-          marginBottom: '24px',
-          fontSize: '14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <AlertTriangle size={18} />
-          {error}
+    <div className="page-container">
+      <div className="page-container-content space-y-5">
+        <div className="flex items-center justify-between">
+          <h1 className="text-base font-bold text-slate-100">Servers</h1>
+          <Button
+            onClick={() => { setShowAddForm(!showAddForm); setError(''); setSuccess(''); }}
+            variant={showAddForm ? 'secondary' : 'primary'}
+            className="gap-2"
+          >
+            <Plus size={18} />
+            {showAddForm ? 'Cancel' : 'Add Server'}
+          </Button>
         </div>
-      )}
 
-      {success && (
-        <div style={{
-          background: 'rgba(16, 185, 129, 0.1)',
-          border: '1px solid rgba(16, 185, 129, 0.2)',
-          color: '#10b981',
-          padding: '12px 16px',
-          borderRadius: '8px',
-          marginBottom: '24px',
-          fontSize: '14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <Check size={18} />
-          {success}
-        </div>
-      )}
+        {error && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm font-medium">
+            <AlertTriangle size={16} className="shrink-0" /> {error}
+          </div>
+        )}
+        {success && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium">
+            <Check size={16} className="shrink-0" /> {success}
+          </div>
+        )}
 
-      {/* Add Server Form */}
-      {showAddForm && (
-        <div className="glass-panel animate-fade-in" style={{ padding: '32px', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '24px' }}>Register New Server</h2>
-          <form onSubmit={handleAddServer}>
-            {/* Bot Guild List Selector or Manual Entry */}
-            {discordGuilds.length > 0 && !isManualGuild ? (
-              <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label>Select Discord Server (Bot is joined to these)</label>
-                <select
-                  className="glass-input glass-select"
-                  value={guildId}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === 'manual') {
-                      setIsManualGuild(true);
-                      setGuildId('');
-                      setGuildName('');
-                    } else {
-                      setGuildId(val);
-                      const found = discordGuilds.find(g => g.id === val);
-                      if (found) {
-                        setGuildName(found.name);
-                      }
-                    }
-                  }}
-                  required
-                >
-                  <option value="">-- Select Server --</option>
-                  {discordGuilds
-                    .filter(g => !servers.some(s => s.id === g.id))
-                    .map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name} ({g.id})
-                      </option>
+        {showAddForm && (
+          <div className="bg-bg-card rounded-xl p-5 animate-fade-in">
+            <h2 className="text-sm font-bold text-primary mb-5">Register New Server</h2>
+            <form onSubmit={handleAddServer} className="space-y-5">
+              {discordGuilds.length > 0 && !isManualGuild ? (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Discord Server</label>
+                  <select
+                    className="w-full px-4 py-2.5 bg-slate-950/60 border border-border-color rounded-lg text-slate-200 text-sm outline-none cursor-pointer focus:border-border-hover transition-colors"
+                    value={guildId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'manual') { setIsManualGuild(true); setGuildId(''); setGuildName(''); }
+                      else { setGuildId(val); const found = discordGuilds.find(g => g.id === val); if (found) setGuildName(found.name); }
+                    }}
+                    required
+                  >
+                    <option value="">-- Select Server --</option>
+                    {discordGuilds.filter(g => !servers.some(s => s.id === g.id)).map((g) => (
+                      <option key={g.id} value={g.id}>{g.name} ({g.id})</option>
                     ))}
-                  <option value="manual">➕ Enter Guild ID Manually...</option>
+                    <option value="manual">➕ Enter Manually...</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Guild ID (Required)</label>
+                      <GlassInput type="text" placeholder="e.g. 112233445566778899" value={guildId} onChange={(e) => setGuildId(e.target.value)} required />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Server Name (Required)</label>
+                      <GlassInput type="text" placeholder="e.g. My Awesome CTF" value={guildName} onChange={(e) => setGuildName(e.target.value)} required />
+                    </div>
+                  </div>
+                  {discordGuilds.length > 0 && (
+                    <button type="button" onClick={() => { setIsManualGuild(false); setGuildId(''); setGuildName(''); }}
+                      className="text-xs text-primary font-semibold hover:underline bg-transparent border-none cursor-pointer">
+                      ← Select from Bot Guilds
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Link Supabase Connection (Optional)</label>
+                <select
+                  className="w-full px-4 py-2.5 bg-slate-950/60 border border-border-color rounded-lg text-slate-200 text-sm outline-none cursor-pointer focus:border-border-hover transition-colors"
+                  value={supabaseConnectionId}
+                  onChange={(e) => setSupabaseConnectionId(e.target.value)}
+                >
+                  <option value="">-- None / Link Later --</option>
+                  {connections.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.supabase_url})</option>
+                  ))}
                 </select>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Discord Guild ID (Required)</label>
-                    <input
-                      type="text"
-                      className="glass-input"
-                      placeholder="e.g. 112233445566778899"
-                      value={guildId}
-                      onChange={(e) => setGuildId(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Guild/Server Name (Required)</label>
-                    <input
-                      type="text"
-                      className="glass-input"
-                      placeholder="e.g. My Awesome CTF"
-                      value={guildName}
-                      onChange={(e) => setGuildName(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-                {discordGuilds.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsManualGuild(false);
-                      setGuildId('');
-                      setGuildName('');
-                    }}
-                    className="text-xs text-primary font-semibold hover:underline bg-transparent border-none cursor-pointer"
-                  >
-                    ← Select from Bot Guilds list instead
-                  </button>
-                )}
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-border-color/60">
+                <Button type="button" variant="ghost" onClick={() => setShowAddForm(false)} disabled={btnLoading}>Cancel</Button>
+                <Button type="submit" variant="primary" loading={btnLoading} disabled={btnLoading}>Register Guild</Button>
               </div>
-            )}
-
-            <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label>Link Supabase Connection (Optional)</label>
-              <select
-                className="glass-input glass-select"
-                value={supabaseConnectionId}
-                onChange={(e) => setSupabaseConnectionId(e.target.value)}
-              >
-                <option value="">-- None / Link Later --</option>
-                {connections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.supabase_url})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="btn btn-secondary"
-                disabled={btnLoading}
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                className="btn btn-primary" 
-                disabled={btnLoading || connections.length === 0}
-              >
-                {btnLoading ? 'Registering...' : 'Register Guild'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Connected Servers List */}
-      {loading ? (
-        <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-          <RefreshCw className="animate-spin" size={32} style={{ margin: '0 auto 16px' }} />
-          <p>Loading server details...</p>
-        </div>
-      ) : servers.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '80px',
-            height: '80px',
-            borderRadius: '50%',
-            background: 'rgba(56, 189, 248, 0.1)',
-            border: '1px solid rgba(56, 189, 248, 0.2)',
-            color: '#38bdf8',
-            marginBottom: '24px',
-            boxShadow: '0 0 20px rgba(56, 189, 248, 0.15)'
-          }}>
-            <Server size={36} />
+            </form>
           </div>
-          <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px', fontWeight: 700 }}>No Connected Discord Servers</h2>
-          <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto 24px', lineHeight: '1.6' }}>
-            Get started by registering a server. You will need your Discord Server ID and your NXCTF database project details.
-          </p>
-          <button onClick={() => setShowAddForm(true)} className="btn btn-primary">
-            Register First Server
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px' }}>
-          {servers.map((server) => (
-            <div key={server.id} className="glass-panel glass-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ padding: '10px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
-                    <Server size={20} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '18px', fontWeight: 700 }}>{server.guild_name}</h3>
-                    <span style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'var(--font-mono)' }}>ID: {server.id}</span>
-                  </div>
-                </div>
-                <span className={`badge ${server.is_active ? 'badge-success' : 'badge-warning'}`}>
-                  {server.is_active ? 'Active' : 'Disabled'}
-                </span>
-              </div>
+        )}
 
-              <div style={{ fontSize: '14px', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '16px 0', margin: '16px 0', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Supabase URL:</span>
-                  <span style={{ color: '#cbd5e1', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{server.supabase_url}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>First Bloods:</span>
-                  <span style={{ color: server.enable_firstblood ? '#10b981' : '#f43f5e', fontWeight: 600 }}>
-                    {server.enable_firstblood ? '🟢 Enabled' : '🔴 Disabled'}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Ticketing System:</span>
-                  <span style={{ color: server.enable_tickets ? '#10b981' : '#f43f5e', fontWeight: 600 }}>
-                    {server.enable_tickets ? '🟢 Enabled' : '🔴 Disabled'}
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <Link href={`/dashboard/servers/${server.id}`} className="btn btn-secondary" style={{ flex: 1, gap: '6px' }}>
-                  <Edit size={16} />
-                  Configure
-                </Link>
-                <button
-                  onClick={() => handleDelete(server.id)}
-                  className="btn btn-secondary"
-                  style={{ color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)' }}
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+        {loading ? (
+          <div className="bg-bg-card rounded-xl py-16 text-center text-slate-400">
+            <RefreshCw className="animate-spin h-8 w-8 mx-auto mb-4" />
+            <p className="text-sm">Loading servers...</p>
+          </div>
+        ) : servers.length === 0 ? (
+          <div className="bg-bg-card rounded-xl py-16 text-center text-slate-400 flex flex-col items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+              <Server size={28} />
             </div>
-          ))}
-        </div>
-      )}
-    </PageContainer>
+            <div>
+              <h2 className="text-base font-bold text-slate-100 mb-1">No Servers</h2>
+              <p className="text-sm">Register a Discord server to get started.</p>
+            </div>
+            <Button onClick={() => setShowAddForm(true)} size="sm">Register Server</Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {servers.map((server) => {
+              const conn = connections.find(c => c.id === server.supabase_connection_id);
+              return (
+                <Link key={server.id} href={`/dashboard/servers/${server.id}`}
+                  className="bg-bg-card rounded-xl p-5 block cursor-pointer transition-all hover:bg-slate-800/30 duration-200">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <Server size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-slate-100 truncate">{server.guild_name}</h3>
+                        <span className="text-[10px] text-slate-500 font-mono">ID: {server.id}</span>
+                      </div>
+                    </div>
+                    <span className={`shrink-0 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      server.is_active
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    }`}>
+                      {server.is_active ? 'Active' : 'Off'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold ${
+                      conn ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-slate-800/40 text-slate-500 border border-border-color'
+                    }`}>
+                      <Database size={11} /> {conn ? conn.name : 'No DB'}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold ${
+                      server.enable_tickets === 1 ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-slate-800/40 text-slate-500 border border-border-color'
+                    }`}>
+                      <Ticket size={11} /> {server.enable_tickets === 1 ? 'Tickets On' : 'Tickets Off'}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

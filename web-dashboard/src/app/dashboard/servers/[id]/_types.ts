@@ -42,6 +42,14 @@ export interface DiscordRole {
   color: number;
 }
 
+export interface DiscordGuildInfo {
+  id: string;
+  name: string;
+  icon: string | null;
+  iconUrl: string | null;
+  memberCount: number | null;
+}
+
 export interface DatabaseConnection {
   id: string;
   name: string;

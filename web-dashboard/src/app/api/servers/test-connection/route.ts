@@ -62,8 +62,9 @@ export async function POST(request: Request) {
         if (!sessionError && sessionData.user) {
           return NextResponse.json({ success: true, message: 'Supabase session tokens verified successfully!' });
         }
+        return NextResponse.json({ error: 'Session tokens expired or invalid. Please Re-authenticate.' }, { status: 400 });
       } catch (err) {
-        // Fallback to credentials test if session check throws
+        return NextResponse.json({ error: 'Session tokens expired or invalid. Please Re-authenticate.' }, { status: 400 });
       }
     }
 

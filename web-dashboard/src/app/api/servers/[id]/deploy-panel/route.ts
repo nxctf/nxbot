@@ -42,15 +42,8 @@ export async function POST(
       body: JSON.stringify({
         embeds: [
           {
-            title: '🎫 Support Tickets',
-            description: '**Need help?** Click the button below to open a support ticket.\n\n' +
-                         'A private channel will be created for you where our staff can assist you.\n\n' +
-                         '> ⚠️ Please do not abuse the ticket system.',
             color: 5793266, // 0x5865F2 (blurple)
-            footer: {
-              text: 'NXBot Ticketing System',
-            },
-            timestamp: new Date().toISOString(),
+            description: '🎫 Klik tombol di bawah untuk membuka tiket.',
           }
         ],
         components: [

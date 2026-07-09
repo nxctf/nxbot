@@ -1,6 +1,7 @@
 import React from 'react';
 import Toggle from '@/components/Toggle';
 import GlassSelect from '@/components/GlassSelect';
+import GlassInput from '@/components/GlassInput';
 import Button from '@/components/Button';
 import { Ticket, Send, ShieldAlert, AlertTriangle, CheckCircle, MessageSquare } from 'lucide-react';
 import { GuildConfig, DiscordChannel, DiscordRole } from '../_types';
@@ -73,9 +74,9 @@ export function TicketsTab({
                 ))}
               </GlassSelect>
             ) : (
-              <input
+              <GlassInput
                 type="text"
-                className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
+                className="font-mono text-sm"
                 value={formState.channel_ticket_category || ''}
                 onChange={(e) => updateField('channel_ticket_category', e.target.value || null)}
                 placeholder="e.g. 112233445566778899"
@@ -98,9 +99,9 @@ export function TicketsTab({
                 ))}
               </GlassSelect>
             ) : (
-              <input
+              <GlassInput
                 type="text"
-                className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
+                className="font-mono text-sm"
                 value={formState.channel_ticket_logs || ''}
                 onChange={(e) => updateField('channel_ticket_logs', e.target.value || null)}
                 placeholder="e.g. 112233445566778899"
@@ -124,14 +125,14 @@ export function TicketsTab({
               ))}
             </GlassSelect>
           ) : (
-            <input
-              type="text"
-              className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
-              value={formState.channel_ticket_panel || ''}
-              onChange={(e) => updateField('channel_ticket_panel', e.target.value || null)}
-              placeholder="e.g. 112233445566778899"
-              disabled={!isEnabled}
-            />
+            <GlassInput
+                type="text"
+                className="font-mono text-sm"
+                value={formState.channel_ticket_panel || ''}
+                onChange={(e) => updateField('channel_ticket_panel', e.target.value || null)}
+                placeholder="e.g. 112233445566778899"
+                disabled={!isEnabled}
+              />
           )}
 
           {formState.channel_ticket_panel && (
@@ -180,7 +181,7 @@ export function TicketsTab({
             <MessageSquare size={16} /> Custom Welcome Message
           </label>
           <textarea
-            className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-sans text-sm min-h-[120px] outline-none focus:border-primary focus:shadow-primary/10"
+            className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-sans text-sm min-h-[120px] outline-none transition-all duration-300 focus:border-primary focus:shadow-primary/10"
             value={formState.ticket_welcome_message || ''}
             onChange={(e) => updateField('ticket_welcome_message', e.target.value)}
             placeholder="e.g. Hello {user}, thank you for opening a ticket. Staff will assist you shortly."

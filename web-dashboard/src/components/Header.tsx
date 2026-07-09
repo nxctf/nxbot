@@ -76,20 +76,27 @@ export default function Header({ username }: HeaderProps) {
             onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
           >
             <div className="header-avatar">
-              {username.charAt(0).toUpperCase()}
+              <img
+                src="https://raw.githubusercontent.com/nxctf/assets/refs/heads/main/logo/logo-no-bg.svg"
+                alt="NXCTF"
+                className="header-avatar-img"
+              />
             </div>
-            <span className="header-username">@{username}</span>
           </button>
 
           {dropdownOpen && (
             <div className="header-dropdown">
               <div className="header-dropdown-header">
                 <div className="header-avatar small">
-                  {username.charAt(0).toUpperCase()}
+                  <img
+                    src="https://raw.githubusercontent.com/nxctf/assets/refs/heads/main/logo/logo-no-bg.svg"
+                    alt="NXCTF"
+                    className="header-avatar-img"
+                  />
                 </div>
                 <div>
-                  <div className="header-dropdown-name">{username}</div>
-                  <div className="header-dropdown-role">Administrator</div>
+                  <div className="header-dropdown-name">NXBot Dashboard</div>
+                  <div className="header-dropdown-role">v0.1.0</div>
                 </div>
               </div>
               <div className="header-dropdown-divider" />

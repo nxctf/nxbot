@@ -1,6 +1,6 @@
 import { Client, TextChannel, EmbedBuilder } from 'discord.js';
 import { supabaseManager } from './supabase-manager';
-import { getGuild, getActiveGuilds } from '../db/local';
+import { getGuild, getActiveGuilds, updateGuildScoreboardMessageId } from '../db/local';
 
 /**
  * Scoreboard Service
@@ -79,7 +79,8 @@ export class ScoreboardService {
         const medals = ['🥇', '🥈', '🥉'];
         const lines = scoreboard.map((entry: any, i: number) => {
           const medal = i < 3 ? medals[i] : `\`${i + 1}.\``;
-          return `${medal} **${entry.username}** — ${entry.score} pts`;
+          const score = Number(entry.score).toLocaleString('en-US');
+          return `${medal} **${entry.username}** — ${score}`;
         });
         scoreboardDescription = lines.join('\n');
       }
@@ -99,7 +100,23 @@ export class ScoreboardService {
           await message.edit({ embeds: [embed] });
           console.log(`[Scoreboard] Successfully updated live scoreboard for ${guild.guild_name}`);
         } else {
-          console.warn(`[Scoreboard] Live scoreboard message ${guild.scoreboard_message_id} not found in channel ${guild.channel_scoreboard}.`);
+          console.warn(`[Scoreboard] Live scoreboard message ${guild.scoreboard_message_id} not found in channel ${guild.channel_scoreboard}. Auto-posting new scoreboard...`);
+          // Auto-recover: post a new scoreboard message and update the stored ID
+          try {
+            const embed = new EmbedBuilder()
+              .setColor(0xF59E0B)
+              .setTitle(`🏆 ${eventName} — Live Scoreboard`)
+              .setDescription(scoreboardDescription)
+              .setTimestamp()
+              .setFooter({ text: `${guild.guild_name} • Live Updates` });
+            const newMsg = await (channel as any).send({ embeds: [embed] });
+            if (newMsg) {
+              updateGuildScoreboardMessageId(guild.id, newMsg.id);
+              console.log(`[Scoreboard] Re-created live scoreboard message (${newMsg.id}) for ${guild.guild_name}`);
+            }
+          } catch (postErr) {
+            console.error(`[Scoreboard] Failed to auto-recover scoreboard for ${guild.guild_name}:`, postErr);
+          }
         }
       } else {
         console.warn(`[Scoreboard] Channel ${guild.channel_scoreboard} is not text-based or not accessible.`);

@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import { getActiveGuilds, GuildConfig, updateGuildSupabaseTokens } from '../db/local';
+import { getActiveGuilds, getGuild, GuildConfig, updateGuildSupabaseTokens } from '../db/local';
 
 /**
  * Manages multiple Supabase client connections — one per guild.
@@ -68,7 +68,11 @@ class SupabaseManager {
               password: guild.supabase_login_password,
             });
             if (fallbackError) {
-              console.warn(`[Supabase] Password fallback failed for ${guild.guild_name}: ${fallbackError.message} (falling back to anon)`);
+              if (fallbackError.message?.toLowerCase().includes('captcha')) {
+                console.warn(`[Supabase] Password fallback failed for ${guild.guild_name}: CAPTCHA protection is enabled in your Supabase project. Disable it at Supabase Dashboard > Auth > Settings > Security > CAPTCHA protection, or re-authenticate via web dashboard. (falling back to anon)`);
+              } else {
+                console.warn(`[Supabase] Password fallback failed for ${guild.guild_name}: ${fallbackError.message} (falling back to anon)`);
+              }
             } else {
               console.log(`[Supabase] Authenticated via password fallback for ${guild.guild_name}`);
             }
@@ -86,7 +90,11 @@ class SupabaseManager {
           password: guild.supabase_login_password,
         });
         if (error) {
-          console.warn(`[Supabase] Auth failed for guild ${guild.guild_name}: ${error.message} (falling back to anon)`);
+          if (error.message?.toLowerCase().includes('captcha')) {
+            console.warn(`[Supabase] Auth failed for guild ${guild.guild_name}: CAPTCHA protection is enabled in your Supabase project. Disable it at Supabase Dashboard > Auth > Settings > Security > CAPTCHA protection, or re-authenticate via web dashboard. (falling back to anon)`);
+          } else {
+            console.warn(`[Supabase] Auth failed for guild ${guild.guild_name}: ${error.message} (falling back to anon)`);
+          }
         } else {
           console.log(`[Supabase] Authenticated via password for ${guild.guild_name}`);
         }
@@ -100,6 +108,12 @@ class SupabaseManager {
       if (session?.access_token && session?.refresh_token) {
         console.log(`[Supabase] Auth event "${event}" for ${guild.guild_name} - updating session tokens in DB.`);
         updateGuildSupabaseTokens(guild.id, session.access_token, session.refresh_token);
+        // Keep in-memory config in sync to prevent false reload triggers
+        const conn = this.connections.get(guild.id);
+        if (conn) {
+          conn.config.supabase_access_token = session.access_token;
+          conn.config.supabase_refresh_token = session.refresh_token;
+        }
       }
     });
 
@@ -198,6 +212,20 @@ class SupabaseManager {
   async reload(guild: GuildConfig): Promise<void> {
     await this.disconnect(guild.id);
     await this.connect(guild);
+  }
+
+  /**
+   * Sync the in-memory stored config with the latest DB state.
+   * Prevents stale config from triggering false reloads after token refresh.
+   */
+  async syncConfig(guildId: string): Promise<void> {
+    const freshGuild = getGuild(guildId);
+    if (freshGuild) {
+      const conn = this.connections.get(guildId);
+      if (conn) {
+        conn.config = freshGuild;
+      }
+    }
   }
 
   /**

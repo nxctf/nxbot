@@ -15,9 +15,15 @@ export async function GET(
     const { id } = await params;
     const db = getDb();
     const ticket = db.prepare(`
-      SELECT t.*, g.guild_name 
+      SELECT t.*, g.guild_name,
+             COALESCE(uo.username, t.user_id) AS username, uo.avatar_url AS user_avatar,
+             ua.username AS assigned_to_username, ua.avatar_url AS assigned_to_avatar,
+             uc.username AS closed_by_username, uc.avatar_url AS closed_by_avatar
       FROM tickets t 
-      JOIN guilds g ON t.guild_id = g.id 
+      JOIN guilds g ON t.guild_id = g.id
+      LEFT JOIN discord_users uo ON t.user_id = uo.user_id
+      LEFT JOIN discord_users ua ON t.assigned_to = ua.user_id
+      LEFT JOIN discord_users uc ON t.closed_by = uc.user_id
       WHERE t.id = ?
     `).get(id);
 

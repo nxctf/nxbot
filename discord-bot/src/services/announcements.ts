@@ -74,14 +74,22 @@ export class AnnouncementService {
               if (notification.id) {
                 const { data, error } = await supabase.from('notifications').select('*').eq('id', notification.id).single();
                 if (error) {
-                  console.error(`[Announcements] Failed to fetch notification details for ID ${notification.id}:`, error.message);
+                  if (error.message?.toLowerCase().includes('permission denied')) {
+                    console.warn(`[Announcements] Cannot fetch notification details: Supabase anon key lacks SELECT on 'notifications' table. Set REPLICA IDENTITY FULL on the table.`);
+                  } else {
+                    console.error(`[Announcements] Failed to fetch notification details for ID ${notification.id}:`, error.message);
+                  }
                 }
                 if (!data) return;
                 notification = data as NotificationPayload;
               } else {
                 const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(1).single();
                 if (error) {
-                  console.error(`[Announcements] Failed to fetch latest notification:`, error.message);
+                  if (error.message?.toLowerCase().includes('permission denied')) {
+                    console.warn(`[Announcements] Cannot fetch latest notification: Supabase anon key lacks SELECT on 'notifications' table. Set REPLICA IDENTITY FULL on the table.`);
+                  } else {
+                    console.error(`[Announcements] Failed to fetch latest notification:`, error.message);
+                  }
                 }
                 if (!data) return;
                 notification = data as NotificationPayload;

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Settings, KeyRound, Database, Terminal, ShieldAlert, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
-import PageContainer from '@/components/PageContainer';
+import { Database, Terminal, RefreshCw, Trash2, KeyRound } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/Table';
 
 interface Log {
   id: number;
@@ -16,16 +16,8 @@ interface Log {
 export default function SettingsPage() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [btnLoading, setBtnLoading] = useState(false);
-  
-  // Password Fields
-  const [currPassword, setCurrPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   // Messages
-  const [errorPass, setErrorPass] = useState('');
-  const [successPass, setSuccessPass] = useState('');
   const [errorDb, setErrorDb] = useState('');
   const [successDb, setSuccessDb] = useState('');
 
@@ -33,8 +25,7 @@ export default function SettingsPage() {
     setLoadingLogs(true);
     try {
       const res = await fetch('/api/logs');
-      const data = await res.json();
-      setLogs(data);
+      setLogs(await res.json());
     } catch (err) {
       console.error('Error fetching logs:', err);
     } finally {
@@ -46,54 +37,11 @@ export default function SettingsPage() {
     fetchLogs();
   }, []);
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorPass('');
-    setSuccessPass('');
-
-    if (newPassword.length < 6) {
-      setErrorPass('New password must be at least 6 characters.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setErrorPass('New passwords do not match.');
-      return;
-    }
-
-    setBtnLoading(true);
-
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'change_password',
-          currentPassword: currPassword,
-          newPassword: newPassword,
-        }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to update password.');
-      }
-
-      setSuccessPass('Password updated successfully!');
-      setCurrPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err: any) {
-      setErrorPass(err.message || 'Error occurred.');
-    } finally {
-      setBtnLoading(false);
-    }
-  };
-
   const handleDbAction = async (action: 'clear_cache' | 'clear_logs') => {
-    const confirmMsg = action === 'clear_cache' 
-      ? 'Are you sure you want to clear the first blood cache? This will cause bot notifications to fire again for already-solved challenges.'
-      : 'Are you sure you want to clear all bot activity logs? This cannot be undone.';
-    
+    const confirmMsg = action === 'clear_cache'
+      ? 'Clear first blood cache? Solves will re-trigger bot notifications.'
+      : 'Clear all bot activity logs? This cannot be undone.';
+
     if (!confirm(confirmMsg)) return;
 
     setErrorDb('');
@@ -108,15 +56,13 @@ export default function SettingsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to execute DB utility action.');
+        throw new Error(data.error || 'Failed.');
       }
 
       setSuccessDb(data.message || 'Success.');
-      if (action === 'clear_logs') {
-        setLogs([]);
-      }
+      if (action === 'clear_logs') setLogs([]);
     } catch (err: any) {
-      setErrorDb(err.message || 'Error executing action.');
+      setErrorDb(err.message || 'Error.');
     }
   };
 
@@ -130,158 +76,136 @@ export default function SettingsPage() {
   };
 
   return (
-    <PageContainer
-      title="Settings & Database"
-      subtitle="Manage admin credentials, logs, and first blood caches"
-    >
+    <div className="page-container">
+      <div className="page-container-content space-y-5">
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
-        
-        {/* CLI Password Change Note */}
-        <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-          <div style={{
-            display: 'inline-flex',
-            padding: '12px',
-            borderRadius: '12px',
-            background: 'rgba(56, 189, 248, 0.1)',
-            color: '#38bdf8',
-            marginBottom: '16px'
-          }}>
-            <KeyRound size={32} />
-          </div>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: '#38bdf8' }}>
-            Update Password
-          </h2>
-          <p style={{ color: '#94a3b8', fontSize: '15px', lineHeight: '1.6', maxWidth: '340px' }}>
-            For security, admin password changes are restricted to the Command Line Interface.
-          </p>
-          <p style={{ color: '#e2e8f0', fontSize: '15px', fontWeight: 500, marginTop: '16px', background: 'rgba(255, 255, 255, 0.05)', padding: '10px 20px', borderRadius: '6px', fontFamily: 'monospace' }}>
-            nxbot reset-password
-          </p>
-          <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '12px' }}>
-            Run this command on your host server to update credentials.
-          </p>
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-        {/* Database Utilities */}
-        <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px', color: '#a855f7' }}>
-            <Database size={20} /> DB Maintenance Tools
-          </h2>
-
-          {errorDb && (
-            <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', color: '#f43f5e', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px' }}>
-              {errorDb}
+          {/* Password */}
+          <div className="bg-bg-card rounded-xl p-5 flex flex-col items-center text-center gap-3">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
+              <KeyRound size={20} />
             </div>
-          )}
-
-          {successDb && (
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle size={18} style={{ color: '#10b981' }} /> {successDb}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: 1 }}>
-            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Reset First Blood Cache</h3>
-              <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>
-                Clears the local memory tracking first solves. The bot will trigger alerts on the next solves as if they were new.
-              </p>
-              <button 
-                onClick={() => handleDbAction('clear_cache')}
-                className="btn btn-secondary"
-                style={{ width: '100%', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.2)' }}
-              >
-                Clear First Blood Cache
-              </button>
-            </div>
-
-            <div>
-              <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Wipe System Activity Logs</h3>
-              <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>
-                Deletes all event log outputs from the database to clean up disk space. Action is immediate and permanent.
-              </p>
-              <button 
-                onClick={() => handleDbAction('clear_logs')}
-                className="btn btn-secondary"
-                style={{ width: '100%', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)' }}
-              >
-                <Trash2 size={16} /> Wipe Logs Database
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Live System Logs Console */}
-      <div className="glass-panel" style={{ padding: '32px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Terminal size={22} style={{ color: '#38bdf8' }} />
-            <h2 style={{ fontSize: '20px', fontWeight: 700 }}>System Console Logs</h2>
-          </div>
-          <button 
-            onClick={fetchLogs} 
-            className="btn btn-secondary"
-            style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
-            disabled={loadingLogs}
-          >
-            <RefreshCw size={14} className={loadingLogs ? 'animate-spin' : ''} /> Refresh Logs
-          </button>
-        </div>
-
-        {loadingLogs && logs.length === 0 ? (
-          <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
-            <RefreshCw className="animate-spin" size={32} style={{ margin: '0 auto 16px' }} />
-            <p>Querying SQLite DB...</p>
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              background: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid rgba(56, 189, 248, 0.2)',
-              color: '#38bdf8',
-              marginBottom: '24px',
-              boxShadow: '0 0 20px rgba(56, 189, 248, 0.15)'
-            }}>
-              <Terminal size={36} />
-            </div>
-            <h3 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px', fontWeight: 700 }}>Console Log is Empty</h3>
-            <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto', lineHeight: '1.6' }}>
-              Bot and dashboard activity logs will appear here once services are running.
+            <h2 className="text-sm font-bold text-primary">Update Password</h2>
+            <p className="text-xs text-slate-400 max-w-xs">
+              Password changes are restricted to the CLI for security.
             </p>
+            <code className="text-xs bg-white/5 px-3 py-1.5 rounded font-mono text-slate-200">
+              nxbot reset-password
+            </code>
           </div>
-        ) : (
-          <div style={{ 
-            background: '#030712', 
-            borderRadius: '12px', 
-            padding: '24px', 
-            fontFamily: 'var(--font-mono)', 
-            fontSize: '13px', 
-            lineHeight: '1.6', 
-            maxHeight: '400px', 
-            overflowY: 'auto', 
-            border: '1px solid var(--border-color)',
-            boxShadow: 'inset 0 4px 12px 0 rgba(0,0,0,0.8)'
-          }}>
-            {logs.map((log) => (
-              <div key={log.id} style={{ marginBottom: '10px', display: 'flex', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '8px' }}>
-                <span style={{ color: '#64748b' }}>[{new Date(log.created_at).toLocaleTimeString()}]</span>
-                <span style={{ color: '#38bdf8', fontWeight: 600 }}>{log.guild_name ? `@${log.guild_name}` : '@system'}</span>
-                <span style={{ color: '#a855f7' }}>[{log.event_type}]</span>
-                <span style={{ color: getLogLevelColor(log.level), fontWeight: 700 }}>[{log.level.toUpperCase()}]</span>
-                <span style={{ color: '#e2e8f0', flex: 1 }}>{log.message}</span>
+
+          {/* DB Tools */}
+          <div className="bg-bg-card rounded-xl p-5 flex flex-col gap-4">
+            <h2 className="text-sm font-bold text-purple-400 flex items-center gap-2">
+              <Database size={16} /> DB Maintenance
+            </h2>
+
+            {errorDb && (
+              <div className="text-xs px-3 py-2 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400">{errorDb}</div>
+            )}
+            {successDb && (
+              <div className="text-xs px-3 py-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1.5">{successDb}</div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <div className="pb-3 border-b border-border-color">
+                <h3 className="text-xs font-semibold">Reset First Blood Cache</h3>
+                <p className="text-xs text-slate-400 mt-0.5 mb-2">
+                  Re-trigger bot notifications on next solves.
+                </p>
+                <button
+                  onClick={() => handleDbAction('clear_cache')}
+                  className="btn btn-secondary text-xs w-full"
+                  style={{ color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.2)' }}
+                >
+                  Clear Cache
+                </button>
               </div>
-            ))}
+              <div>
+                <h3 className="text-xs font-semibold">Wipe Activity Logs</h3>
+                <p className="text-xs text-slate-400 mt-0.5 mb-2">
+                  Delete all event logs permanently.
+                </p>
+                <button
+                  onClick={() => handleDbAction('clear_logs')}
+                  className="btn btn-secondary text-xs w-full flex items-center justify-center gap-1.5"
+                  style={{ color: '#f43f5e', borderColor: 'rgba(244, 63, 94, 0.2)' }}
+                >
+                  <Trash2 size={14} /> Wipe Logs
+                </button>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Console Logs */}
+        <div className="bg-bg-card rounded-xl">
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-300">
+              <Terminal size={16} className="text-primary" />
+              Console Logs
+            </div>
+            <button
+              onClick={fetchLogs}
+              className="btn btn-secondary text-xs flex items-center gap-1.5"
+              style={{ padding: '6px 14px' }}
+              disabled={loadingLogs}
+            >
+              <RefreshCw size={12} className={loadingLogs ? 'animate-spin' : ''} /> Refresh
+            </button>
+          </div>
+
+          {loadingLogs && logs.length === 0 ? (
+            <div className="px-5 pb-8 pt-3 text-center text-slate-500 text-sm">
+              <RefreshCw className="animate-spin inline mr-2" size={14} /> Loading logs...
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="px-5 pb-8 pt-4 text-center text-slate-500 text-sm flex flex-col items-center gap-2">
+              <Terminal size={18} className="text-slate-600" />
+              <span>No logs yet.</span>
+            </div>
+          ) : (
+            <div className="px-5 pb-5">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Level</TableHead>
+                    <TableHead>Message</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="text-xs text-slate-400 font-mono">
+                        {new Date(log.created_at).toLocaleTimeString()}
+                      </TableCell>
+                      <TableCell className="text-xs font-semibold text-sky-400">
+                        {log.guild_name ? `@${log.guild_name}` : '@system'}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-purple-400">
+                        [{log.event_type}]
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[10px] font-bold"
+                          style={{ color: getLogLevelColor(log.level) }}>
+                          [{log.level.toUpperCase()}]
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-300 max-w-xs truncate">
+                        {log.message}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
       </div>
-      </PageContainer>
+    </div>
   );
 }

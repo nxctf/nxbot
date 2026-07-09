@@ -1,6 +1,7 @@
 import React from 'react';
 import Toggle from '@/components/Toggle';
 import GlassSelect from '@/components/GlassSelect';
+import GlassInput from '@/components/GlassInput';
 import Button from '@/components/Button';
 import { Database, MessageSquare, RefreshCw, Radio, CheckCircle, AlertTriangle, Trophy, Volume2 } from 'lucide-react';
 import { GuildConfig, DatabaseConnection, EventItem, DiscordChannel } from '../_types';
@@ -181,9 +182,9 @@ export function IntegrationTab({
                   <Radio size={16} className="shrink-0" />
                   <span>No events found from Supabase. You can paste an Event UUID directly below.</span>
                 </div>
-                <input
+                <GlassInput
                   type="text"
-                  className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none focus:border-primary focus:shadow-primary/10"
+                  className="font-mono text-sm"
                   value={formState.active_event_id || ''}
                   onChange={(e) => updateField('active_event_id', e.target.value || null)}
                   placeholder="Paste Event UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)"
@@ -218,9 +219,9 @@ export function IntegrationTab({
                     ))}
                   </GlassSelect>
                 ) : (
-                  <input
+                  <GlassInput
                     type="text"
-                    className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
+                    className="font-mono text-sm"
                     value={formState.channel_firstblood || ''}
                     onChange={(e) => updateField('channel_firstblood', e.target.value || null)}
                     placeholder="e.g. 112233445566778899"
@@ -271,9 +272,9 @@ export function IntegrationTab({
                     ))}
                   </GlassSelect>
                 ) : (
-                  <input
+                  <GlassInput
                     type="text"
-                    className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
+                    className="font-mono text-sm"
                     value={formState.channel_scoreboard || ''}
                     onChange={(e) => updateField('channel_scoreboard', e.target.value || null)}
                     placeholder="e.g. 112233445566778899"
@@ -317,9 +318,9 @@ export function IntegrationTab({
                 ))}
               </GlassSelect>
             ) : (
-              <input
+              <GlassInput
                 type="text"
-                className="w-full px-4 py-3 bg-slate-950/60 border border-border-color rounded-lg text-slate-100 font-mono text-sm outline-none"
+                className="font-mono text-sm"
                 value={formState.channel_announcements || ''}
                 onChange={(e) => updateField('channel_announcements', e.target.value || null)}
                 placeholder="e.g. 112233445566778899"

@@ -168,15 +168,9 @@ export class TicketManager {
     try {
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle(`🎫 Ticket #${String(ticketNumber).padStart(4, '0')}`)
-        .addFields(
-          { name: 'Subject', value: subject, inline: false },
-          { name: 'Description', value: description || 'No description provided.', inline: false },
-          { name: 'Opened by', value: `<@${userId}>`, inline: true },
-          { name: 'Status', value: '🟢 Open', inline: true },
-        )
-        .setTimestamp()
-        .setFooter({ text: 'NXBot Ticketing System' });
+        .setDescription(
+          `🎫 **Ticket #${String(ticketNumber).padStart(4, '0')}** — ${subject}\nDibuka oleh <@${userId}>`
+        );
 
       const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
@@ -256,14 +250,7 @@ export class TicketManager {
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle('🎫 Support Tickets')
-        .setDescription(
-          '**Need help?** Click the button below to open a support ticket.\n\n' +
-          'A private channel will be created for you where our staff can assist you.\n\n' +
-          '> ⚠️ Please do not abuse the ticket system.'
-        )
-        .setFooter({ text: 'NXBot Ticketing System' })
-        .setTimestamp();
+        .setDescription('🎫 Klik tombol di bawah untuk membuka tiket.');
 
       const openButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
@@ -318,8 +305,10 @@ export class TicketManager {
     try {
       const channel = await this.client.channels.fetch(channelId);
       if (channel && channel instanceof TextChannel) {
+        const botAvatarClose = this.client.user?.displayAvatarURL({ forceStatic: false }) ?? null;
         const embed = new EmbedBuilder()
           .setColor(0xEF4444)
+          .setAuthor({ name: 'NXBot Ticketing System', iconURL: botAvatarClose ?? undefined })
           .setTitle('🔒 Ticket Closed')
           .setDescription(
             `This ticket has been closed by <@${closedByUserId}>.` +

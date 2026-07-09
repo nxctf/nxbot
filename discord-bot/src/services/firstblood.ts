@@ -1,6 +1,6 @@
 import { Client, TextChannel, EmbedBuilder, Colors } from 'discord.js';
 import { supabaseManager } from './supabase-manager';
-import { getActiveGuilds, hasFirstBlood, insertFirstBlood, GuildConfig, logEvent } from '../db/local';
+import { getActiveGuilds, insertFirstBlood, GuildConfig, logEvent } from '../db/local';
 import { ScoreboardService } from './scoreboard';
 
 /**
@@ -74,6 +74,7 @@ export class FirstBloodService {
         },
         async (payload) => {
           try {
+            console.log(`[FirstBlood] 🔔 Realtime event received for ${guild.guild_name}:`, JSON.stringify({ eventType: payload.eventType, new: payload.new, old: payload.old }));
             let solve = payload.new as SolvePayload;
 
             // Supabase Realtime may send empty/partial payloads if REPLICA IDENTITY FULL is not set
@@ -85,7 +86,11 @@ export class FirstBloodService {
                 // Have ID but missing fields — fetch full row
                 const { data, error } = await supabase.from('solves').select('*').eq('id', solve.id).single();
                 if (error) {
-                  console.error(`[FirstBlood] Failed to fetch solve details for ID ${solve.id}:`, error.message);
+                  if (error.message?.toLowerCase().includes('permission denied')) {
+                    console.warn(`[FirstBlood] Cannot fetch solve details: Supabase anon key lacks SELECT on 'solves' table. Set REPLICA IDENTITY FULL on the 'solves' table in Supabase Dashboard > SQL Editor > ALTER TABLE solves REPLICA IDENTITY FULL;`);
+                  } else {
+                    console.error(`[FirstBlood] Failed to fetch solve details for ID ${solve.id}:`, error.message);
+                  }
                 }
                 if (!data) return;
                 solve = data as SolvePayload;
@@ -93,7 +98,11 @@ export class FirstBloodService {
                 // Completely empty payload — fetch latest solve
                 const { data, error } = await supabase.from('solves').select('*').order('created_at', { ascending: false }).limit(1).single();
                 if (error) {
-                  console.error(`[FirstBlood] Failed to fetch latest solve:`, error.message);
+                  if (error.message?.toLowerCase().includes('permission denied')) {
+                    console.warn(`[FirstBlood] Cannot fetch latest solve: Supabase anon key lacks SELECT on 'solves' table. Set REPLICA IDENTITY FULL on the 'solves' table in Supabase Dashboard > SQL Editor > ALTER TABLE solves REPLICA IDENTITY FULL;`);
+                  } else {
+                    console.error(`[FirstBlood] Failed to fetch latest solve:`, error.message);
+                  }
                 }
                 if (!data) return;
                 solve = data as SolvePayload;
@@ -132,21 +141,35 @@ export class FirstBloodService {
    * Handle a new solve event.
    */
   private async handleNewSolve(guild: GuildConfig, solve: SolvePayload): Promise<void> {
-    // Guard: skip if the realtime payload is missing required fields
     if (!solve.challenge_id || !solve.user_id) {
       console.warn(`[FirstBlood] Skipping solve event with missing fields for ${guild.guild_name}:`, JSON.stringify(solve));
       return;
     }
 
-    // Check if we already notified for this challenge (it's not first blood)
-    if (hasFirstBlood(guild.id, solve.challenge_id)) {
-      return; // Not first blood, already cached
-    }
-
-    // Fetch challenge details from Supabase
     const supabase = supabaseManager.getClient(guild.id);
     if (!supabase) return;
 
+    // Check if this is the first solve for this challenge by querying Supabase
+    // Uses ORDER BY created_at ASC to handle cases where solves were deleted/readded
+    const { data: firstSolve } = await supabase
+      .from('solves')
+      .select('id')
+      .eq('challenge_id', solve.challenge_id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (!firstSolve) {
+      console.warn(`[FirstBlood] No solves found for challenge ${solve.challenge_id} (race condition?)`);
+      return;
+    }
+
+    // If the earliest solve isn't ours, someone else got first blood first
+    if (firstSolve.id !== solve.id) {
+      return;
+    }
+
+    // Fetch challenge details from Supabase
     const { data: challenge, error: challengeError } = await supabase
       .from('challenges')
       .select('id, title, category, points')
@@ -158,10 +181,10 @@ export class FirstBloodService {
       return;
     }
 
-    // Fetch solver info
+    // Fetch solver info including social links (for Discord username)
     const { data: solver, error: solverError } = await supabase
       .from('users')
-      .select('id, username')
+      .select('id, username, sosmed')
       .eq('id', solve.user_id)
       .single();
 
@@ -170,7 +193,9 @@ export class FirstBloodService {
       return;
     }
 
-    // Cache this first blood
+    const discordName = (solver.sosmed as Record<string, string> | null)?.discord || null;
+
+    // Save to local cache (for /firstblood command & duplicate prevention)
     insertFirstBlood({
       guild_id: guild.id,
       challenge_id: solve.challenge_id,
@@ -187,7 +212,7 @@ export class FirstBloodService {
       challengeCategory: challenge.category,
       challengePoints: challenge.points,
       solverUsername: solver.username,
-      solvedAt: solve.created_at,
+      solverDiscord: discordName,
     });
 
     logEvent(guild.id, 'info', 'firstblood', `${solver.username} got first blood on "${challenge.title}"`);
@@ -195,7 +220,7 @@ export class FirstBloodService {
   }
 
   /**
-   * Send a rich embed notification to the configured first blood channel.
+   * Send a clean first blood notification to the configured channel.
    */
   private async sendFirstBloodEmbed(
     guild: GuildConfig,
@@ -204,7 +229,7 @@ export class FirstBloodService {
       challengeCategory: string;
       challengePoints: number;
       solverUsername: string;
-      solvedAt: string;
+      solverDiscord: string | null;
     }
   ): Promise<void> {
     if (!guild.channel_firstblood) return;
@@ -216,17 +241,32 @@ export class FirstBloodService {
         return;
       }
 
+      let discordTag = '';
+      if (data.solverDiscord) {
+        const cleanName = data.solverDiscord.replace(/^@/, '').replace(/#\d+$/, '');
+        const guild_ = this.client.guilds.cache.get(guild.id);
+        if (guild_) {
+          try {
+            const members = await guild_.members.fetch({ query: cleanName, limit: 1 });
+            const member = members.first();
+            if (member) {
+              discordTag = ` (<@${member.id}>)`;
+            } else {
+              discordTag = ` (@${cleanName})`;
+            }
+          } catch {
+            discordTag = ` (@${cleanName})`;
+          }
+        } else {
+          discordTag = ` (@${cleanName})`;
+        }
+      }
+
       const embed = new EmbedBuilder()
-        .setColor(0xDC2626) // Red for first blood
-        .setTitle('🩸 FIRST BLOOD!')
-        .setDescription(`**${data.solverUsername}** drew first blood!`)
-        .addFields(
-          { name: '🏁 Challenge', value: data.challengeTitle, inline: true },
-          { name: '📂 Category', value: data.challengeCategory, inline: true },
-          { name: '💰 Points', value: `${data.challengePoints}`, inline: true },
-        )
-        .setTimestamp(data.solvedAt && !isNaN(new Date(data.solvedAt).getTime()) ? new Date(data.solvedAt) : new Date())
-        .setFooter({ text: `${guild.guild_name} • NXBot CTF` });
+        .setColor(0xDC2626)
+        .setDescription(
+          `🩸 **FIRST BLOOD** — Peserta **${data.solverUsername}**${discordTag} berhasil first blood pada challenge **${data.challengeTitle}** (${data.challengeCategory})`
+        );
 
       await channel.send({ embeds: [embed] });
     } catch (err) {

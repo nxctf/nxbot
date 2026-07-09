@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { Ticket, Search, Filter, Lock, HelpCircle, User, RefreshCw, Server, AlertCircle, MessageSquare, X, ShieldAlert, File, Download, Send, Bot, ArrowLeft } from 'lucide-react';
-import PageContainer from '@/components/PageContainer';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Ticket, Server, User, Lock, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Button from '@/components/Button';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/Table';
+import { FilterToolbar, FilterSelect } from '@/components/Filter';
 
 interface TicketData {
   id: number;
@@ -11,18 +13,19 @@ interface TicketData {
   guild_name: string;
   channel_id: string;
   user_id: string;
-  username: string | null;
+  username: string;
+  user_avatar: string | null;
   subject: string;
   status: 'open' | 'in_progress' | 'closed';
   assigned_to: string | null;
+  assigned_to_username: string | null;
+  assigned_to_avatar: string | null;
   closed_by: string | null;
   closed_by_username: string | null;
   closed_by_avatar: string | null;
   closed_at: string | null;
   created_at: string;
-  user_avatar: string | null;
-  assigned_to_username?: string | null;
-  assigned_to_avatar?: string | null;
+  updated_at: string;
 }
 
 interface GuildItem {
@@ -30,92 +33,27 @@ interface GuildItem {
   guild_name: string;
 }
 
-interface TicketMessage {
-  id: number;
-  ticket_id: number;
-  user_id: string;
-  username: string;
-  avatar_url: string | null;
-  message_content: string;
-  attachment_filename?: string | null;
-  attachment_original_name?: string | null;
-  attachment_size?: number | null;
-  created_at: string;
-}
+const STATUS_OPTIONS = [
+  { value: 'open', label: '🟢 Open' },
+  { value: 'in_progress', label: '🟡 In Progress' },
+  { value: 'closed', label: '🔴 Closed' },
+];
 
 function TicketsContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const ticketIdParam = searchParams.get('id');
 
   const [tickets, setTickets] = useState<TicketData[]>([]);
   const [guilds, setGuilds] = useState<GuildItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
-  // Filters
   const [statusFilter, setStatusFilter] = useState('');
   const [guildFilter, setGuildFilter] = useState('');
-
-  // Transcripts Drawer
-  const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
-  const [messages, setMessages] = useState<TicketMessage[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
   const [confirmCloseId, setConfirmCloseId] = useState<number | null>(null);
-  const openerAvatar = selectedTicket 
-    ? messages.find(m => m.user_id === selectedTicket.user_id && m.avatar_url)?.avatar_url 
-    : null;
-
-  const [replyText, setReplyText] = useState('');
-  const [sendingReply, setSendingReply] = useState(false);
-
-  // Sync selectedTicket with ?id= query param
-  useEffect(() => {
-    if (ticketIdParam) {
-      const ticketId = parseInt(ticketIdParam, 10);
-      if (!isNaN(ticketId)) {
-        const ticket = tickets.find(t => t.id === ticketId);
-        if (ticket) {
-          setSelectedTicket(ticket);
-          fetchMessages(ticket.id);
-        } else {
-          if (tickets.length > 0) {
-            router.push('/dashboard/tickets');
-          }
-        }
-      }
-    } else {
-      setSelectedTicket(null);
-      setConfirmCloseId(null);
-    }
-  }, [ticketIdParam, tickets, router]);
-
-  const handleSendReply = async () => {
-    if (!replyText.trim() || !selectedTicket) return;
-    setSendingReply(true);
-    try {
-      const res = await fetch(`/api/tickets/${selectedTicket.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: replyText }),
-      });
-      if (res.ok) {
-        setReplyText('');
-        // Refresh messages list to show the newly sent message
-        await fetchMessages(selectedTicket.id);
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        alert(`Failed to send message: ${errData.error || 'Unknown error'}`);
-      }
-    } catch (err) {
-      console.error('Error sending reply:', err);
-      alert('Error sending message. Please try again.');
-    } finally {
-      setSendingReply(false);
-    }
-  };
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [confirmResetAll, setConfirmResetAll] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState('');
 
   const fetchTickets = async () => {
     try {
@@ -134,32 +72,16 @@ function TicketsContent() {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const guildsRes = await fetch('/api/servers');
-      const guildsData = await guildsRes.json();
-      setGuilds(guildsData);
-      
-      const ticketsRes = await fetch('/api/tickets');
-      const ticketsData = await ticketsRes.json();
-      setTickets(ticketsData);
+      const [guildsRes, ticketsRes] = await Promise.all([
+        fetch('/api/servers'),
+        fetch('/api/tickets'),
+      ]);
+      setGuilds(await guildsRes.json());
+      setTickets(await ticketsRes.json());
     } catch (err) {
       console.error('Error fetching tickets initial data:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchMessages = async (ticketId: number) => {
-    setMessagesLoading(true);
-    try {
-      const res = await fetch(`/api/tickets/${ticketId}/messages`);
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data);
-      }
-    } catch (err) {
-      console.error('Error fetching ticket messages:', err);
-    } finally {
-      setMessagesLoading(false);
     }
   };
 
@@ -170,11 +92,12 @@ function TicketsContent() {
   useEffect(() => {
     if (!loading) {
       fetchTickets();
+      setResetSuccess('');
     }
   }, [statusFilter, guildFilter]);
 
   const handleUpdateStatus = async (e: React.MouseEvent, ticketId: number, newStatus: string) => {
-    e.stopPropagation(); // Avoid opening drawer
+    e.stopPropagation();
     setActionLoading(ticketId);
     try {
       const res = await fetch(`/api/tickets/${ticketId}`, {
@@ -184,9 +107,6 @@ function TicketsContent() {
       });
       if (res.ok) {
         setTickets(tickets.map(t => t.id === ticketId ? { ...t, status: newStatus as any } : t));
-        if (selectedTicket && selectedTicket.id === ticketId) {
-          setSelectedTicket({ ...selectedTicket, status: newStatus as any });
-        }
       }
     } catch (err) {
       console.error('Error updating ticket status:', err);
@@ -195,759 +115,242 @@ function TicketsContent() {
     }
   };
 
-  const handleAssignTicket = async (ticketId: number, staffName: string) => {
+  const handleDelete = async (e: React.MouseEvent, ticketId: number) => {
+    e.stopPropagation();
     setActionLoading(ticketId);
     try {
-      const res = await fetch(`/api/tickets/${ticketId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assigned_to: staffName }),
-      });
+      const res = await fetch(`/api/tickets/${ticketId}`, { method: 'DELETE' });
       if (res.ok) {
-        setTickets(tickets.map(t => t.id === ticketId ? { ...t, assigned_to: staffName, status: 'in_progress' } : t));
-        if (selectedTicket && selectedTicket.id === ticketId) {
-          setSelectedTicket({ ...selectedTicket, assigned_to: staffName, status: 'in_progress' });
-        }
+        setTickets(tickets.filter(t => t.id !== ticketId));
       }
     } catch (err) {
-      console.error('Error assigning ticket:', err);
+      console.error('Error deleting ticket:', err);
     } finally {
       setActionLoading(null);
+      setConfirmDeleteId(null);
+    }
+  };
+
+  const handleResetAll = async () => {
+    if (!guildFilter) return;
+    setResetLoading(true);
+    setResetSuccess('');
+    try {
+      const res = await fetch(`/api/tickets/batch?guildId=${encodeURIComponent(guildFilter)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        setTickets([]);
+        setResetSuccess(data.message || 'All tickets deleted successfully.');
+        setConfirmResetAll(false);
+      }
+    } catch (err) {
+      console.error('Error resetting tickets:', err);
+    } finally {
+      setResetLoading(false);
     }
   };
 
   const handleRowClick = (ticket: TicketData) => {
-    router.push(`/dashboard/tickets?id=${ticket.id}`);
+    router.push(`/dashboard/tickets/${ticket.id}`);
   };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <RefreshCw className="animate-spin" size={32} style={{ color: '#38bdf8' }} />
+      <div className="flex justify-center items-center h-[80vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <>
-      {!selectedTicket && (
-        <PageContainer
-          title="Support Tickets"
-          subtitle="Monitor and view chat transcripts for ticket channels created by CTF participants"
+    <div className="page-container">
+      <div className="page-container-content space-y-5">
+        <FilterToolbar
+          actions={
+            <>
+              {guildFilter && (
+                confirmResetAll ? (
+                  <div className="flex gap-2 items-center">
+                    <span className="text-[10px] text-accent-red font-bold">Delete ALL tickets for this server?</span>
+                    <Button variant="danger" size="sm" onClick={handleResetAll} className="py-1 px-2.5 text-xs font-semibold" disabled={resetLoading}>
+                      {resetLoading ? 'Deleting...' : 'Yes, Reset All'}
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => setConfirmResetAll(false)} className="py-1 px-2.5 text-xs font-semibold">
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Button variant="danger" size="sm" onClick={() => setConfirmResetAll(true)}>
+                    <Trash2 size={14} className="mr-1.5" />
+                    Reset All Tickets
+                  </Button>
+                )
+              )}
+              <Button variant="secondary" size="sm" onClick={() => { setStatusFilter(''); setGuildFilter(''); }}>
+                Reset Filters
+              </Button>
+            </>
+          }
         >
-
-      {/* Filter Bar */}
-      <div className="glass-panel" style={{ padding: '20px', marginBottom: '32px', display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8' }}>
-          <Filter size={18} />
-          <span style={{ fontSize: '15px', fontWeight: 600 }}>Filters:</span>
-        </div>
-
-        <div className="form-group" style={{ marginBottom: 0, minWidth: '200px' }}>
-          <select 
-            className="glass-input glass-select"
+          <FilterSelect
+            placeholder="All Statuses"
+            options={STATUS_OPTIONS}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ padding: '8px 16px' }}
-          >
-            <option value="">All Statuses</option>
-            <option value="open">🟢 Open</option>
-            <option value="in_progress">🟡 In Progress</option>
-            <option value="closed">🔴 Closed</option>
-          </select>
-        </div>
-
-        <div className="form-group" style={{ marginBottom: 0, minWidth: '240px' }}>
-          <select 
-            className="glass-input glass-select"
+          />
+          <FilterSelect
+            placeholder="All Servers"
+            options={guilds.map((g) => ({ value: g.id, label: g.guild_name }))}
             value={guildFilter}
             onChange={(e) => setGuildFilter(e.target.value)}
-            style={{ padding: '8px 16px' }}
-          >
-            <option value="">All Servers</option>
-            {guilds.map((g) => (
-              <option key={g.id} value={g.id}>{g.guild_name}</option>
-            ))}
-          </select>
-        </div>
+          />
+        </FilterToolbar>
 
-        <button 
-          onClick={() => { setStatusFilter(''); setGuildFilter(''); }}
-          className="btn btn-secondary"
-          style={{ padding: '8px 16px', fontSize: '14px', marginLeft: 'auto' }}
-        >
-          Reset Filters
-        </button>
-      </div>
-
-      {/* Ticket List */}
-      {tickets.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '60px 40px', textAlign: 'center', color: '#94a3b8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '80px',
-            height: '80px',
-            borderRadius: '50%',
-            background: 'rgba(168, 85, 247, 0.1)',
-            border: '1px solid rgba(168, 85, 247, 0.2)',
-            color: '#a855f7',
-            marginBottom: '24px',
-            boxShadow: '0 0 20px rgba(168, 85, 247, 0.15)'
-          }}>
-            <Ticket size={36} />
+        {resetSuccess && (
+          <div className="px-5 py-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
+            {resetSuccess}
           </div>
-          <h2 style={{ fontSize: '20px', color: '#f8fafc', marginBottom: '8px', fontWeight: 700 }}>No Tickets Found</h2>
-          <p style={{ fontSize: '14px', maxWidth: '460px', margin: '0 auto', lineHeight: '1.6' }}>
-            Support requests opened on Discord servers will list here in real time.
-          </p>
-        </div>
-      ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Ticket ID</th>
-                <th>Server</th>
-                <th>Opened By</th>
-                <th>Subject</th>
-                <th>Status</th>
-                <th>Created At</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickets.map((t) => (
-                <tr 
-                  key={t.id} 
-                  onClick={() => handleRowClick(t)} 
-                  style={{ cursor: 'pointer' }}
-                  className={ticketIdParam === String(t.id) ? 'active-row' : ''}
-                >
-                  <td style={{ fontWeight: 700, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
-                    #{String(t.id).padStart(4, '0')}
-                  </td>
-                  <td>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-                      <Server size={14} style={{ color: '#94a3b8' }} />
-                      {t.guild_name}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {t.user_avatar ? (
-                        <img 
-                          src={t.user_avatar} 
-                          alt="" 
-                          style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.05)' }} 
-                        />
-                      ) : (
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                          border: '1px solid rgba(168, 85, 247, 0.2)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#a855f7'
-                        }}>
-                          <User size={12} />
+        )}
+
+        {tickets.length === 0 ? (
+          <div className="bg-bg-card rounded-xl py-16 px-6 text-center text-slate-400 flex flex-col items-center justify-center">
+            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 mb-6">
+              <Ticket size={28} />
+            </div>
+            <h2 className="text-lg text-slate-100 mb-2 font-bold">No Tickets Found</h2>
+            <p className="text-sm max-w-md mx-auto leading-relaxed">
+              Support requests opened on Discord servers will list here in real time.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-bg-card rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ticket ID</TableHead>
+                  <TableHead>Server</TableHead>
+                  <TableHead>Opened By</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created At</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tickets.map((t) => (
+                  <TableRow
+                    key={t.id}
+                    onClick={() => handleRowClick(t)}
+                    className="cursor-pointer"
+                  >
+                    <TableCell className="font-bold text-primary font-mono">
+                      #{String(t.id).padStart(4, '0')}
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-slate-200">
+                        <Server size={14} className="text-slate-400" />
+                        {t.guild_name}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {t.user_avatar ? (
+                          <img src={t.user_avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-white/5" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                            <User size={12} />
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-slate-200 font-semibold block text-sm">@{t.username || 'unknown'}</span>
+                          <div className="text-[10px] text-slate-500 font-mono">ID: {t.user_id}</div>
                         </div>
-                      )}
-                      <div>
-                        <span style={{ color: '#cbd5e1', fontWeight: 600 }}>@{t.username || 'unknown'}</span>
-                        <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>ID: {t.user_id}</div>
                       </div>
-                    </div>
-                  </td>
-                  <td style={{ color: '#f8fafc', fontWeight: 500, maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {t.subject}
-                  </td>
-                  <td>
-                    <span className={`badge ${
-                      t.status === 'open' ? 'badge-success' : 
-                      t.status === 'in_progress' ? 'badge-warning' : 'badge-danger'
-                    }`}>
-                      {t.status === 'open' ? 'Open' : t.status === 'in_progress' ? 'In Progress' : 'Closed'}
-                    </span>
-                  </td>
-                  <td style={{ color: '#94a3b8', fontSize: '13px' }}>
-                    {new Date(t.created_at).toLocaleDateString()}
-                  </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {t.status !== 'closed' ? (
-                        confirmCloseId === t.id ? (
-                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                            <span style={{ fontSize: '11px', color: '#f43f5e', marginRight: '4px', fontWeight: 600 }}>Sure?</span>
-                            <button
-                              onClick={(e) => {
-                                handleUpdateStatus(e, t.id, 'closed');
-                                setConfirmCloseId(null);
-                              }}
-                              className="btn"
-                              style={{ padding: '4px 8px', fontSize: '11px', background: '#f43f5e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                              disabled={actionLoading === t.id}
-                            >
-                              Yes
-                            </button>
-                            <button
-                              onClick={() => setConfirmCloseId(null)}
-                              className="btn btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '11px', borderRadius: '4px', cursor: 'pointer' }}
-                            >
+                    </TableCell>
+                    <TableCell className="text-slate-100 font-medium max-w-[240px] truncate">
+                      {t.subject}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`badge ${
+                        t.status === 'open' ? 'badge-success' :
+                        t.status === 'in_progress' ? 'badge-warning' : 'badge-danger'
+                      }`}>
+                        {t.status === 'open' ? 'Open' : t.status === 'in_progress' ? 'In Progress' : 'Closed'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-slate-400 text-xs">
+                      {new Date(t.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
+                      <div className="flex gap-2 items-center justify-end">
+                        {t.status !== 'closed' ? (
+                          confirmCloseId === t.id ? (
+                            <div className="flex gap-1.5 items-center">
+                              <span className="text-[10px] text-accent-red font-bold">Sure?</span>
+                              <Button variant="danger" size="sm" onClick={(e) => { handleUpdateStatus(e, t.id, 'closed'); setConfirmCloseId(null); }}
+                                className="py-1 px-2.5 text-xs font-semibold" disabled={actionLoading === t.id}>
+                                Yes
+                              </Button>
+                              <Button variant="secondary" size="sm" onClick={() => setConfirmCloseId(null)}
+                                className="py-1 px-2.5 text-xs font-semibold">
+                                No
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button variant="secondary" size="sm" onClick={() => setConfirmCloseId(t.id)}
+                              className="py-1 px-2.5 text-xs text-accent-red border-accent-red/20 hover:bg-accent-red/10"
+                              disabled={actionLoading === t.id}>
+                              Close
+                            </Button>
+                          )
+                        ) : (
+                          <span className="text-slate-400 text-xs inline-flex items-center gap-1.5">
+                            <Lock size={12} className="text-accent-red" />
+                            {t.closed_by_avatar && (
+                              <img src={t.closed_by_avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                            )}
+                            <span className="font-medium">Closed by @{t.closed_by_username || t.closed_by || 'system'}</span>
+                          </span>
+                        )}
+
+                        <div className="w-px h-5 bg-white/5 mx-1" />
+
+                        {confirmDeleteId === t.id ? (
+                          <div className="flex gap-1.5 items-center">
+                            <span className="text-[10px] text-accent-red font-bold">Delete?</span>
+                            <Button variant="danger" size="sm" onClick={(e) => handleDelete(e, t.id)}
+                              className="py-1 px-2 text-xs font-semibold" disabled={actionLoading === t.id}>
+                              {actionLoading === t.id ? '...' : 'Yes'}
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => setConfirmDeleteId(null)}
+                              className="py-1 px-2 text-xs font-semibold">
                               No
-                            </button>
+                            </Button>
                           </div>
                         ) : (
-                          <button 
-                            onClick={() => setConfirmCloseId(t.id)}
-                            className="btn btn-secondary"
-                            style={{ padding: '6px 12px', fontSize: '13px', color: '#f43f5e', border: '1px solid rgba(244, 63, 94, 0.2)' }}
-                            disabled={actionLoading === t.id}
-                          >
-                            Close
-                          </button>
-                        )
-                      ) : (
-                        <span style={{ color: '#64748b', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                          <Lock size={12} style={{ color: '#ef4444' }} />
-                          {t.closed_by_avatar && (
-                            <img 
-                              src={t.closed_by_avatar} 
-                              alt="" 
-                              style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} 
-                            />
-                          )}
-                          <span>Closed by @{t.closed_by_username || t.closed_by || 'system'}</span>
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-        </PageContainer>
-      )}
-
-      {/* Transcript Details Workspace */}
-      {selectedTicket && (
-        <div>
-          <div 
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: 'calc(100vh - 180px)',
-              backgroundColor: '#0c0f17',
-              border: '1px solid var(--border-color)',
-              borderRadius: '16px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Header */}
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(22, 28, 45, 0.2)', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <button 
-                  onClick={() => router.push('/dashboard/tickets')}
-                  style={{ 
-                    background: 'none', 
-                    color: '#94a3b8', 
-                    cursor: 'pointer', 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    gap: '6px', 
-                    fontSize: '14px', 
-                    fontWeight: 600,
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = '#f8fafc';
-                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#94a3b8';
-                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)';
-                  }}
-                >
-                  <ArrowLeft size={16} />
-                  <span>Back to Tickets</span>
-                </button>
-                <div style={{ width: '1px', height: '24px', backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '18px', fontWeight: 800, color: '#f8fafc' }}>
-                    Ticket #{String(selectedTicket.id).padStart(4, '0')}
-                  </span>
-                  <span className={`badge ${
-                    selectedTicket.status === 'open' ? 'badge-success' : 
-                    selectedTicket.status === 'in_progress' ? 'badge-warning' : 'badge-danger'
-                  }`}>
-                    {selectedTicket.status === 'open' ? 'Open' : selectedTicket.status === 'in_progress' ? 'In Progress' : 'Closed'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Split Layout Body */}
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-              {/* Left Column: Details & Metadata */}
-              <div 
-                style={{ 
-                  width: '360px', 
-                  flexShrink: 0, 
-                  borderRight: '1px solid var(--border-color)', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  background: 'rgba(13, 17, 28, 0.4)',
-                  overflowY: 'auto'
-                }}
-              >
-                {/* Opened By Section */}
-                <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                  <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Opened By</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {openerAvatar ? (
-                      <img 
-                        src={openerAvatar} 
-                        alt="" 
-                        style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} 
-                      />
-                    ) : (
-                      <div style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '50%',
-                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                        border: '1px solid rgba(168, 85, 247, 0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#a855f7',
-                        flexShrink: 0
-                      }}>
-                        <User size={18} />
-                      </div>
-                    )}
-                    <div>
-                      <span style={{ fontWeight: 700, color: '#f8fafc', display: 'block', fontSize: '14px' }}>@{selectedTicket.username || 'unknown'}</span>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>ID: {selectedTicket.user_id}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Metadata Grid */}
-                <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.03)', display: 'grid', gridTemplateColumns: '1fr', gap: '16px', fontSize: '13px' }}>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Server / Guild</span>
-                    <span style={{ fontWeight: 600, color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <Server size={14} style={{ color: '#94a3b8' }} />
-                      {selectedTicket.guild_name}
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Opened Date</span>
-                    <span style={{ fontWeight: 600, color: '#cbd5e1' }}>
-                      {new Date(selectedTicket.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                  {selectedTicket.assigned_to && (
-                    <div>
-                      <span style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Claimed By Staff</span>
-                      <span style={{ fontWeight: 600, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        {selectedTicket.assigned_to_avatar ? (
-                          <img 
-                            src={selectedTicket.assigned_to_avatar} 
-                            alt="" 
-                            style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} 
-                          />
-                        ) : (
-                          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+                          <Button variant="secondary" size="sm" onClick={() => setConfirmDeleteId(t.id)}
+                            className="py-1 px-2 text-xs text-accent-red/70 border-accent-red/10 hover:bg-accent-red/10 hover:text-accent-red">
+                            <Trash2 size={12} />
+                          </Button>
                         )}
-                        @{selectedTicket.assigned_to_username || selectedTicket.assigned_to}
-                      </span>
-                    </div>
-                  )}
-                  {selectedTicket.status === 'closed' && (
-                    <div>
-                      <span style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Closed By</span>
-                      <span style={{ fontWeight: 600, color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        {selectedTicket.closed_by_avatar && (
-                          <img 
-                            src={selectedTicket.closed_by_avatar} 
-                            alt="" 
-                            style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} 
-                          />
-                        )}
-                        @{selectedTicket.closed_by_username || selectedTicket.closed_by || 'system'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Subject & Description Card */}
-                <div style={{ padding: '20px 24px', flex: 1, borderBottom: '1px solid rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'hidden' }}>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Subject</span>
-                    <span style={{ color: '#f8fafc', fontWeight: 600, fontSize: '14px' }}>{selectedTicket.subject}</span>
-                  </div>
-                  {(() => {
-                    const descMsg = messages.find(m => m.message_content && m.message_content.includes('Initial Description:'));
-                    if (descMsg) {
-                      const cleanedDesc = descMsg.message_content
-                        .replace('📝 **Initial Description:**\n', '')
-                        .replace('[Initial Description] ', '')
-                        .replace('📝 **Initial Description:**', '');
-                      return (
-                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-                          <span style={{ color: '#64748b', display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Description</span>
-                          <div style={{ 
-                            color: '#cbd5e1', 
-                            fontSize: '13px', 
-                            lineHeight: '1.5', 
-                            background: '#090d16', 
-                            padding: '12px', 
-                            borderRadius: '8px', 
-                            border: '1px solid rgba(255,255,255,0.03)', 
-                            whiteSpace: 'pre-wrap',
-                            flex: 1,
-                            overflowY: 'auto'
-                          }}>
-                            {cleanedDesc}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-
-                {/* Left Column Footer Actions */}
-                <div style={{ padding: '20px 24px', borderTop: '1px solid var(--border-color)', background: 'rgba(13, 17, 28, 0.6)', flexShrink: 0 }}>
-                  {selectedTicket.status !== 'closed' ? (
-                    confirmCloseId === selectedTicket.id ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <span style={{ fontSize: '12px', color: '#f43f5e', fontWeight: 600, textAlign: 'center' }}>Are you sure you want to close?</span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button 
-                            onClick={(e) => {
-                              handleUpdateStatus(e as any, selectedTicket.id, 'closed');
-                              setConfirmCloseId(null);
-                            }}
-                            className="btn btn-danger"
-                            style={{ flex: 1, height: '36px', padding: 0, background: '#f43f5e', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}
-                            disabled={actionLoading === selectedTicket.id}
-                          >
-                            Yes
-                          </button>
-                          <button 
-                            onClick={() => setConfirmCloseId(null)}
-                            className="btn btn-secondary"
-                            style={{ flex: 1, height: '36px', padding: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
-                          >
-                            No
-                          </button>
-                        </div>
                       </div>
-                    ) : (
-                      <button 
-                        onClick={() => setConfirmCloseId(selectedTicket.id)}
-                        className="btn btn-danger"
-                        style={{ width: '100%', height: '40px', padding: 0, borderRadius: '6px', fontWeight: 600 }}
-                        disabled={actionLoading === selectedTicket.id}
-                      >
-                        Close Support Ticket
-                      </button>
-                    )
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      {selectedTicket.closed_by_avatar ? (
-                        <img
-                          src={selectedTicket.closed_by_avatar}
-                          alt={selectedTicket.closed_by_username || 'closer'}
-                          style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(244,63,94,0.3)', flexShrink: 0 }}
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      ) : (
-                        <div style={{
-                          width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
-                          background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <Lock size={12} style={{ color: '#f43f5e' }} />
-                        </div>
-                      )}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#f8fafc', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                          Closed by @{selectedTicket.closed_by_username || selectedTicket.closed_by || 'system'}
-                        </div>
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px' }}>
-                          {selectedTicket.closed_at ? new Date(selectedTicket.closed_at).toLocaleDateString() : 'Unknown date'}
-                        </div>
-                      </div>
-                      <span className="badge badge-danger" style={{ flexShrink: 0, fontSize: '11px', padding: '3px 8px' }}>Closed</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column: Chat Transcript messages */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#080a0f', overflow: 'hidden' }}>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {messagesLoading ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px', color: '#94a3b8' }}>
-                      <RefreshCw className="animate-spin" size={24} style={{ color: '#38bdf8' }} />
-                      <span>Loading ticket transcript...</span>
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', color: '#64748b', textAlign: 'center', padding: '48px' }}>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '64px',
-                        height: '64px',
-                        borderRadius: '50%',
-                        background: 'rgba(56, 189, 248, 0.06)',
-                        border: '1px solid rgba(56, 189, 248, 0.15)',
-                        color: '#38bdf8',
-                        boxShadow: '0 0 15px rgba(56, 189, 248, 0.08)'
-                      }}>
-                        <MessageSquare size={28} />
-                      </div>
-                      <div>
-                        <span style={{ fontWeight: 700, color: '#f8fafc', display: 'block', marginBottom: '6px', fontSize: '15px' }}>No messages logged</span>
-                        <span style={{ fontSize: '13px', color: '#94a3b8', maxWidth: '320px', display: 'block', margin: '0 auto', lineHeight: '1.5' }}>Messages sent inside this ticket channel on Discord will appear here.</span>
-                      </div>
-                    </div>
-                  ) : (
-                    messages.map((msg, index) => {
-                      const isUser = msg.user_id === selectedTicket.user_id;
-                      return (
-                        <div 
-                          key={msg.id}
-                          style={{
-                            display: 'flex',
-                            gap: '12px',
-                            alignItems: 'flex-start',
-                            animation: 'fadeIn 0.25s ease forwards',
-                            animationDelay: `${index * 0.03}s`,
-                          }}
-                        >
-                          {/* Avatar */}
-                          {(() => {
-                            const isBot = msg.user_id === 'bot' || msg.user_id === 'system_bot' || msg.username.includes('NXBot');
-                            if (msg.avatar_url) {
-                              return (
-                                <img 
-                                  src={msg.avatar_url} 
-                                  alt={msg.username}
-                                  style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}
-                                />
-                              );
-                            } else if (isBot) {
-                              return (
-                                <div style={{
-                                  width: '36px',
-                                  height: '36px',
-                                  borderRadius: '50%',
-                                  backgroundColor: 'rgba(88, 101, 242, 0.15)',
-                                  border: '1px solid rgba(88, 101, 242, 0.3)',
-                                  color: '#5865F2',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0,
-                                  boxShadow: '0 0 10px rgba(88, 101, 242, 0.2)'
-                                }}>
-                                  <Bot size={18} />
-                                </div>
-                              );
-                            } else {
-                              return (
-                                <div style={{
-                                  width: '36px',
-                                  height: '36px',
-                                  borderRadius: '50%',
-                                  backgroundColor: isUser ? 'rgba(56, 189, 248, 0.1)' : 'rgba(168, 85, 247, 0.1)',
-                                  border: `1px solid ${isUser ? 'rgba(56, 189, 248, 0.2)' : 'rgba(168, 85, 247, 0.2)'}`,
-                                  color: isUser ? '#38bdf8' : '#a855f7',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontWeight: 700,
-                                  fontSize: '13px',
-                                  flexShrink: 0,
-                                }}>
-                                  {msg.username.substring(0, 2).toUpperCase()}
-                                </div>
-                              );
-                            }
-                          })()}
-
-                          {/* Content */}
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '2px' }}>
-                              <span style={{ fontWeight: 700, fontSize: '14px', color: isUser ? '#f8fafc' : '#a78bfa' }}>
-                                {msg.username}
-                              </span>
-                              <span style={{ fontSize: '11px', color: '#64748b' }}>
-                                {new Date(msg.created_at).toLocaleString()}
-                              </span>
-                            </div>
-                            <div style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: '1.5', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                              {msg.message_content}
-                            </div>
-
-                            {/* Attachment */}
-                            {msg.attachment_filename && (() => {
-                              const downloadUrl = `/api/tickets/attachments/${msg.attachment_filename}`;
-                              const sizeKb = msg.attachment_size ? Math.round(msg.attachment_size / 1024) : 0;
-                              const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.attachment_original_name || '');
-                              
-                              if (isImage) {
-                                return (
-                                  <div style={{ marginTop: '8px', maxWidth: '320px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.2)' }}>
-                                    <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                                      <img 
-                                        src={downloadUrl} 
-                                        alt={msg.attachment_original_name || 'Attachment'} 
-                                        style={{ maxWidth: '100%', maxHeight: '240px', objectFit: 'contain', display: 'block', cursor: 'zoom-in' }}
-                                      />
-                                    </a>
-                                  </div>
-                                );
-                              }
-                              
-                              return (
-                                <div style={{
-                                  marginTop: '8px',
-                                  padding: '12px',
-                                  background: 'rgba(30, 41, 59, 0.4)',
-                                  border: '1px solid var(--border-color)',
-                                  borderRadius: '8px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  gap: '12px'
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-                                    <File size={20} style={{ color: '#38bdf8', flexShrink: 0 }} />
-                                    <div style={{ overflow: 'hidden' }}>
-                                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                        {msg.attachment_original_name}
-                                      </span>
-                                      <span style={{ fontSize: '11px', color: '#64748b' }}>{sizeKb} KB</span>
-                                    </div>
-                                  </div>
-                                  <a 
-                                    href={downloadUrl} 
-                                    download 
-                                    className="btn btn-secondary" 
-                                    style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                  >
-                                    <Download size={14} />
-                                    Download
-                                  </a>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* Chat Input Bar */}
-                <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', background: 'rgba(13, 17, 28, 0.4)', display: 'flex', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
-                  {selectedTicket.status !== 'closed' ? (
-                    <>
-                      <input 
-                        type="text"
-                        placeholder="Type a response to send to Discord..."
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleSendReply();
-                        }}
-                        style={{
-                          flex: 1,
-                          height: '42px',
-                          background: '#090d16',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '8px',
-                          padding: '0 16px',
-                          color: '#f8fafc',
-                          fontSize: '14px',
-                          outline: 'none',
-                        }}
-                        disabled={sendingReply}
-                      />
-                      <button
-                        onClick={handleSendReply}
-                        className="btn btn-primary"
-                        style={{
-                          height: '42px',
-                          padding: '0 20px',
-                          borderRadius: '8px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontWeight: 600,
-                        }}
-                        disabled={sendingReply || !replyText.trim()}
-                      >
-                        {sendingReply ? (
-                          <RefreshCw className="animate-spin" size={16} />
-                        ) : (
-                          <>
-                            <span>Send</span>
-                            <Send size={16} />
-                          </>
-                        )}
-                      </button>
-                    </>
-                  ) : (
-                    <div style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', width: '100%', fontStyle: 'italic' }}>
-                      This ticket is closed. Sending messages is disabled.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-
-          {/* Slide & Fade Keyframe Styling */}
-          <style jsx global>{`
-            @keyframes modalFadeIn {
-              from { opacity: 0; transform: scale(0.96); }
-              to { opacity: 1; transform: scale(1); }
-            }
-            .active-row td {
-              background-color: rgba(56, 189, 248, 0.06) !important;
-            }
-          `}</style>
-        </div>
-      )}
-    </>
+        )}
+      </div>
+    </div>
   );
 }
 
 export default function TicketsPage() {
   return (
     <Suspense fallback={
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <RefreshCw className="animate-spin" size={32} style={{ color: '#38bdf8' }} />
+      <div className="flex justify-center items-center h-[80vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary" />
       </div>
     }>
       <TicketsContent />

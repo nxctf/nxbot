@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { GuildConfig, DiscordChannel, DiscordRole, DatabaseConnection, EventItem } from '../_types';
+import { GuildConfig, DiscordChannel, DiscordRole, DatabaseConnection, EventItem, DiscordGuildInfo } from '../_types';
 
 export function useGuildConfig(id: string) {
   const [loading, setLoading] = useState(true);
@@ -11,6 +11,7 @@ export function useGuildConfig(id: string) {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [botConnected, setBotConnected] = useState(false);
+  const [discordGuildInfo, setDiscordGuildInfo] = useState<DiscordGuildInfo | null>(null);
 
   const fetchEvents = async (url: string, key: string) => {
     if (!url || !key) {
@@ -71,7 +72,13 @@ export function useGuildConfig(id: string) {
         setDiscordRoles(await rolesRes.json());
       }
 
-      // 4. Events
+      // 4. Discord Guild Info
+      const guildRes = await fetch(`/api/servers/${id}/discord-info`);
+      if (guildRes.ok) {
+        setDiscordGuildInfo(await guildRes.json());
+      }
+
+      // 5. Events
       if (configData.supabase_url && configData.supabase_anon_key) {
         await fetchEvents(configData.supabase_url, configData.supabase_anon_key);
       }
@@ -100,6 +107,7 @@ export function useGuildConfig(id: string) {
     events,
     eventsLoading,
     fetchEvents,
-    botConnected
+    botConnected,
+    discordGuildInfo
   };
 }

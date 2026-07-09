@@ -18,7 +18,7 @@ export default function StatCard({ icon, title, value, color = '#38bdf8', link, 
 
   return (
     <div
-      className="glass-panel glass-card stat-card"
+      className="bg-bg-card rounded-xl stat-card"
       onClick={() => link && router.push(link)}
       style={{ cursor: link ? 'pointer' : 'default' }}
     >
