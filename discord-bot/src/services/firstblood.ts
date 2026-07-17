@@ -363,7 +363,19 @@ export class FirstBloodService {
           `🩸 **FIRST BLOOD** — Peserta **${data.solverUsername}**${discordTag} berhasil first blood pada challenge **${data.challengeTitle}** (${data.challengeCategory})`
         );
 
-      await channel.send({ embeds: [embed] });
+      const pingRoleIds = guild.firstblood_ping_roles ? guild.firstblood_ping_roles.split(',').filter(Boolean) : [];
+      const shouldPingEveryone = guild.firstblood_ping_everyone === 1;
+      const mentionContent = shouldPingEveryone
+        ? '@everyone'
+        : pingRoleIds.map((id) => `<@&${id}>`).join(' ');
+
+      await channel.send({
+        content: mentionContent || undefined,
+        embeds: [embed],
+        allowedMentions: shouldPingEveryone
+          ? { parse: ['everyone'] }
+          : { roles: pingRoleIds, users: [] },
+      });
     } catch (err) {
       console.error(`[FirstBlood] Failed to send embed to ${guild.channel_firstblood}:`, err);
     }

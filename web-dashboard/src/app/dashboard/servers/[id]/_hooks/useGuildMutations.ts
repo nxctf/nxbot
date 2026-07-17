@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { GuildConfig } from '../_types';
 
+const errorMessage = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback;
+
 export function useGuildMutations(id: string) {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -22,8 +24,8 @@ export function useGuildMutations(id: string) {
         throw new Error(data.error || 'Failed to save configuration.');
       }
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Error saving configuration.' };
+    } catch (err: unknown) {
+      return { success: false, error: errorMessage(err, 'Error saving configuration.') };
     } finally {
       setIsSaving(false);
     }
@@ -36,6 +38,7 @@ export function useGuildMutations(id: string) {
     supabase_login_password?: string | null;
     supabase_access_token?: string | null;
     supabase_refresh_token?: string | null;
+    supabase_connection_id?: string | null;
   }): Promise<{ success: boolean; message?: string; error?: string }> => {
     setIsTesting(true);
     try {
@@ -49,8 +52,8 @@ export function useGuildMutations(id: string) {
         throw new Error(data.error || 'Failed to verify connection.');
       }
       return { success: true, message: data.message || 'Verification successful!' };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Error testing connection.' };
+    } catch (err: unknown) {
+      return { success: false, error: errorMessage(err, 'Error testing connection.') };
     } finally {
       setIsTesting(false);
     }
@@ -67,8 +70,8 @@ export function useGuildMutations(id: string) {
         throw new Error(data.error || 'Failed to deploy panel.');
       }
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Error occurred.' };
+    } catch (err: unknown) {
+      return { success: false, error: errorMessage(err, 'Error occurred.') };
     } finally {
       setDeployLoading(false);
     }
@@ -85,8 +88,8 @@ export function useGuildMutations(id: string) {
         throw new Error(data.error || 'Failed to send test alert.');
       }
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Error occurred.' };
+    } catch (err: unknown) {
+      return { success: false, error: errorMessage(err, 'Error occurred.') };
     } finally {
       setTestFbLoading(false);
     }
@@ -103,8 +106,8 @@ export function useGuildMutations(id: string) {
         throw new Error(data.error || 'Failed to send test announcement.');
       }
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Error occurred.' };
+    } catch (err: unknown) {
+      return { success: false, error: errorMessage(err, 'Error occurred.') };
     } finally {
       setTestAnnLoading(false);
     }
@@ -121,8 +124,8 @@ export function useGuildMutations(id: string) {
         throw new Error(data.error || 'Failed to deploy/update live scoreboard.');
       }
       return { success: true, message: data.message || 'Scoreboard deployed/updated successfully!' };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Error occurred.' };
+    } catch (err: unknown) {
+      return { success: false, error: errorMessage(err, 'Error occurred.') };
     } finally {
       setScoreLoading(false);
     }

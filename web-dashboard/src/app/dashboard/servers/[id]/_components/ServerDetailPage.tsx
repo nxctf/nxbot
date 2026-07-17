@@ -219,6 +219,7 @@ export function ServerDetailPage({
                 events={events}
                 eventsLoading={eventsLoading}
                 channels={channels}
+                roles={roles}
                 botConnected={botConnected}
                 onTestConnection={onTestConnection}
                 testConnLoading={testConnLoading}

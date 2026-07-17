@@ -81,6 +81,7 @@ export default function ServerDetailWrapper({ params }: { params: Promise<{ id: 
     const conn = databases.find(c => c.id === config.supabase_connection_id);
     
     const res = await testConnection({
+      supabase_connection_id: config.supabase_connection_id,
       supabase_url: config.supabase_url || conn?.supabase_url || '',
       supabase_anon_key: config.supabase_anon_key || conn?.supabase_anon_key || '',
       supabase_login_email: config.supabase_login_email || conn?.supabase_login_email || null,

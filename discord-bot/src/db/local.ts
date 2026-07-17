@@ -57,8 +57,10 @@ function migrateGuildSettings(): void {
     ['firstblood_ping_roles', 'TEXT DEFAULT NULL'],
     ['firstblood_ping_users', 'TEXT DEFAULT NULL'],
     ['firstblood_mention_solver', 'INTEGER DEFAULT 1'],
+    ['firstblood_ping_everyone', 'INTEGER DEFAULT 0'],
     ['announcement_ping_roles', 'TEXT DEFAULT NULL'],
     ['announcement_ping_users', 'TEXT DEFAULT NULL'],
+    ['announcement_ping_everyone', 'INTEGER DEFAULT 0'],
     ['scoreboard_update_interval_seconds', 'INTEGER DEFAULT 300'],
     ['scoreboard_update_on_solve', 'INTEGER DEFAULT 0'],
   ];
@@ -117,8 +119,10 @@ export interface GuildConfig {
   firstblood_ping_roles: string | null;
   firstblood_ping_users: string | null;
   firstblood_mention_solver: number;
+  firstblood_ping_everyone: number;
   announcement_ping_roles: string | null;
   announcement_ping_users: string | null;
+  announcement_ping_everyone: number;
   scoreboard_update_interval_seconds: number;
   scoreboard_update_on_solve: number;
   enable_firstblood: number;
@@ -136,8 +140,8 @@ export function getActiveGuilds(): GuildConfig[] {
     SELECT g.id, g.guild_name, g.channel_firstblood, g.channel_scoreboard, g.channel_announcements, 
            g.channel_ticket_category, g.channel_ticket_logs, g.channel_ticket_panel, g.ticket_ping_roles, 
            g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id,
-           g.firstblood_ping_roles, g.firstblood_ping_users, g.firstblood_mention_solver,
-           g.announcement_ping_roles, g.announcement_ping_users,
+           g.firstblood_ping_roles, g.firstblood_ping_users, g.firstblood_mention_solver, g.firstblood_ping_everyone,
+           g.announcement_ping_roles, g.announcement_ping_users, g.announcement_ping_everyone,
            g.scoreboard_update_interval_seconds, g.scoreboard_update_on_solve,
            g.enable_firstblood, g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
            g.created_at, g.updated_at, g.supabase_connection_id, 
@@ -154,8 +158,8 @@ export function getGuild(guildId: string): GuildConfig | null {
     SELECT g.id, g.guild_name, g.channel_firstblood, g.channel_scoreboard, g.channel_announcements, 
            g.channel_ticket_category, g.channel_ticket_logs, g.channel_ticket_panel, g.ticket_ping_roles, 
            g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id,
-           g.firstblood_ping_roles, g.firstblood_ping_users, g.firstblood_mention_solver,
-           g.announcement_ping_roles, g.announcement_ping_users,
+           g.firstblood_ping_roles, g.firstblood_ping_users, g.firstblood_mention_solver, g.firstblood_ping_everyone,
+           g.announcement_ping_roles, g.announcement_ping_users, g.announcement_ping_everyone,
            g.scoreboard_update_interval_seconds, g.scoreboard_update_on_solve,
            g.enable_firstblood, g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
            g.created_at, g.updated_at, g.supabase_connection_id, 
@@ -172,8 +176,8 @@ export function getAllGuilds(): GuildConfig[] {
     SELECT g.id, g.guild_name, g.channel_firstblood, g.channel_scoreboard, g.channel_announcements, 
            g.channel_ticket_category, g.channel_ticket_logs, g.channel_ticket_panel, g.ticket_ping_roles, 
            g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id,
-           g.firstblood_ping_roles, g.firstblood_ping_users, g.firstblood_mention_solver,
-           g.announcement_ping_roles, g.announcement_ping_users,
+           g.firstblood_ping_roles, g.firstblood_ping_users, g.firstblood_mention_solver, g.firstblood_ping_everyone,
+           g.announcement_ping_roles, g.announcement_ping_users, g.announcement_ping_everyone,
            g.scoreboard_update_interval_seconds, g.scoreboard_update_on_solve,
            g.enable_firstblood, g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
            g.created_at, g.updated_at, g.supabase_connection_id, 

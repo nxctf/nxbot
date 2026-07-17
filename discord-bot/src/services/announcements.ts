@@ -129,7 +129,19 @@ export class AnnouncementService {
       .setFooter({ text: 'NXCTF Announcements' })
       .setTimestamp(notification.created_at && !isNaN(new Date(notification.created_at).getTime()) ? new Date(notification.created_at) : new Date());
 
-    await discordChannel.send({ embeds: [embed] });
+    const pingRoleIds = guild.announcement_ping_roles ? guild.announcement_ping_roles.split(',').filter(Boolean) : [];
+    const shouldPingEveryone = guild.announcement_ping_everyone === 1;
+    const mentionContent = shouldPingEveryone
+      ? '@everyone'
+      : pingRoleIds.map((id) => `<@&${id}>`).join(' ');
+
+    await discordChannel.send({
+      content: mentionContent || undefined,
+      embeds: [embed],
+      allowedMentions: shouldPingEveryone
+        ? { parse: ['everyone'] }
+        : { roles: pingRoleIds, users: [] },
+    });
 
     logEvent(guild.id, 'info', 'announcement_sync', `Synced announcement: "${title}"`);
     console.log(`[Announcements] 📢 Synced announcement: "${title}" (${guild.guild_name})`);

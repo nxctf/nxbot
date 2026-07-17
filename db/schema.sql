@@ -49,8 +49,10 @@ CREATE TABLE IF NOT EXISTS guilds (
     firstblood_ping_roles TEXT DEFAULT NULL,     -- Comma-separated role IDs to ping on first blood
     firstblood_ping_users TEXT DEFAULT NULL,     -- Comma-separated user IDs to ping on first blood
     firstblood_mention_solver INTEGER DEFAULT 1, -- Try mentioning solver from NXCTF social data
+    firstblood_ping_everyone INTEGER DEFAULT 0,  -- Ping @everyone on first blood
     announcement_ping_roles TEXT DEFAULT NULL,   -- Comma-separated role IDs to ping on announcements
     announcement_ping_users TEXT DEFAULT NULL,   -- Comma-separated user IDs to ping on announcements
+    announcement_ping_everyone INTEGER DEFAULT 0,-- Ping @everyone on announcements
     scoreboard_update_interval_seconds INTEGER DEFAULT 300,
     scoreboard_update_on_solve INTEGER DEFAULT 0,
 

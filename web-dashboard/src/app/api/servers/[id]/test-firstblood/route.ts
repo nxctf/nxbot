@@ -4,6 +4,12 @@ import { getDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+interface TestFirstBloodGuild {
+  channel_firstblood: string | null;
+  firstblood_ping_roles: string | null;
+  firstblood_ping_everyone: number;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -22,7 +28,7 @@ export async function POST(
     }
 
     const db = getDb();
-    const guild = db.prepare('SELECT * FROM guilds WHERE id = ?').get(guildId) as any;
+    const guild = db.prepare('SELECT * FROM guilds WHERE id = ?').get(guildId) as TestFirstBloodGuild | undefined;
 
     if (!guild) {
       return NextResponse.json({ error: 'Server configuration not found.' }, { status: 404 });
@@ -32,7 +38,12 @@ export async function POST(
       return NextResponse.json({ error: 'Please configure and save the First Blood Channel ID first.' }, { status: 400 });
     }
 
-    // Send a test first blood notification matching the real bot's format
+    const pingRoleIds = guild.firstblood_ping_roles ? String(guild.firstblood_ping_roles).split(',').filter(Boolean) : [];
+    const shouldPingEveryone = guild.firstblood_ping_everyone === 1;
+    const mentionContent = shouldPingEveryone
+      ? '@everyone'
+      : pingRoleIds.map((roleId) => `<@&${roleId}>`).join(' ');
+
     const res = await fetch(`https://discord.com/api/v10/channels/${guild.channel_firstblood}/messages`, {
       method: 'POST',
       headers: {
@@ -40,12 +51,16 @@ export async function POST(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        content: mentionContent || undefined,
         embeds: [
           {
-            color: 14431526, // 0xDC2626
-            description: '🩸 **FIRST BLOOD** — Peserta **TestSolver** berhasil first blood pada challenge **Test Challenge** (Web Exploitation)',
+            color: 14431526,
+            description: '**FIRST BLOOD** - Peserta **TestSolver** berhasil first blood pada challenge **Test Challenge** (Web Exploitation)',
           }
-        ]
+        ],
+        allowed_mentions: shouldPingEveryone
+          ? { parse: ['everyone'] }
+          : { parse: [], roles: pingRoleIds, users: [] },
       }),
     });
 
@@ -57,8 +72,8 @@ export async function POST(
     }
 
     return NextResponse.json({ success: true, message: 'Test first blood notification sent successfully.' });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[API Test FirstBlood] Error:', err);
-    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Internal Server Error' }, { status: 500 });
   }
 }

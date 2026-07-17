@@ -48,8 +48,10 @@ function migrateGuildSettings(database: Database.Database): void {
     ['firstblood_ping_roles', 'TEXT DEFAULT NULL'],
     ['firstblood_ping_users', 'TEXT DEFAULT NULL'],
     ['firstblood_mention_solver', 'INTEGER DEFAULT 1'],
+    ['firstblood_ping_everyone', 'INTEGER DEFAULT 0'],
     ['announcement_ping_roles', 'TEXT DEFAULT NULL'],
     ['announcement_ping_users', 'TEXT DEFAULT NULL'],
+    ['announcement_ping_everyone', 'INTEGER DEFAULT 0'],
     ['scoreboard_update_interval_seconds', 'INTEGER DEFAULT 300'],
     ['scoreboard_update_on_solve', 'INTEGER DEFAULT 0'],
   ];

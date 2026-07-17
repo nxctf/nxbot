@@ -4,6 +4,12 @@ import { getDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+interface TestAnnouncementGuild {
+  channel_announcements: string | null;
+  announcement_ping_roles: string | null;
+  announcement_ping_everyone: number;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -22,7 +28,7 @@ export async function POST(
     }
 
     const db = getDb();
-    const guild = db.prepare('SELECT * FROM guilds WHERE id = ?').get(guildId) as any;
+    const guild = db.prepare('SELECT * FROM guilds WHERE id = ?').get(guildId) as TestAnnouncementGuild | undefined;
 
     if (!guild) {
       return NextResponse.json({ error: 'Server configuration not found.' }, { status: 404 });
@@ -32,7 +38,12 @@ export async function POST(
       return NextResponse.json({ error: 'Please configure and save the CTF Announcements Channel ID first.' }, { status: 400 });
     }
 
-    // Send a test announcement matching the real bot's format
+    const pingRoleIds = guild.announcement_ping_roles ? String(guild.announcement_ping_roles).split(',').filter(Boolean) : [];
+    const shouldPingEveryone = guild.announcement_ping_everyone === 1;
+    const mentionContent = shouldPingEveryone
+      ? '@everyone'
+      : pingRoleIds.map((roleId) => `<@&${roleId}>`).join(' ');
+
     const res = await fetch(`https://discord.com/api/v10/channels/${guild.channel_announcements}/messages`, {
       method: 'POST',
       headers: {
@@ -40,15 +51,19 @@ export async function POST(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        content: mentionContent || undefined,
         embeds: [
           {
-            color: 3719160, // 0x38BDF8
-            title: '📢 Announcement Test',
+            color: 3719160,
+            title: 'Announcement Test',
             description: 'This is a test announcement to verify the channel integration is working correctly.',
             footer: { text: 'NXCTF Announcements' },
             timestamp: new Date().toISOString(),
           }
-        ]
+        ],
+        allowed_mentions: shouldPingEveryone
+          ? { parse: ['everyone'] }
+          : { parse: [], roles: pingRoleIds, users: [] },
       }),
     });
 
@@ -60,8 +75,8 @@ export async function POST(
     }
 
     return NextResponse.json({ success: true, message: 'Test announcement notification sent successfully.' });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[API Test Announcement] Error:', err);
-    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Internal Server Error' }, { status: 500 });
   }
 }

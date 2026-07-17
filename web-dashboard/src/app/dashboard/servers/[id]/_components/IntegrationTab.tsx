@@ -3,8 +3,9 @@ import Toggle from '@/components/Toggle';
 import GlassSelect from '@/components/GlassSelect';
 import GlassInput from '@/components/GlassInput';
 import Button from '@/components/Button';
-import { Database, MessageSquare, RefreshCw, Radio, CheckCircle, AlertTriangle, Trophy, Volume2 } from 'lucide-react';
-import { GuildConfig, DatabaseConnection, EventItem, DiscordChannel } from '../_types';
+import { Database, Radio, CheckCircle, AlertTriangle, Trophy, Volume2 } from 'lucide-react';
+import RoleMultiPicker from './RoleMultiPicker';
+import { GuildConfig, DatabaseConnection, EventItem, DiscordChannel, DiscordRole } from '../_types';
 
 interface IntegrationTabProps {
   formState: GuildConfig;
@@ -13,6 +14,7 @@ interface IntegrationTabProps {
   events: EventItem[];
   eventsLoading: boolean;
   channels: DiscordChannel[];
+  roles: DiscordRole[];
   botConnected: boolean;
   onTestConnection: () => Promise<void>;
   testConnLoading: boolean;
@@ -40,6 +42,7 @@ export function IntegrationTab({
   events,
   eventsLoading,
   channels,
+  roles,
   botConnected,
   onTestConnection,
   testConnLoading,
@@ -59,13 +62,25 @@ export function IntegrationTab({
   scoreError,
   fetchEventsList,
 }: IntegrationTabProps) {
-  const updateField = (field: keyof GuildConfig, value: any) => {
+  const updateField = <K extends keyof GuildConfig>(field: K, value: GuildConfig[K]) => {
     setFormState(prev => prev ? { ...prev, [field]: value } : null);
   };
 
   const isEnabled = formState.enable_realtime === 1;
   const textChannels = channels.filter(c => c.type === 0);
   const selectedDb = databases.find(d => d.id === formState.supabase_connection_id);
+  const firstBloodPingMode = formState.firstblood_ping_everyone === 1
+    ? 'everyone'
+    : formState.firstblood_ping_roles
+      ? 'roles'
+      : 'none';
+  const announcementPingMode = formState.announcement_ping_everyone === 1
+    ? 'everyone'
+    : formState.announcement_ping_roles
+      ? 'roles'
+      : 'none';
+  const firstBloodPingRoles = formState.firstblood_ping_roles ? formState.firstblood_ping_roles.split(',').filter(Boolean) : [];
+  const announcementPingRoles = formState.announcement_ping_roles ? formState.announcement_ping_roles.split(',').filter(Boolean) : [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -229,6 +244,35 @@ export function IntegrationTab({
                   />
                 )}
 
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">First Blood Ping</label>
+                  <GlassSelect
+                    value={firstBloodPingMode}
+                    onChange={(e) => {
+                      const mode = e.target.value;
+                      updateField('firstblood_ping_everyone', mode === 'everyone' ? 1 : 0);
+                      if (mode !== 'roles') updateField('firstblood_ping_roles', null);
+                    }}
+                    disabled={!isEnabled || formState.enable_firstblood === 0}
+                  >
+                    <option value="none">Do not ping</option>
+                    <option value="roles">Ping selected roles</option>
+                    <option value="everyone">Ping @everyone</option>
+                  </GlassSelect>
+                  {firstBloodPingMode === 'roles' && (
+                    <RoleMultiPicker
+                      label="First Blood Roles"
+                      description="Roles to mention when a new first blood is detected."
+                      allRoles={roles}
+                      selectedRoleIds={firstBloodPingRoles}
+                      onChange={(ids) => updateField('firstblood_ping_roles', ids.join(','))}
+                    />
+                  )}
+                  {firstBloodPingMode === 'everyone' && (
+                    <p className="text-xs text-accent-yellow">Requires the bot to have permission to mention @everyone in this channel.</p>
+                  )}
+                </div>
+
                 {formState.channel_firstblood && formState.enable_firstblood === 1 && (
                   <div className="flex items-center gap-3 flex-wrap">
                     <Button
@@ -327,6 +371,35 @@ export function IntegrationTab({
                 disabled={!isEnabled}
               />
             )}
+
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Announcement Ping</label>
+              <GlassSelect
+                value={announcementPingMode}
+                onChange={(e) => {
+                  const mode = e.target.value;
+                  updateField('announcement_ping_everyone', mode === 'everyone' ? 1 : 0);
+                  if (mode !== 'roles') updateField('announcement_ping_roles', null);
+                }}
+                disabled={!isEnabled}
+              >
+                <option value="none">Do not ping</option>
+                <option value="roles">Ping selected roles</option>
+                <option value="everyone">Ping @everyone</option>
+              </GlassSelect>
+              {announcementPingMode === 'roles' && (
+                <RoleMultiPicker
+                  label="Announcement Roles"
+                  description="Roles to mention when CTF announcements are synced."
+                  allRoles={roles}
+                  selectedRoleIds={announcementPingRoles}
+                  onChange={(ids) => updateField('announcement_ping_roles', ids.join(','))}
+                />
+              )}
+              {announcementPingMode === 'everyone' && (
+                <p className="text-xs text-accent-yellow">Requires the bot to have permission to mention @everyone in this channel.</p>
+              )}
+            </div>
 
             {formState.channel_announcements && (
               <div className="flex items-center gap-3 flex-wrap">

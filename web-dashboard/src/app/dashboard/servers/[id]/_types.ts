@@ -19,8 +19,10 @@ export interface GuildConfig {
   firstblood_ping_roles: string | null;
   firstblood_ping_users: string | null;
   firstblood_mention_solver: number;
+  firstblood_ping_everyone: number;
   announcement_ping_roles: string | null;
   announcement_ping_users: string | null;
+  announcement_ping_everyone: number;
   scoreboard_update_interval_seconds: number;
   scoreboard_update_on_solve: number;
   enable_firstblood: number;
