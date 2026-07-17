@@ -37,4 +37,27 @@ function initSchema(database: Database.Database): void {
       throw new Error('schema.sql not found - database cannot be initialized');
     }
   }
+
+  migrateGuildSettings(database);
+}
+
+function migrateGuildSettings(database: Database.Database): void {
+  const columns = database.prepare('PRAGMA table_info(guilds)').all() as { name: string }[];
+  const existing = new Set(columns.map((column) => column.name));
+  const migrations = [
+    ['firstblood_ping_roles', 'TEXT DEFAULT NULL'],
+    ['firstblood_ping_users', 'TEXT DEFAULT NULL'],
+    ['firstblood_mention_solver', 'INTEGER DEFAULT 1'],
+    ['announcement_ping_roles', 'TEXT DEFAULT NULL'],
+    ['announcement_ping_users', 'TEXT DEFAULT NULL'],
+    ['scoreboard_update_interval_seconds', 'INTEGER DEFAULT 300'],
+    ['scoreboard_update_on_solve', 'INTEGER DEFAULT 0'],
+  ];
+
+  for (const [column, definition] of migrations) {
+    if (!existing.has(column)) {
+      database.exec(`ALTER TABLE guilds ADD COLUMN ${column} ${definition}`);
+      console.log(`[Dashboard DB] Added guilds.${column}`);
+    }
+  }
 }

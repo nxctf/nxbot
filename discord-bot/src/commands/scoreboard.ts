@@ -21,18 +21,18 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const guildConfig = getGuild(interaction.guildId);
   if (!guildConfig) {
-    await interaction.reply({ content: '❌ This server is not configured. Ask an admin to set up NXBot.', ephemeral: true });
+    await interaction.reply({ content: 'This server is not configured. Ask an admin to set up NXBot.', ephemeral: true });
     return;
   }
 
   if (!guildConfig.enable_scoreboard) {
-    await interaction.reply({ content: '❌ The scoreboard command is currently disabled on this server.', ephemeral: true });
+    await interaction.reply({ content: 'The scoreboard command is currently disabled on this server.', ephemeral: true });
     return;
   }
 
   const supabase = supabaseManager.getClient(interaction.guildId);
   if (!supabase) {
-    await interaction.reply({ content: '❌ Supabase connection not available.', ephemeral: true });
+    await interaction.reply({ content: 'Supabase connection not available.', ephemeral: true });
     return;
   }
 
@@ -41,72 +41,53 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const limit = interaction.options.getInteger('limit') ?? 10;
 
   try {
-    // Fetch users with their solve counts and total points
-    const { data: users, error } = await supabase
-      .from('users')
-      .select(`
-        id,
-        username,
-        solves (
-          id,
-          challenge_id,
-          challenges:challenge_id (
-            points
-          )
-        )
-      `)
-      .limit(50);
+    const { data: leaderboard, error } = await supabase.rpc('get_leaderboard', {
+      limit_rows: limit,
+      offset_rows: 0,
+      p_event_id: guildConfig.active_event_id || null,
+      p_event_mode: guildConfig.active_event_id ? 'equals' : 'any',
+      p_tag: null,
+    });
 
     if (error) {
-      await interaction.editReply('❌ Failed to fetch scoreboard data.');
-      console.error('[Scoreboard] Query error:', error);
+      await interaction.editReply('Failed to fetch scoreboard data.');
+      console.error('[Scoreboard] RPC error:', error);
       return;
     }
 
-    if (!users || users.length === 0) {
-      await interaction.editReply('📊 No data available yet. No one has solved any challenges.');
+    if (!leaderboard || leaderboard.length === 0) {
+      await interaction.editReply('No data available yet. No one has solved any challenges.');
       return;
     }
 
-    // Calculate scores
-    const scoreboard = users
-      .map((user: any) => {
-        const solves = user.solves || [];
-        const totalPoints = solves.reduce((sum: number, solve: any) => {
-          const points = solve.challenges?.points ?? 0;
-          return sum + points;
-        }, 0);
-        return {
-          username: user.username,
-          score: totalPoints,
-          solveCount: solves.length,
-        };
-      })
-      .filter((u: any) => u.score > 0)
-      .sort((a: any, b: any) => b.score - a.score)
+    const scoreboard = leaderboard
+      .map((entry: any) => ({
+        username: entry.username,
+        score: Number(entry.score || 0),
+        rank: Number(entry.rank || 0),
+      }))
+      .filter((entry: any) => entry.score > 0)
       .slice(0, limit);
 
     if (scoreboard.length === 0) {
-      await interaction.editReply('📊 No solves yet. Be the first!');
+      await interaction.editReply('No solves yet. Be the first!');
       return;
     }
 
-    // Build scoreboard embed
-    const medals = ['🥇', '🥈', '🥉'];
     const lines = scoreboard.map((entry: any, i: number) => {
-      const medal = i < 3 ? medals[i] : `\`${i + 1}.\``;
-      return `${medal} **${entry.username}** — ${entry.score} pts (${entry.solveCount} solves)`;
+      const rank = entry.rank > 0 ? entry.rank : i + 1;
+      const score = Number(entry.score).toLocaleString('en-US');
+      return `#${rank} **${entry.username}** - ${score} pts`;
     });
 
     const embed = new EmbedBuilder()
-      .setColor(0xF59E0B) // Amber/gold
-      .setTitle('🏆 CTF Scoreboard')
+      .setColor(0xF59E0B)
+      .setTitle('CTF Scoreboard')
       .setDescription(lines.join('\n'))
       .setTimestamp()
-      .setFooter({ text: `${guildConfig.guild_name} • Top ${scoreboard.length} players` });
+      .setFooter({ text: `${guildConfig.guild_name} - Top ${scoreboard.length} players` });
 
     if (guildConfig.active_event_id) {
-      // Try to fetch event name
       const { data: event } = await supabase
         .from('events')
         .select('name')
@@ -114,13 +95,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
         .single();
 
       if (event) {
-        embed.setTitle(`🏆 ${event.name} — Scoreboard`);
+        embed.setTitle(`${event.name} - Scoreboard`);
       }
     }
 
     await interaction.editReply({ embeds: [embed] });
   } catch (err) {
     console.error('[Scoreboard] Error:', err);
-    await interaction.editReply('❌ An error occurred while fetching the scoreboard.');
+    await interaction.editReply('An error occurred while fetching the scoreboard.');
   }
 }

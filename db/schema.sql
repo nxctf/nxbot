@@ -46,6 +46,13 @@ CREATE TABLE IF NOT EXISTS guilds (
     ticket_required_roles TEXT DEFAULT NULL,     -- Comma-separated list of Role IDs required to open a ticket
     ticket_welcome_message TEXT DEFAULT NULL,    -- Custom welcome message inside ticket channel
     scoreboard_message_id TEXT DEFAULT NULL,     -- Message ID of the deployed live scoreboard embed
+    firstblood_ping_roles TEXT DEFAULT NULL,     -- Comma-separated role IDs to ping on first blood
+    firstblood_ping_users TEXT DEFAULT NULL,     -- Comma-separated user IDs to ping on first blood
+    firstblood_mention_solver INTEGER DEFAULT 1, -- Try mentioning solver from NXCTF social data
+    announcement_ping_roles TEXT DEFAULT NULL,   -- Comma-separated role IDs to ping on announcements
+    announcement_ping_users TEXT DEFAULT NULL,   -- Comma-separated user IDs to ping on announcements
+    scoreboard_update_interval_seconds INTEGER DEFAULT 300,
+    scoreboard_update_on_solve INTEGER DEFAULT 0,
 
     -- Feature toggles
     enable_firstblood INTEGER DEFAULT 1,        -- SQLite uses INTEGER for boolean

@@ -46,6 +46,29 @@ function initSchema(): void {
       throw new Error('schema.sql not found - database cannot be initialized');
     }
   }
+
+  migrateGuildSettings();
+}
+
+function migrateGuildSettings(): void {
+  const columns = db.prepare('PRAGMA table_info(guilds)').all() as { name: string }[];
+  const existing = new Set(columns.map((column) => column.name));
+  const migrations = [
+    ['firstblood_ping_roles', 'TEXT DEFAULT NULL'],
+    ['firstblood_ping_users', 'TEXT DEFAULT NULL'],
+    ['firstblood_mention_solver', 'INTEGER DEFAULT 1'],
+    ['announcement_ping_roles', 'TEXT DEFAULT NULL'],
+    ['announcement_ping_users', 'TEXT DEFAULT NULL'],
+    ['scoreboard_update_interval_seconds', 'INTEGER DEFAULT 300'],
+    ['scoreboard_update_on_solve', 'INTEGER DEFAULT 0'],
+  ];
+
+  for (const [column, definition] of migrations) {
+    if (!existing.has(column)) {
+      db.exec(`ALTER TABLE guilds ADD COLUMN ${column} ${definition}`);
+      console.log(`[DB] Added guilds.${column}`);
+    }
+  }
 }
 
 
@@ -91,6 +114,13 @@ export interface GuildConfig {
   ticket_required_roles: string | null;
   ticket_welcome_message: string | null;
   scoreboard_message_id: string | null;
+  firstblood_ping_roles: string | null;
+  firstblood_ping_users: string | null;
+  firstblood_mention_solver: number;
+  announcement_ping_roles: string | null;
+  announcement_ping_users: string | null;
+  scoreboard_update_interval_seconds: number;
+  scoreboard_update_on_solve: number;
   enable_firstblood: number;
   enable_scoreboard: number;
   enable_tickets: number;
@@ -105,8 +135,11 @@ export function getActiveGuilds(): GuildConfig[] {
   return getDb().prepare(`
     SELECT g.id, g.guild_name, g.channel_firstblood, g.channel_scoreboard, g.channel_announcements, 
            g.channel_ticket_category, g.channel_ticket_logs, g.channel_ticket_panel, g.ticket_ping_roles, 
-           g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id, g.enable_firstblood, 
-           g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
+           g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id,
+           g.firstblood_ping_roles, g.firstblood_ping_users, g.firstblood_mention_solver,
+           g.announcement_ping_roles, g.announcement_ping_users,
+           g.scoreboard_update_interval_seconds, g.scoreboard_update_on_solve,
+           g.enable_firstblood, g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
            g.created_at, g.updated_at, g.supabase_connection_id, 
            c.supabase_url, c.supabase_anon_key, c.supabase_login_email, c.supabase_login_password, 
            c.supabase_access_token, c.supabase_refresh_token, c.supabase_turnstile_site_key
@@ -120,8 +153,11 @@ export function getGuild(guildId: string): GuildConfig | null {
   return (getDb().prepare(`
     SELECT g.id, g.guild_name, g.channel_firstblood, g.channel_scoreboard, g.channel_announcements, 
            g.channel_ticket_category, g.channel_ticket_logs, g.channel_ticket_panel, g.ticket_ping_roles, 
-           g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id, g.enable_firstblood, 
-           g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
+           g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id,
+           g.firstblood_ping_roles, g.firstblood_ping_users, g.firstblood_mention_solver,
+           g.announcement_ping_roles, g.announcement_ping_users,
+           g.scoreboard_update_interval_seconds, g.scoreboard_update_on_solve,
+           g.enable_firstblood, g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
            g.created_at, g.updated_at, g.supabase_connection_id, 
            c.supabase_url, c.supabase_anon_key, c.supabase_login_email, c.supabase_login_password, 
            c.supabase_access_token, c.supabase_refresh_token, c.supabase_turnstile_site_key
@@ -135,8 +171,11 @@ export function getAllGuilds(): GuildConfig[] {
   return getDb().prepare(`
     SELECT g.id, g.guild_name, g.channel_firstblood, g.channel_scoreboard, g.channel_announcements, 
            g.channel_ticket_category, g.channel_ticket_logs, g.channel_ticket_panel, g.ticket_ping_roles, 
-           g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id, g.enable_firstblood, 
-           g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
+           g.ticket_required_roles, g.ticket_welcome_message, g.scoreboard_message_id,
+           g.firstblood_ping_roles, g.firstblood_ping_users, g.firstblood_mention_solver,
+           g.announcement_ping_roles, g.announcement_ping_users,
+           g.scoreboard_update_interval_seconds, g.scoreboard_update_on_solve,
+           g.enable_firstblood, g.enable_scoreboard, g.enable_tickets, g.enable_realtime, g.active_event_id, g.is_active, 
            g.created_at, g.updated_at, g.supabase_connection_id, 
            c.supabase_url, c.supabase_anon_key, c.supabase_login_email, c.supabase_login_password, 
            c.supabase_access_token, c.supabase_refresh_token, c.supabase_turnstile_site_key

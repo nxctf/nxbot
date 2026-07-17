@@ -1,4 +1,4 @@
-import { Client, TextChannel, EmbedBuilder, Colors } from 'discord.js';
+import { Client, TextChannel, EmbedBuilder } from 'discord.js';
 import { supabaseManager } from './supabase-manager';
 import { getActiveGuilds, insertFirstBlood, GuildConfig, logEvent } from '../db/local';
 import { ScoreboardService } from './scoreboard';
@@ -17,6 +17,20 @@ interface SolvePayload {
   user_id: string;
   challenge_id: string;
   created_at: string;
+}
+
+interface ChallengeDetails {
+  id: string;
+  title: string;
+  category: string;
+  points: number;
+  event_id?: string | null;
+}
+
+interface SolverDetails {
+  id: string;
+  username: string;
+  sosmed: Record<string, string> | null;
 }
 
 export class FirstBloodService {
@@ -169,27 +183,108 @@ export class FirstBloodService {
       return;
     }
 
-    // Fetch challenge details from Supabase
-    const { data: challenge, error: challengeError } = await supabase
-      .from('challenges')
-      .select('id, title, category, points')
-      .eq('id', solve.challenge_id)
-      .single();
+    let challenge: ChallengeDetails | null = null;
+    let solver: SolverDetails | null = null;
 
-    if (challengeError || !challenge) {
-      console.warn(`[FirstBlood] Could not fetch challenge ${solve.challenge_id}:`, challengeError);
-      return;
+    // Fetch challenge details from Supabase. This can be hidden by NXCTF RLS for
+    // private/future events, so use maybeSingle and fall back to SECURITY DEFINER RPCs.
+    const { data: directChallenge, error: challengeError } = await supabase
+      .from('challenges')
+      .select('id, title, category, points, event_id')
+      .eq('id', solve.challenge_id)
+      .maybeSingle();
+
+    if (challengeError) {
+      console.warn(`[FirstBlood] Direct challenge lookup failed for ${solve.challenge_id}:`, challengeError.message);
     }
 
-    // Fetch solver info including social links (for Discord username)
-    const { data: solver, error: solverError } = await supabase
-      .from('users')
-      .select('id, username, sosmed')
-      .eq('id', solve.user_id)
-      .single();
+    if (directChallenge) {
+      challenge = directChallenge as ChallengeDetails;
+      if (guild.active_event_id && challenge.event_id !== guild.active_event_id) {
+        console.log(`[FirstBlood] Ignoring solve for challenge ${solve.challenge_id}: event ${challenge.event_id || 'default'} does not match active event ${guild.active_event_id}.`);
+        return;
+      }
+    } else {
+      const { data: recentSolves, error: recentSolvesError } = await supabase.rpc('get_recent_solves', {
+        p_limit: 100,
+        p_offset: 0,
+        p_event_id: guild.active_event_id || null,
+        p_event_mode: guild.active_event_id ? 'equals' : 'any',
+      });
 
-    if (solverError || !solver) {
-      console.warn(`[FirstBlood] Could not fetch solver ${solve.user_id}:`, solverError);
+      if (recentSolvesError) {
+        console.warn(`[FirstBlood] Recent solves fallback failed for ${solve.challenge_id}:`, recentSolvesError.message);
+      }
+
+      const matchingRecentSolve = (recentSolves || []).find((row: any) =>
+        row.log_challenge_id === solve.challenge_id && row.log_user_id === solve.user_id
+      );
+
+      if (matchingRecentSolve) {
+        challenge = {
+          id: String(matchingRecentSolve.log_challenge_id),
+          title: String(matchingRecentSolve.log_challenge_title || 'Unknown Challenge'),
+          category: String(matchingRecentSolve.log_category || 'Unknown'),
+          points: 0,
+        };
+        solver = {
+          id: String(matchingRecentSolve.log_user_id),
+          username: String(matchingRecentSolve.log_username || 'Unknown Solver'),
+          sosmed: null,
+        };
+      } else if (guild.active_event_id) {
+        console.warn(`[FirstBlood] Could not confirm challenge ${solve.challenge_id} belongs to active event ${guild.active_event_id}; skipping notification.`);
+        return;
+      } else {
+        const { data: solveInfo, error: solveInfoError } = await supabase.rpc('get_solve_info', {
+          p_user_id: solve.user_id,
+          p_challenge_id: solve.challenge_id,
+        });
+
+        if (solveInfoError) {
+          console.warn(`[FirstBlood] Solve info fallback failed for ${solve.challenge_id}:`, solveInfoError.message);
+          return;
+        }
+
+        const info = Array.isArray(solveInfo) ? solveInfo[0] : null;
+        if (!info) {
+          console.warn(`[FirstBlood] Could not resolve challenge ${solve.challenge_id}; skipping notification.`);
+          return;
+        }
+
+        challenge = {
+          id: solve.challenge_id,
+          title: String(info.challenge || 'Unknown Challenge'),
+          category: 'Unknown',
+          points: 0,
+        };
+        solver = {
+          id: solve.user_id,
+          username: String(info.username || 'Unknown Solver'),
+          sosmed: null,
+        };
+      }
+    }
+
+    if (!solver) {
+      // Fetch solver info including social links (for Discord username)
+      const { data: directSolver, error: solverError } = await supabase
+        .from('users')
+        .select('id, username, sosmed')
+        .eq('id', solve.user_id)
+        .maybeSingle();
+
+      if (solverError) {
+        console.warn(`[FirstBlood] Direct solver lookup failed for ${solve.user_id}:`, solverError.message);
+      }
+
+      if (directSolver) {
+        solver = directSolver as SolverDetails;
+      }
+    }
+
+    if (!challenge || !solver) {
+      console.warn(`[FirstBlood] Could not resolve first blood details for challenge ${solve.challenge_id}; skipping notification.`);
       return;
     }
 

@@ -23,7 +23,7 @@ export async function POST(
 
     const db = getDb();
     const guild = db.prepare(`
-      SELECT g.*, c.supabase_url, c.supabase_anon_key
+      SELECT g.*, c.supabase_url, c.supabase_anon_key, c.supabase_access_token
       FROM guilds g
       LEFT JOIN supabase_connections c ON g.supabase_connection_id = c.id
       WHERE g.id = ?
@@ -41,15 +41,22 @@ export async function POST(
       return NextResponse.json({ error: 'Please link a valid Supabase Database Connection to this server first.' }, { status: 400 });
     }
 
+    if (!guild.supabase_access_token) {
+      return NextResponse.json({ error: 'Supabase login session is missing. Re-authenticate this database connection first.' }, { status: 400 });
+    }
+
     // 1. Fetch Leaderboard Data from Supabase RPC Function
     const cleanUrl = guild.supabase_url.replace(/\/$/, '');
+    const supabaseAuthHeaders = {
+      'apikey': guild.supabase_anon_key,
+      'Authorization': `Bearer ${guild.supabase_access_token}`,
+    };
     const supabaseRes = await fetch(
       `${cleanUrl}/rest/v1/rpc/get_leaderboard`,
       {
         method: 'POST',
         headers: {
-          'apikey': guild.supabase_anon_key,
-          'Authorization': `Bearer ${guild.supabase_anon_key}`,
+          ...supabaseAuthHeaders,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -77,10 +84,7 @@ export async function POST(
           `${cleanUrl}/rest/v1/events?select=name&id=eq.${guild.active_event_id}&limit=1`,
           {
             method: 'GET',
-            headers: {
-              'apikey': guild.supabase_anon_key,
-              'Authorization': `Bearer ${guild.supabase_anon_key}`,
-            },
+            headers: supabaseAuthHeaders,
           }
         );
         if (eventRes.ok) {
