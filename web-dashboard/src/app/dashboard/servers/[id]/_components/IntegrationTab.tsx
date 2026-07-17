@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Toggle from '@/components/Toggle';
 import GlassSelect from '@/components/GlassSelect';
 import GlassInput from '@/components/GlassInput';
@@ -62,6 +62,19 @@ export function IntegrationTab({
   scoreError,
   fetchEventsList,
 }: IntegrationTabProps) {
+  const inferFirstBloodPingMode = () => formState.firstblood_ping_everyone === 1
+    ? 'everyone'
+    : formState.firstblood_ping_roles
+      ? 'roles'
+      : 'none';
+  const inferAnnouncementPingMode = () => formState.announcement_ping_everyone === 1
+    ? 'everyone'
+    : formState.announcement_ping_roles
+      ? 'roles'
+      : 'none';
+  const [firstBloodPingMode, setFirstBloodPingMode] = useState(inferFirstBloodPingMode);
+  const [announcementPingMode, setAnnouncementPingMode] = useState(inferAnnouncementPingMode);
+
   const updateField = <K extends keyof GuildConfig>(field: K, value: GuildConfig[K]) => {
     setFormState(prev => prev ? { ...prev, [field]: value } : null);
   };
@@ -69,16 +82,6 @@ export function IntegrationTab({
   const isEnabled = formState.enable_realtime === 1;
   const textChannels = channels.filter(c => c.type === 0);
   const selectedDb = databases.find(d => d.id === formState.supabase_connection_id);
-  const firstBloodPingMode = formState.firstblood_ping_everyone === 1
-    ? 'everyone'
-    : formState.firstblood_ping_roles
-      ? 'roles'
-      : 'none';
-  const announcementPingMode = formState.announcement_ping_everyone === 1
-    ? 'everyone'
-    : formState.announcement_ping_roles
-      ? 'roles'
-      : 'none';
   const firstBloodPingRoles = formState.firstblood_ping_roles ? formState.firstblood_ping_roles.split(',').filter(Boolean) : [];
   const announcementPingRoles = formState.announcement_ping_roles ? formState.announcement_ping_roles.split(',').filter(Boolean) : [];
 
@@ -250,6 +253,7 @@ export function IntegrationTab({
                     value={firstBloodPingMode}
                     onChange={(e) => {
                       const mode = e.target.value;
+                      setFirstBloodPingMode(mode);
                       updateField('firstblood_ping_everyone', mode === 'everyone' ? 1 : 0);
                       if (mode !== 'roles') updateField('firstblood_ping_roles', null);
                     }}
@@ -378,6 +382,7 @@ export function IntegrationTab({
                 value={announcementPingMode}
                 onChange={(e) => {
                   const mode = e.target.value;
+                  setAnnouncementPingMode(mode);
                   updateField('announcement_ping_everyone', mode === 'everyone' ? 1 : 0);
                   if (mode !== 'roles') updateField('announcement_ping_roles', null);
                 }}

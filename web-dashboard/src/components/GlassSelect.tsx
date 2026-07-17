@@ -7,12 +7,13 @@ interface GlassSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement>
 }
 
 export const GlassSelect = React.forwardRef<HTMLSelectElement, GlassSelectProps>(
-  ({ children, className = '', error, ...props }, ref) => {
+  ({ children, className = '', error, style, ...props }, ref) => {
     return (
       <div className="w-full relative">
         <select
           ref={ref}
-          className={`${FORM_SELECT_CLASS} ${error ? 'border-accent-red focus:border-accent-red' : ''} ${className}`}
+          className={`${FORM_SELECT_CLASS} pr-11 ${error ? 'border-accent-red focus:border-accent-red' : ''} ${className}`}
+          style={{ WebkitAppearance: 'none', MozAppearance: 'none', appearance: 'none', ...style }}
           {...props}
         >
           {children}
