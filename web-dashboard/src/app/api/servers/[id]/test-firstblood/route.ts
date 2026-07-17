@@ -43,7 +43,8 @@ export async function POST(
     const mentionTarget = shouldPingEveryone
       ? '@everyone'
       : pingRoleIds.map((roleId) => `<@&${roleId}>`).join(' ');
-    const mentionContent = mentionTarget ? `${mentionTarget} First blood alert` : '';
+    const description = '🩸 **FIRST BLOOD** — Peserta **TestSolver** berhasil first blood pada challenge **Test Challenge** (Web Exploitation)';
+    const mentionContent = mentionTarget ? `${description} ${mentionTarget}` : '';
 
     const res = await fetch(`https://discord.com/api/v10/channels/${guild.channel_firstblood}/messages`, {
       method: 'POST',
@@ -53,10 +54,10 @@ export async function POST(
       },
       body: JSON.stringify({
         content: mentionContent || undefined,
-        embeds: [
+        embeds: mentionContent ? undefined : [
           {
             color: 14431526,
-            description: '🩸 **FIRST BLOOD** — Peserta **TestSolver** berhasil first blood pada challenge **Test Challenge** (Web Exploitation)',
+            description,
           }
         ],
         allowed_mentions: shouldPingEveryone

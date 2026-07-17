@@ -357,26 +357,28 @@ export class FirstBloodService {
         }
       }
 
+      const description = `🩸 **FIRST BLOOD** — Peserta **${data.solverUsername}**${discordTag} berhasil first blood pada challenge **${data.challengeTitle}** (${data.challengeCategory})`;
       const embed = new EmbedBuilder()
         .setColor(0xDC2626)
-        .setDescription(
-          `🩸 **FIRST BLOOD** — Peserta **${data.solverUsername}**${discordTag} berhasil first blood pada challenge **${data.challengeTitle}** (${data.challengeCategory})`
-        );
+        .setDescription(description);
 
       const pingRoleIds = guild.firstblood_ping_roles ? guild.firstblood_ping_roles.split(',').filter(Boolean) : [];
       const shouldPingEveryone = guild.firstblood_ping_everyone === 1;
       const mentionTarget = shouldPingEveryone
         ? '@everyone'
         : pingRoleIds.map((id) => `<@&${id}>`).join(' ');
-      const mentionContent = mentionTarget ? `${mentionTarget} First blood alert` : '';
+      const mentionContent = mentionTarget ? `${description} ${mentionTarget}` : '';
 
-      await channel.send({
-        content: mentionContent || undefined,
-        embeds: [embed],
-        allowedMentions: shouldPingEveryone
-          ? { parse: ['everyone'] }
-          : { roles: pingRoleIds, users: [] },
-      });
+      if (mentionContent) {
+        await channel.send({
+          content: mentionContent,
+          allowedMentions: shouldPingEveryone
+            ? { parse: ['everyone'] }
+            : { roles: pingRoleIds, users: [] },
+        });
+      } else {
+        await channel.send({ embeds: [embed] });
+      }
     } catch (err) {
       console.error(`[FirstBlood] Failed to send embed to ${guild.channel_firstblood}:`, err);
     }

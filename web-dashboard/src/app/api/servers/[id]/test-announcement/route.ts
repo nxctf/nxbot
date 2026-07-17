@@ -43,7 +43,8 @@ export async function POST(
     const mentionTarget = shouldPingEveryone
       ? '@everyone'
       : pingRoleIds.map((roleId) => `<@&${roleId}>`).join(' ');
-    const mentionContent = mentionTarget ? `${mentionTarget} New CTF announcement` : '';
+    const title = 'Announcement Test';
+    const mentionContent = mentionTarget ? `📢 ${mentionTarget}` : '';
 
     const res = await fetch(`https://discord.com/api/v10/channels/${guild.channel_announcements}/messages`, {
       method: 'POST',
@@ -56,7 +57,7 @@ export async function POST(
         embeds: [
           {
             color: 3719160,
-            title: 'Announcement Test',
+            title,
             description: 'This is a test announcement to verify the channel integration is working correctly.',
             footer: { text: 'NXCTF Announcements' },
             timestamp: new Date().toISOString(),

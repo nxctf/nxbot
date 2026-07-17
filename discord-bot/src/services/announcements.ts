@@ -134,7 +134,7 @@ export class AnnouncementService {
     const mentionTarget = shouldPingEveryone
       ? '@everyone'
       : pingRoleIds.map((id) => `<@&${id}>`).join(' ');
-    const mentionContent = mentionTarget ? `${mentionTarget} New CTF announcement` : '';
+    const mentionContent = mentionTarget ? `📢 ${mentionTarget}` : '';
 
     await discordChannel.send({
       content: mentionContent || undefined,
