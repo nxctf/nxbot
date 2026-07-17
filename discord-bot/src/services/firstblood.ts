@@ -365,9 +365,10 @@ export class FirstBloodService {
 
       const pingRoleIds = guild.firstblood_ping_roles ? guild.firstblood_ping_roles.split(',').filter(Boolean) : [];
       const shouldPingEveryone = guild.firstblood_ping_everyone === 1;
-      const mentionContent = shouldPingEveryone
+      const mentionTarget = shouldPingEveryone
         ? '@everyone'
         : pingRoleIds.map((id) => `<@&${id}>`).join(' ');
+      const mentionContent = mentionTarget ? `${mentionTarget} First blood alert` : '';
 
       await channel.send({
         content: mentionContent || undefined,

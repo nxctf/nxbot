@@ -131,9 +131,10 @@ export class AnnouncementService {
 
     const pingRoleIds = guild.announcement_ping_roles ? guild.announcement_ping_roles.split(',').filter(Boolean) : [];
     const shouldPingEveryone = guild.announcement_ping_everyone === 1;
-    const mentionContent = shouldPingEveryone
+    const mentionTarget = shouldPingEveryone
       ? '@everyone'
       : pingRoleIds.map((id) => `<@&${id}>`).join(' ');
+    const mentionContent = mentionTarget ? `${mentionTarget} New CTF announcement` : '';
 
     await discordChannel.send({
       content: mentionContent || undefined,

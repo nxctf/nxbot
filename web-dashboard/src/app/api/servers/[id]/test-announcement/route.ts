@@ -40,9 +40,10 @@ export async function POST(
 
     const pingRoleIds = guild.announcement_ping_roles ? String(guild.announcement_ping_roles).split(',').filter(Boolean) : [];
     const shouldPingEveryone = guild.announcement_ping_everyone === 1;
-    const mentionContent = shouldPingEveryone
+    const mentionTarget = shouldPingEveryone
       ? '@everyone'
       : pingRoleIds.map((roleId) => `<@&${roleId}>`).join(' ');
+    const mentionContent = mentionTarget ? `${mentionTarget} New CTF announcement` : '';
 
     const res = await fetch(`https://discord.com/api/v10/channels/${guild.channel_announcements}/messages`, {
       method: 'POST',

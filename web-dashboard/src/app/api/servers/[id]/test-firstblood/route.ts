@@ -40,9 +40,10 @@ export async function POST(
 
     const pingRoleIds = guild.firstblood_ping_roles ? String(guild.firstblood_ping_roles).split(',').filter(Boolean) : [];
     const shouldPingEveryone = guild.firstblood_ping_everyone === 1;
-    const mentionContent = shouldPingEveryone
+    const mentionTarget = shouldPingEveryone
       ? '@everyone'
       : pingRoleIds.map((roleId) => `<@&${roleId}>`).join(' ');
+    const mentionContent = mentionTarget ? `${mentionTarget} First blood alert` : '';
 
     const res = await fetch(`https://discord.com/api/v10/channels/${guild.channel_firstblood}/messages`, {
       method: 'POST',
@@ -55,7 +56,7 @@ export async function POST(
         embeds: [
           {
             color: 14431526,
-            description: '**FIRST BLOOD** - Peserta **TestSolver** berhasil first blood pada challenge **Test Challenge** (Web Exploitation)',
+            description: '🩸 **FIRST BLOOD** — Peserta **TestSolver** berhasil first blood pada challenge **Test Challenge** (Web Exploitation)',
           }
         ],
         allowed_mentions: shouldPingEveryone
