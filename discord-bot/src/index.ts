@@ -154,7 +154,11 @@ client.once('ready', async () => {
             existingConfig.active_event_id !== dbGuild.active_event_id ||
             existingConfig.enable_firstblood !== dbGuild.enable_firstblood ||
             existingConfig.channel_firstblood !== dbGuild.channel_firstblood ||
+            existingConfig.firstblood_ping_roles !== dbGuild.firstblood_ping_roles ||
+            existingConfig.firstblood_ping_everyone !== dbGuild.firstblood_ping_everyone ||
             existingConfig.channel_announcements !== dbGuild.channel_announcements ||
+            existingConfig.announcement_ping_roles !== dbGuild.announcement_ping_roles ||
+            existingConfig.announcement_ping_everyone !== dbGuild.announcement_ping_everyone ||
             existingConfig.enable_scoreboard !== dbGuild.enable_scoreboard ||
             existingConfig.channel_scoreboard !== dbGuild.channel_scoreboard ||
             existingConfig.scoreboard_message_id !== dbGuild.scoreboard_message_id;
