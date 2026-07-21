@@ -51,7 +51,7 @@ export class FirstBloodService {
     for (const guild of guilds) {
       const needsSolvesSubscription = 
         (guild.enable_firstblood && guild.channel_firstblood) || 
-        (guild.enable_scoreboard && guild.channel_scoreboard && guild.scoreboard_message_id);
+        (guild.scoreboard_update_on_solve === 1 && guild.enable_scoreboard && guild.channel_scoreboard && guild.scoreboard_message_id);
 
       if (!needsSolvesSubscription) {
         continue;
@@ -72,7 +72,7 @@ export class FirstBloodService {
   subscribeGuild(guild: GuildConfig): void {
     const needsSolvesSubscription = 
       (guild.enable_firstblood && guild.channel_firstblood) || 
-      (guild.enable_scoreboard && guild.channel_scoreboard && guild.scoreboard_message_id);
+      (guild.scoreboard_update_on_solve === 1 && guild.enable_scoreboard && guild.channel_scoreboard && guild.scoreboard_message_id);
 
     if (!needsSolvesSubscription) return;
 
@@ -136,7 +136,7 @@ export class FirstBloodService {
             // Handle live scoreboard update
             if (this.scoreboardService && guild.enable_scoreboard && guild.channel_scoreboard && guild.scoreboard_message_id) {
               try {
-                await this.scoreboardService.updateScoreboard(guild.id);
+                this.scoreboardService.requestSolveUpdate(guild.id);
               } catch (sbErr) {
                 console.error(`[Scoreboard] Error updating scoreboard on solve for ${guild.guild_name}:`, sbErr);
               }

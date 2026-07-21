@@ -8,7 +8,9 @@ import { getActiveGuilds, getGuild, GuildConfig, updateGuildSupabaseTokens } fro
 
 interface GuildSupabaseConnection {
   client: SupabaseClient;
-  channels: RealtimeChannel[];
+  channels: Map<string, RealtimeChannel>;
+  channelSetups: Map<string, (channel: RealtimeChannel) => RealtimeChannel>;
+  reconnectTimers: Map<string, NodeJS.Timeout>;
   config: GuildConfig;
   unsubscribeAuthListener?: () => void;
 }
@@ -119,7 +121,9 @@ class SupabaseManager {
 
     this.connections.set(guild.id, {
       client,
-      channels: [],
+      channels: new Map(),
+      channelSetups: new Map(),
+      reconnectTimers: new Map(),
       config: guild,
       unsubscribeAuthListener: () => {
         authListener.subscription.unsubscribe();
@@ -159,14 +163,51 @@ class SupabaseManager {
     const conn = this.connections.get(guildId);
     if (!conn) return null;
 
+    const existingReconnectTimer = conn.reconnectTimers.get(channelName);
+    if (existingReconnectTimer) {
+      clearTimeout(existingReconnectTimer);
+      conn.reconnectTimers.delete(channelName);
+    }
+
+    const existingChannel = conn.channels.get(channelName);
+    if (existingChannel) {
+      conn.client.removeChannel(existingChannel).catch(() => null);
+      conn.channels.delete(channelName);
+    }
+
+    conn.channelSetups.set(channelName, setup);
+
     const channel = conn.client.channel(channelName);
     const configuredChannel = setup(channel);
     configuredChannel.subscribe((status) => {
       console.log(`[Supabase] Realtime ${channelName} for ${conn.config.guild_name}: ${status}`);
+
+      if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && conn.channels.get(channelName) === configuredChannel) {
+        this.scheduleChannelReconnect(guildId, channelName);
+      }
     });
 
-    conn.channels.push(configuredChannel);
+    conn.channels.set(channelName, configuredChannel);
     return configuredChannel;
+  }
+
+  private scheduleChannelReconnect(guildId: string, channelName: string): void {
+    const conn = this.connections.get(guildId);
+    if (!conn || conn.reconnectTimers.has(channelName)) return;
+
+    const setup = conn.channelSetups.get(channelName);
+    if (!setup) return;
+
+    const timer = setTimeout(() => {
+      const latestConn = this.connections.get(guildId);
+      if (!latestConn) return;
+
+      latestConn.reconnectTimers.delete(channelName);
+      console.warn(`[Supabase] Reconnecting realtime ${channelName} for ${latestConn.config.guild_name} after channel error...`);
+      this.subscribeChannel(guildId, channelName, setup);
+    }, 15000);
+
+    conn.reconnectTimers.set(channelName, timer);
   }
 
   /**
@@ -177,7 +218,11 @@ class SupabaseManager {
     if (!conn) return;
 
     // Unsubscribe all channels
-    for (const channel of conn.channels) {
+    for (const timer of conn.reconnectTimers.values()) {
+      clearTimeout(timer);
+    }
+
+    for (const channel of conn.channels.values()) {
       try {
         await conn.client.removeChannel(channel);
       } catch {

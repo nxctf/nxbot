@@ -102,11 +102,12 @@ client.once('ready', async () => {
   logEvent(null, 'info', 'startup', `Bot started. ${supabaseManager.connectionCount} Supabase connection(s) active.`);
   console.log(`[Bot] Ready! ${supabaseManager.connectionCount} Supabase connection(s) active.`);
 
-  // Start periodic scoreboard update loop every 60 seconds (1 minute)
+  // Check scoreboard schedules every minute. Each guild's configured interval
+  // controls whether an update is actually sent.
   setInterval(async () => {
     try {
       if (scoreboardService) {
-        await scoreboardService.updateAll();
+        await scoreboardService.updateDue();
       }
     } catch (err) {
       console.error('[Bot] Error in periodic scoreboard update loop:', err);
@@ -161,7 +162,9 @@ client.once('ready', async () => {
             existingConfig.announcement_ping_everyone !== dbGuild.announcement_ping_everyone ||
             existingConfig.enable_scoreboard !== dbGuild.enable_scoreboard ||
             existingConfig.channel_scoreboard !== dbGuild.channel_scoreboard ||
-            existingConfig.scoreboard_message_id !== dbGuild.scoreboard_message_id;
+            existingConfig.scoreboard_message_id !== dbGuild.scoreboard_message_id ||
+            existingConfig.scoreboard_update_interval_seconds !== dbGuild.scoreboard_update_interval_seconds ||
+            existingConfig.scoreboard_update_on_solve !== dbGuild.scoreboard_update_on_solve;
 
           if (hasChanged) {
             console.log(`[Bot Sync] Configuration updated for guild: ${dbGuild.guild_name} (${connectedId}). Reloading connection...`);

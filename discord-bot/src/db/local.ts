@@ -61,7 +61,7 @@ function migrateGuildSettings(): void {
     ['announcement_ping_roles', 'TEXT DEFAULT NULL'],
     ['announcement_ping_users', 'TEXT DEFAULT NULL'],
     ['announcement_ping_everyone', 'INTEGER DEFAULT 0'],
-    ['scoreboard_update_interval_seconds', 'INTEGER DEFAULT 300'],
+    ['scoreboard_update_interval_seconds', 'INTEGER DEFAULT 600'],
     ['scoreboard_update_on_solve', 'INTEGER DEFAULT 0'],
   ];
 

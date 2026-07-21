@@ -136,7 +136,7 @@ export async function PUT(
       announcement_ping_roles || null,
       announcement_ping_users || null,
       announcement_ping_everyone ? 1 : 0,
-      Math.max(60, Number(scoreboard_update_interval_seconds || 300)),
+      Math.max(600, Number(scoreboard_update_interval_seconds || 600)),
       scoreboard_update_on_solve ? 1 : 0,
       enable_firstblood ? 1 : 0,
       enable_scoreboard ? 1 : 0,
